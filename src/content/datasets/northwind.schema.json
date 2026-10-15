@@ -1,0 +1,629 @@
+[
+  {
+    "name": "categories",
+    "rows": 8,
+    "primaryKey": [
+      "category_id"
+    ],
+    "columns": [
+      {
+        "name": "category_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "category_name",
+        "type": "varchar(15)",
+        "nullable": false
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "customers",
+    "rows": 91,
+    "primaryKey": [
+      "customer_id"
+    ],
+    "columns": [
+      {
+        "name": "customer_id",
+        "type": "varchar(5)",
+        "nullable": false
+      },
+      {
+        "name": "company_name",
+        "type": "varchar(40)",
+        "nullable": false
+      },
+      {
+        "name": "contact_name",
+        "type": "varchar(30)",
+        "nullable": true
+      },
+      {
+        "name": "contact_title",
+        "type": "varchar(30)",
+        "nullable": true
+      },
+      {
+        "name": "address",
+        "type": "varchar(60)",
+        "nullable": true
+      },
+      {
+        "name": "city",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "region",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "postal_code",
+        "type": "varchar(10)",
+        "nullable": true
+      },
+      {
+        "name": "country",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "phone",
+        "type": "varchar(24)",
+        "nullable": true
+      },
+      {
+        "name": "fax",
+        "type": "varchar(24)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "employee_territories",
+    "rows": 49,
+    "primaryKey": [
+      "employee_id",
+      "territory_id"
+    ],
+    "columns": [
+      {
+        "name": "employee_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "territory_id",
+        "type": "varchar(20)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "employee_id"
+        ],
+        "refTable": "employees",
+        "refColumns": [
+          "employee_id"
+        ]
+      },
+      {
+        "columns": [
+          "territory_id"
+        ],
+        "refTable": "territories",
+        "refColumns": [
+          "territory_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "employees",
+    "rows": 9,
+    "primaryKey": [
+      "employee_id"
+    ],
+    "columns": [
+      {
+        "name": "employee_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "last_name",
+        "type": "varchar(20)",
+        "nullable": false
+      },
+      {
+        "name": "first_name",
+        "type": "varchar(10)",
+        "nullable": false
+      },
+      {
+        "name": "title",
+        "type": "varchar(30)",
+        "nullable": true
+      },
+      {
+        "name": "title_of_courtesy",
+        "type": "varchar(25)",
+        "nullable": true
+      },
+      {
+        "name": "birth_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "hire_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "address",
+        "type": "varchar(60)",
+        "nullable": true
+      },
+      {
+        "name": "city",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "region",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "postal_code",
+        "type": "varchar(10)",
+        "nullable": true
+      },
+      {
+        "name": "country",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "home_phone",
+        "type": "varchar(24)",
+        "nullable": true
+      },
+      {
+        "name": "extension",
+        "type": "varchar(4)",
+        "nullable": true
+      },
+      {
+        "name": "notes",
+        "type": "text",
+        "nullable": true
+      },
+      {
+        "name": "reports_to",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "photo_path",
+        "type": "varchar(255)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "reports_to"
+        ],
+        "refTable": "employees",
+        "refColumns": [
+          "employee_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "order_details",
+    "rows": 2155,
+    "primaryKey": [
+      "order_id",
+      "product_id"
+    ],
+    "columns": [
+      {
+        "name": "order_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "unit_price",
+        "type": "numeric(10, 2)",
+        "nullable": false
+      },
+      {
+        "name": "quantity",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "discount",
+        "type": "numeric(4, 2)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "order_id"
+        ],
+        "refTable": "orders",
+        "refColumns": [
+          "order_id"
+        ]
+      },
+      {
+        "columns": [
+          "product_id"
+        ],
+        "refTable": "products",
+        "refColumns": [
+          "product_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "orders",
+    "rows": 830,
+    "primaryKey": [
+      "order_id"
+    ],
+    "columns": [
+      {
+        "name": "order_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "customer_id",
+        "type": "varchar(5)",
+        "nullable": true
+      },
+      {
+        "name": "employee_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "order_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "required_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "shipped_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "ship_via",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "freight",
+        "type": "numeric(10, 2)",
+        "nullable": true
+      },
+      {
+        "name": "ship_name",
+        "type": "varchar(40)",
+        "nullable": true
+      },
+      {
+        "name": "ship_address",
+        "type": "varchar(60)",
+        "nullable": true
+      },
+      {
+        "name": "ship_city",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "ship_region",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "ship_postal_code",
+        "type": "varchar(10)",
+        "nullable": true
+      },
+      {
+        "name": "ship_country",
+        "type": "varchar(15)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "customer_id"
+        ],
+        "refTable": "customers",
+        "refColumns": [
+          "customer_id"
+        ]
+      },
+      {
+        "columns": [
+          "employee_id"
+        ],
+        "refTable": "employees",
+        "refColumns": [
+          "employee_id"
+        ]
+      },
+      {
+        "columns": [
+          "ship_via"
+        ],
+        "refTable": "shippers",
+        "refColumns": [
+          "shipper_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "products",
+    "rows": 77,
+    "primaryKey": [
+      "product_id"
+    ],
+    "columns": [
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "product_name",
+        "type": "varchar(40)",
+        "nullable": false
+      },
+      {
+        "name": "supplier_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "category_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "quantity_per_unit",
+        "type": "varchar(20)",
+        "nullable": true
+      },
+      {
+        "name": "unit_price",
+        "type": "numeric(10, 2)",
+        "nullable": true
+      },
+      {
+        "name": "units_in_stock",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "units_on_order",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "reorder_level",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "discontinued",
+        "type": "smallint",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "category_id"
+        ],
+        "refTable": "categories",
+        "refColumns": [
+          "category_id"
+        ]
+      },
+      {
+        "columns": [
+          "supplier_id"
+        ],
+        "refTable": "suppliers",
+        "refColumns": [
+          "supplier_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "region",
+    "rows": 4,
+    "primaryKey": [
+      "region_id"
+    ],
+    "columns": [
+      {
+        "name": "region_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "region_description",
+        "type": "varchar(50)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "shippers",
+    "rows": 3,
+    "primaryKey": [
+      "shipper_id"
+    ],
+    "columns": [
+      {
+        "name": "shipper_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "company_name",
+        "type": "varchar(40)",
+        "nullable": false
+      },
+      {
+        "name": "phone",
+        "type": "varchar(24)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "suppliers",
+    "rows": 29,
+    "primaryKey": [
+      "supplier_id"
+    ],
+    "columns": [
+      {
+        "name": "supplier_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "company_name",
+        "type": "varchar(40)",
+        "nullable": false
+      },
+      {
+        "name": "contact_name",
+        "type": "varchar(30)",
+        "nullable": true
+      },
+      {
+        "name": "contact_title",
+        "type": "varchar(30)",
+        "nullable": true
+      },
+      {
+        "name": "address",
+        "type": "varchar(60)",
+        "nullable": true
+      },
+      {
+        "name": "city",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "region",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "postal_code",
+        "type": "varchar(10)",
+        "nullable": true
+      },
+      {
+        "name": "country",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "phone",
+        "type": "varchar(24)",
+        "nullable": true
+      },
+      {
+        "name": "fax",
+        "type": "varchar(24)",
+        "nullable": true
+      },
+      {
+        "name": "home_page",
+        "type": "text",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "territories",
+    "rows": 53,
+    "primaryKey": [
+      "territory_id"
+    ],
+    "columns": [
+      {
+        "name": "territory_id",
+        "type": "varchar(20)",
+        "nullable": false
+      },
+      {
+        "name": "territory_description",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "region_id",
+        "type": "integer",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "region_id"
+        ],
+        "refTable": "region",
+        "refColumns": [
+          "region_id"
+        ]
+      }
+    ]
+  }
+]

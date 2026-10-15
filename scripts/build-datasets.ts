@@ -18,6 +18,7 @@ import mysql from 'mysql2/promise'
 import { connectMysql, type MysqlConnection } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
+import { convertNorthwind } from './sources/northwind'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const MYSQL_CONTAINER = 'sql-playbook-mysql'
@@ -26,8 +27,10 @@ interface DatasetConfig {
   id: string
   /** MySQL schema holding the official, unmodified source. */
   sourceSchema: string
-  /** Source files to (re)load into sourceSchema before building. */
-  sourceFiles: string[]
+  /** Source files to load into sourceSchema before building (mysql CLI scripts). */
+  sourceFiles?: string[]
+  /** Or: SQL generated from a non-MySQL original; always reloaded so converter changes take effect. */
+  sourceSql?: () => string
   /** Convert PascalCase identifiers to snake_case (Chinook uses PascalCase). */
   snakeCase: boolean
   /** Columns that cannot exist in both databases, e.g. MySQL GEOMETRY. */
@@ -51,6 +54,13 @@ const DATASETS: DatasetConfig[] = [
     sourceSchema: 'Chinook',
     sourceFiles: ['datasets/raw/Chinook_MySql.sql'],
     snakeCase: true,
+  },
+  {
+    id: 'northwind',
+    sourceSchema: 'northwind_src',
+    // Microsoft's official T-SQL script, converted to MySQL (see scripts/sources/northwind.ts).
+    sourceSql: () => convertNorthwind(readFileSync(join(ROOT, 'datasets/raw/instnwnd.sql'), 'utf8')).sql,
+    snakeCase: false,
   },
 ]
 
@@ -352,16 +362,19 @@ function emitMysql(cfg: DatasetConfig, tables: Table[], rows: Map<string, unknow
 
 /** Loads the official source once. Uses the mysql CLI because the scripts rely on DELIMITER. */
 async function loadSource(conn: MysqlConnection, cfg: DatasetConfig) {
+  const env = { ...process.env, PATH: `${process.env.HOME}/.orbstack/bin:${process.env.PATH}` }
+  const mysqlCli = ['exec', '-i', MYSQL_CONTAINER, 'mysql', '--default-character-set=utf8mb4']
+  if (cfg.sourceSql) {
+    execFileSync('docker', mysqlCli, { input: cfg.sourceSql(), env })
+    return
+  }
   const [found] = await conn.query<mysql.RowDataPacket[]>(
     'select 1 from information_schema.schemata where schema_name = ?',
     [cfg.sourceSchema],
   )
   if (found.length > 0) return
-  for (const file of cfg.sourceFiles) {
-    execFileSync('docker', ['exec', '-i', MYSQL_CONTAINER, 'mysql', '--default-character-set=utf8mb4'], {
-      input: readFileSync(join(ROOT, file)),
-      env: { ...process.env, PATH: `${process.env.HOME}/.orbstack/bin:${process.env.PATH}` },
-    })
+  for (const file of cfg.sourceFiles ?? []) {
+    execFileSync('docker', mysqlCli, { input: readFileSync(join(ROOT, file)), env })
   }
 }
 

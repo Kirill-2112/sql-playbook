@@ -39,6 +39,9 @@ jobs:
           # Chinook is pinned to release v1.4.5; the release file uses Windows line endings.
           curl -sSfL https://raw.githubusercontent.com/lerocha/chinook-database/v1.4.5/ChinookDatabase/DataSources/Chinook_MySql.sql \
             | sed '1s/^\xEF\xBB\xBF//' | tr -d '\r' > datasets/raw/Chinook_MySql.sql
+          # Northwind: Microsoft's official script, pinned to the commit that last changed it (April 2023).
+          curl -sSfL -o datasets/raw/instnwnd.sql \
+            https://raw.githubusercontent.com/microsoft/sql-server-samples/2f85f3724ee45776a5183ed34d064488a6e1dc53/samples/databases/northwind-pubs/instnwnd.sql
 
       - name: Rebuild datasets (PostgreSQL and MySQL builds must match row by row)
         run: npm run build:datasets

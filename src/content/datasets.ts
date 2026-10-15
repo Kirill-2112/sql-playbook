@@ -19,6 +19,18 @@ export const DATASETS: Record<DatasetId, DatasetMeta> = {
     attribution:
       'Chinook database © 2008–2024 Luis Rocha, MIT license. Built here from the official MySQL script (v1.4.5); identifiers converted to snake_case.',
   },
+  northwind: {
+    id: 'northwind',
+    name: 'Northwind',
+    about: 'Northwind Traders, a food importer: customers, orders and order lines, products, suppliers, employees and their sales territories. July 1996 to May 1998.',
+    license: 'MIT',
+    source: {
+      label: 'microsoft/sql-server-samples',
+      url: 'https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs',
+    },
+    attribution:
+      'Northwind sample database © Microsoft Corporation, MIT license. Converted here from the official SQL Server script: identifiers in snake_case, money and discount as exact decimals, employee photos, category pictures, the two empty demographics tables, views and procedures left out.',
+  },
 }
 
 export const DATASET_IDS = Object.keys(DATASETS) as DatasetId[]

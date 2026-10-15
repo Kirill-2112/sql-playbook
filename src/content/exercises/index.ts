@@ -5,6 +5,7 @@ import { DATASET_IDS } from '../datasets'
 const loaders: Record<DatasetId, () => Promise<Exercise[]>> = {
   sakila: () => import('./sakila').then((m) => m.sakilaExercises),
   chinook: () => import('./chinook').then((m) => m.chinookExercises),
+  northwind: () => import('./northwind').then((m) => m.northwindExercises),
 }
 
 const cache = new Map<DatasetId, Promise<Exercise[]>>()

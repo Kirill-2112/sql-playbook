@@ -1,0 +1,30 @@
+{
+  "name": "sql-playbook",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc -b",
+    "build:datasets": "tsx scripts/build-datasets.ts",
+    "verify": "tsx scripts/verify.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.9",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4",
+    "styled-components": "^6.5.3"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "mysql2": "^3.24.6",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4"
+  }
+}

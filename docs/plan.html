@@ -1,0 +1,544 @@
+<title>План SQL Playbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: one reading column; the topic map and dataset table run full-width inside it. Tokens mirror src/theme/tokens.ts */
+:root{
+  --bg:#F6F6F2; --surface:#FFFFFF; --ink:#1A1D21; --muted:#5F6670; --line:#E2E2DA;
+  --accent:#2F5BD3; --accent-soft:#E6ECFB;
+  --good:#1F8A4C; --good-soft:#E3F3E9; --bad:#C2412D; --bad-soft:#FBE7E3; --warn:#9A6200; --warn-soft:#FAF0DC;
+  --code-bg:#15181D; --code-ink:#E6E8EB; --code-muted:#8A93A0;
+  --sans:"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono:"IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121417; --surface:#1A1D21; --ink:#E6E8EB; --muted:#9AA3AE; --line:#2A2F36;
+  --accent:#7C9BF0; --accent-soft:#1E2740;
+  --good:#4CC37E; --good-soft:#16301F; --bad:#F08A75; --bad-soft:#3A1E18; --warn:#E3B54E; --warn-soft:#33290F;
+  --code-bg:#0D0F12; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#121417; --surface:#1A1D21; --ink:#E6E8EB; --muted:#9AA3AE; --line:#2A2F36;
+  --accent:#7C9BF0; --accent-soft:#1E2740;
+  --good:#4CC37E; --good-soft:#16301F; --bad:#F08A75; --bad-soft:#3A1E18; --warn:#E3B54E; --warn-soft:#33290F;
+  --code-bg:#0D0F12; color-scheme:dark }
+
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.6;padding-inline:16px;padding-block:40px 80px}
+.wrap{max-width:980px;margin:0 auto;display:flex;flex-direction:column;gap:64px}
+h1,h2,h3{margin:0;line-height:1.2;text-wrap:balance}
+h1{font-size:clamp(30px,5vw,44px);letter-spacing:-.02em}
+h2{font-size:26px;letter-spacing:-.01em}
+h3{font-size:18px}
+p{margin:0;max-width:70ch}
+a{color:var(--accent)}
+code{font-family:var(--mono);font-size:.88em;background:var(--accent-soft);padding:1px 5px;border-radius:4px}
+.eyebrow{font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent)}
+.lead{font-size:19px;color:var(--muted)}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+section{display:flex;flex-direction:column;gap:20px}
+.brand{font-family:var(--mono);font-size:18px;font-weight:500}
+.brand span{color:var(--accent)}
+
+/* decisions */
+.decisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.dec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.dec b{font-size:22px;font-variant-numeric:tabular-nums}
+.dec span{font-size:14px;color:var(--muted)}
+
+/* product structure */
+.areas{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.area{padding:14px 16px;border-radius:12px;background:var(--accent-soft);display:flex;flex-direction:column;gap:4px;min-width:0}
+.area b{color:var(--accent)}
+.area span{font-size:14px}
+
+/* exercise mock */
+.mock{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:16px;min-width:0}
+.mock-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.tag{font-size:12px;font-weight:600;padding:3px 10px;border-radius:999px;background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.tag.lvl{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.example-note{margin-left:auto;font-size:12px;color:var(--muted)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.tabs,.toggle{display:inline-flex;gap:4px;padding:4px;border-radius:10px;background:var(--bg);border:1px solid var(--line);flex-wrap:wrap}
+.tabs button,.toggle button{appearance:none;border:0;background:none;color:var(--muted);font:inherit;font-size:14px;font-weight:500;padding:6px 12px;border-radius:7px;cursor:pointer}
+.tabs button[aria-selected="true"],.toggle button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.tabs button:focus-visible,.toggle button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+pre{margin:0;background:var(--code-bg);color:var(--code-ink);border-radius:10px;padding:16px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.55}
+.unavailable{padding:14px 16px;border-radius:10px;background:var(--bad-soft);color:var(--bad);font-size:15px}
+.sol-note{font-size:15px}
+.cmp{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.cmp table{border-collapse:collapse;width:100%;min-width:620px;font-size:14px}
+.cmp th,.cmp td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.cmp thead th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600;background:var(--bg)}
+.cmp tbody tr:last-child td{border-bottom:0}
+.cmp td:first-child{color:var(--muted);white-space:nowrap}
+.auto{font-size:11px;font-weight:600;color:var(--good);margin-left:6px;letter-spacing:.04em}
+
+/* status chips */
+.st{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.st.same{background:var(--good-soft);color:var(--good)}
+.st.diff{background:var(--warn-soft);color:var(--warn)}
+.st.none{background:var(--bad-soft);color:var(--bad)}
+.st.theory{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;align-items:center;font-size:14px;color:var(--muted)}
+
+/* topic map */
+.levels{display:flex;flex-direction:column;gap:28px}
+.level{display:flex;flex-direction:column;gap:10px}
+.level-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.level-num{font-family:var(--mono);font-size:13px;font-weight:500;color:var(--surface);background:var(--accent);border-radius:6px;padding:2px 8px}
+.level-head p{font-size:14px;color:var(--muted)}
+.topics{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.topic{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.4fr) auto;gap:6px 16px;padding:12px 16px;border-top:1px solid var(--line);align-items:start}
+.topic:first-child{border-top:0}
+.topic .name{font-weight:600}
+.topic .terms{font-family:var(--mono);font-size:13px;color:var(--muted);overflow-wrap:anywhere}
+.topic .my{display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right;max-width:230px}
+.topic .my small{font-size:12px;color:var(--muted);line-height:1.35}
+@media (max-width:700px){
+  .topic{grid-template-columns:1fr}
+  .topic .my{align-items:flex-start;text-align:left;max-width:none}
+}
+
+/* datasets */
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px}
+.tbl table{border-collapse:collapse;width:100%;min-width:860px;font-size:14px}
+.tbl th,.tbl td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+.tbl thead th{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.tbl tbody tr:last-child td{border-bottom:0}
+.tbl td.n{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.tbl td b{display:block}
+.lic{font-family:var(--mono);font-size:12px;white-space:nowrap}
+.excluded{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.ex{border:1px dashed var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.ex b{text-decoration:line-through;color:var(--muted)}
+.ex span{font-size:14px}
+
+/* differences */
+.diffs{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.d{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.d .pair{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-family:var(--mono);font-size:13px;align-items:baseline}
+.d .pair span:nth-child(odd){font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.d .pair span:nth-child(even){overflow-wrap:anywhere}
+.d p{font-size:14px;color:var(--muted)}
+
+/* sources */
+.sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.src{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.src .rule{font-size:13px;font-weight:600}
+.src .rule.ok{color:var(--good)}
+.src .rule.link{color:var(--warn)}
+.src p{font-size:14px}
+
+/* pipeline + phases */
+ol.flow{list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;counter-reset:f}
+ol.flow li{counter-increment:f;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+ol.flow li::before{content:counter(f);font-family:var(--mono);font-size:12px;color:var(--accent);font-weight:500}
+ol.flow b{font-size:15px}
+ol.flow span{font-size:13px;color:var(--muted)}
+.rules{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;max-width:75ch}
+ol.phases{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:0;border-left:2px solid var(--line);margin-left:8px}
+ol.phases li{position:relative;padding:0 0 26px 26px;display:flex;flex-direction:column;gap:6px}
+ol.phases li:last-child{padding-bottom:0}
+ol.phases li::before{content:"";position:absolute;left:-7px;top:6px;width:12px;height:12px;border-radius:50%;background:var(--surface);border:2px solid var(--accent)}
+ol.phases li.now::before{background:var(--accent)}
+.ph-head{display:flex;flex-wrap:wrap;gap:10px;align-items:baseline}
+.ph-head .k{font-family:var(--mono);font-size:13px;color:var(--accent)}
+ol.phases ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px;font-size:15px}
+.done-when{font-size:14px;color:var(--muted)}
+
+.ask{background:var(--code-bg);color:var(--code-ink);border-radius:16px;padding:24px;display:flex;flex-direction:column;gap:12px}
+.ask h2{color:var(--code-ink)}
+.ask ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;max-width:75ch}
+.ask .muted{color:var(--code-muted)}
+</style>
+
+<div class="wrap">
+
+<header style="display:flex;flex-direction:column;gap:16px">
+  <span class="brand">SQL <span>Playbook</span></span>
+  <h1>План: от трёх страниц к учебнику на 1&nbsp;200 задач</h1>
+  <p class="lead">Карта тем, готовые датасеты, отличия от MySQL и порядок работы. Это черновик для обсуждения: прежде чем писать код, согласуем структуру.</p>
+</header>
+
+<section>
+  <h2>Что уже решено</h2>
+  <div class="decisions">
+    <div class="dec"><b>PostgreSQL 18</b><span>Основная СУБД. Каждый запрос запускается прямо в браузере.</span></div>
+    <div class="dec"><b>+ MySQL 8.4</b><span>У каждого решения есть кнопка «как это в MySQL» с объяснением отличий.</span></div>
+    <div class="dec"><b>10 датасетов</b><span>9 готовых открытых баз и одна наша, для экспериментов с производительностью.</span></div>
+    <div class="dec"><b>≈ 1 200 задач</b><span>5 уровней сложности, у многих задач по 2–4 решения со сравнением.</span></div>
+    <div class="dec"><b>English</b><span>Язык интерфейса и контента.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Из чего будет состоять сайт</h2>
+  <div class="areas">
+    <div class="area"><b>Задачи</b><span>Основа. Фильтры по датасету, теме и уровню.</span></div>
+    <div class="area"><b>Ситуации</b><span>Подборки «у меня такая проблема», ведут на подходящие задачи. Это то, что уже сделано.</span></div>
+    <div class="area"><b>Лаборатории</b><span>Эксперименты: индексы, планы выполнения, транзакции, PL/pgSQL.</span></div>
+    <div class="area"><b>Справочник</b><span>≈ 150 функций и ключевых слов, у каждой — аналог в MySQL и ссылки на задачи.</span></div>
+    <div class="area"><b>Датасеты</b><span>Схема каждой базы, откуда она взята, лицензия.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Так будет выглядеть страница задачи</h2>
+  <p class="muted">Макет на настоящей задаче по базе Sakila. Решения проверены: PostgreSQL (A и B) и MySQL 8.4 (B) дали одинаковые 10 строк. Переключай решения и СУБД: так будет работать и на сайте.</p>
+
+  <div class="mock">
+    <div class="mock-head">
+      <span class="tag lvl">Level 3</span>
+      <span class="tag">Sakila</span>
+      <span class="tag">Dates</span>
+      <span class="tag">Filling gaps</span>
+      <span class="example-note">Пример будущей страницы</span>
+    </div>
+    <h3>Count rentals per month, including months with no rentals at all</h3>
+    <p class="small muted">В Sakila прокаты есть с мая по август 2005 года и в феврале 2006-го. Месяцы между ними должны попасть в отчёт с нулём, а обычный <code>GROUP BY</code> их просто не покажет.</p>
+
+    <div class="bar">
+      <div class="tabs" role="tablist" aria-label="Solutions" id="solTabs"></div>
+      <div class="toggle" aria-label="Database" id="dbToggle">
+        <button type="button" data-db="pg" aria-pressed="true">PostgreSQL</button>
+        <button type="button" data-db="my" aria-pressed="false">MySQL</button>
+      </div>
+    </div>
+    <div id="solBody" style="display:flex;flex-direction:column;gap:12px"></div>
+
+    <h3 style="font-size:16px">Чем решения отличаются</h3>
+    <div class="cmp"><table>
+      <thead><tr><th></th><th>A · generate_series</th><th>B · recursive CTE</th></tr></thead>
+      <tbody>
+        <tr><td>Результат <span class="auto">АВТО</span></td><td colspan="2">Одинаковый: 10 строк, с мая 2005 по февраль 2006, пять месяцев с нулём</td></tr>
+        <tr><td>Скорость <span class="auto">АВТО</span></td><td>Читает всю таблицу: <code>date_trunc()</code> над колонкой не даёт использовать индекс по <code>rental_date</code></td><td>Использует индекс по <code>rental_date</code>. На Sakila быстрее A примерно в 1,5 раза: отчёт всё равно читает почти все строки. Разница вырастет, если запросить узкий период</td></tr>
+        <tr><td>Читаемость</td><td>Короче и понятнее</td><td>Длиннее: месяцы генерируются вручную</td></tr>
+        <tr><td>MySQL</td><td><span class="st none">не работает</span> generate_series нет</td><td><span class="st diff">почти так же</span> меняется запись интервала</td></tr>
+        <tr><td>Вывод</td><td colspan="2">Для разового отчёта в PostgreSQL подойдёт A. Если таблица большая или нужен перенос в MySQL, бери B.</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<section>
+  <h2>Карта тем</h2>
+  <p class="muted">Пять уровней, около 50 тем. Справа указано, как тема устроена в MySQL 8.4.</p>
+  <div class="legend">
+    <span><span class="st same">как в PG</span> код тот же</span>
+    <span><span class="st diff">иначе</span> есть, но пишется по-другому</span>
+    <span><span class="st none">нет</span> придётся обходить</span>
+    <span><span class="st theory">теория</span> в браузере не запустить</span>
+  </div>
+  <div class="levels" id="levels"></div>
+</section>
+
+<section>
+  <h2>Датасеты</h2>
+  <p class="muted">Все — готовые открытые базы, кроме последней. Лицензии я проверил. Для CC BY-SA и ODbL нужно указать источник и выложить наши изменённые версии под той же лицензией. Это нас устраивает.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Датасет</th><th>Лицензия</th><th>PG / MySQL</th><th>Размер</th><th>Уровни</th><th>Для каких тем лучше всего</th><th>Задач</th></tr></thead>
+    <tbody id="datasets"></tbody>
+  </table></div>
+  <h3>Что не берём</h3>
+  <div class="excluded">
+    <div class="ex"><b>MySQL World</b><span>Закрытая лицензия Oracle: копировать и распространять нельзя.</span></div>
+    <div class="ex"><b>Stack Exchange dump</b><span>В 2024 году лицензию изменили: распространение запрещено.</span></div>
+    <div class="ex"><b>IMDb</b><span>Только для некоммерческого личного использования.</span></div>
+    <div class="ex"><b>NYC Taxi</b><span>Условия использования неясны, и данные слишком большие для браузера.</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Главные отличия MySQL, которые встретятся в задачах</h2>
+  <div class="diffs" id="diffs"></div>
+</section>
+
+<section>
+  <h2>Откуда берём информацию</h2>
+  <div class="sources">
+    <div class="src">
+      <h3>Документация PostgreSQL</h3>
+      <span class="rule ok">Можно пересказывать и цитировать</span>
+      <p>Лицензия PostgreSQL разрешает использовать текст с указанием копирайта. Это главный источник для справочника, у каждой функции будет ссылка на официальную страницу.</p>
+    </div>
+    <div class="src">
+      <h3>Документация MySQL</h3>
+      <span class="rule link">Только ссылки</span>
+      <p>Закрытая лицензия Oracle запрещает копировать текст. Объяснения отличий пишем своими словами и ставим ссылку на нужный раздел.</p>
+    </div>
+    <div class="src">
+      <h3>Modern SQL, Use The Index, Luke</h3>
+      <span class="rule link">Только ссылки</span>
+      <p>Лучшие сайты о стандарте SQL и индексах, автор Маркус Винанд. Защищены авторским правом: ссылаемся как на «почитать подробнее».</p>
+    </div>
+    <div class="src">
+      <h3>Документация датасетов</h3>
+      <span class="rule ok">Указываем источник</span>
+      <p>Схемы и описания баз берём из их репозиториев, с атрибуцией по лицензии каждой базы.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>Как гарантируем, что 1 200 задач без ошибок</h2>
+  <p class="muted">Вручную это не проверить. Каждая задача проходит автоматическую проверку при каждом изменении.</p>
+  <ol class="flow">
+    <li><b>Черновик</b><span>Задача и 1–4 решения в файле. Пишу я, партиями по датасету и уровню.</span></li>
+    <li><b>PostgreSQL</b><span>Все решения запускаются в PGlite. Ошибка — проверка падает.</span></li>
+    <li><b>Сверка решений</b><span>Все варианты обязаны дать один и тот же результат, или различие помечено и объяснено.</span></li>
+    <li><b>MySQL 8.4</b><span>MySQL-варианты запускаются в Docker на той же базе, результат сверяется с PostgreSQL.</span></li>
+    <li><b>Замеры</b><span>План и время каждого решения сохраняются для таблицы сравнения.</span></li>
+    <li><b>Твоя ревизия</b><span>Ты решаешь выборку задач сам. Что непонятно — правим.</span></li>
+  </ol>
+  <ul class="rules">
+    <li>У каждого датасета одна копия данных, из которой собираются обе версии. Готовые «порты» не берём вслепую: свежая Pagila, например, уже разошлась с Sakila по датам и количеству строк.</li>
+    <li>У каждой задачи есть хотя бы одна ссылка на официальную документацию.</li>
+    <li>Ответы детерминированы: при равенствах указан полный порядок сортировки, иначе проверка будет «плавать».</li>
+    <li>Проверка запускается в GitHub Actions на каждый коммит. Сломанная задача не попадёт на сайт.</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Этапы</h2>
+  <ol class="phases">
+    <li>
+      <div class="ph-head"><span class="k">Этап 0 · готово</span><h3>Согласовать план</h3></div>
+      <ul><li>Карта тем, список датасетов, формат задачи — эта страница</li></ul>
+    </li>
+    <li>
+      <div class="ph-head"><span class="k">Этап 1 · готово</span><h3>Фундамент</h3></div>
+      <ul>
+        <li>Формат задачи: несколько решений, MySQL-вариант, ссылки на документацию</li>
+        <li>Загрузка датасета по требованию, а не всех сразу</li>
+        <li>Страница задачи с переключением решений и СУБД, таблица сравнения</li>
+        <li>Автопроверка всех решений в PGlite</li>
+        <li>Chinook и Sakila, по 30 задач на каждую</li>
+        <li>Сборка датасетов: одни и те же данные загружаются и в PostgreSQL, и в MySQL</li>
+      </ul>
+      <p class="done-when">Итог: 60 задач (30 Sakila + 30 Chinook, уровни 1–3), 30 из них с 2–4 решениями (всего 96 решений, 8 из них только для PostgreSQL). Все 60 проходят проверку на PostgreSQL 18.6 и MySQL 8.4.11. Обе базы собраны из официальных исходников и совпадают построчно.</p>
+    </li>
+    <li class="now">
+      <div class="ph-head"><span class="k">Этап 2 · сейчас</span><h3>Проверка на MySQL</h3></div>
+      <ul>
+        <li>MySQL 8.4 в Docker, MySQL-версии датасетов</li>
+        <li>Сверка MySQL-решений с PostgreSQL, запуск в GitHub Actions</li>
+      </ul>
+      <p class="done-when">Готово локально: файл проверки для GitHub Actions написан и прогнан шаг за шагом (сборка с нуля из закреплённых исходников даёт байт-в-байт те же файлы). Осталось создать репозиторий на GitHub.</p>
+    </li>
+    <li>
+      <div class="ph-head"><span class="k">Этап 3 · начат</span><h3>Масштаб</h3></div>
+      <ul>
+        <li>Остальные 8 датасетов</li>
+        <li>До 100–150 задач на датасет, партиями по уровню</li>
+        <li>Твоя ревизия выборки из каждой партии</li>
+      </ul>
+      <p class="done-when">Уже: 80 задач на всех 5 уровнях (L4–L5: представления, временные таблицы, INSERT/UPDATE/DELETE, upsert и MERGE, транзакции и SAVEPOINT, функции и процедуры, триггеры, индексы, JSON, сгенерированные колонки). Покрыто 48 тем из 53. Готово, когда: ≈ 1 200 задач, каждая тема покрыта минимум 15 задачами.</p>
+    </li>
+    <li>
+      <div class="ph-head"><span class="k">Этап 4</span><h3>Справочник и лаборатории</h3></div>
+      <ul>
+        <li>≈ 150 функций и ключевых слов с аналогами в MySQL</li>
+        <li>Лаборатории: планы выполнения, PL/pgSQL, транзакции (теория со схемами)</li>
+      </ul>
+    </li>
+    <li>
+      <div class="ph-head"><span class="k">Этап 5</span><h3>Запуск</h3></div>
+      <ul>
+        <li>Деплой, отдельная страница на каждую задачу, чтобы находились в Google</li>
+        <li>README с архитектурой, пост в LinkedIn</li>
+      </ul>
+    </li>
+  </ol>
+</section>
+
+<section class="ask">
+  <h2>Что нужно от тебя</h2>
+  <ol>
+    <li><b>Карта тем.</b> Чего не хватает, что лишнее? Например, нужны ли секционирование и полнотекстовый поиск, или это уже слишком глубоко.</li>
+    <li><b>Датасеты.</b> Подходит список? OpenFlights бесплатен только для некоммерческого использования: если когда-нибудь захочешь монетизировать сайт, его придётся заменить.</li>
+    <li><b>MySQL готов.</b> MySQL 8.4 уже работает у тебя в Docker (OrbStack), Sakila загружена.</li>
+    <li><b>Старт.</b> Если всё ок, начинаю этап 1 с Chinook и Sakila.</li>
+  </ol>
+  <p class="muted small">Сейчас уже работают: 3 ситуации, лаборатория индексов, песочница с откатом. Всё это переедет в новую структуру.</p>
+</section>
+
+</div>
+
+<script>
+const LEVELS = [
+  { n: 1, name: 'Basics', ru: 'Основы', desc: 'Достать нужные строки из одной таблицы', topics: [
+    ['SELECT, WHERE, ORDER BY', 'select · where · and/or · order by', 'same'],
+    ['Limiting results', 'limit · offset · fetch first', 'diff', 'FETCH FIRST нет, только LIMIT'],
+    ['Unique values', 'distinct · distinct on', 'diff', 'DISTINCT ON нет, нужен ROW_NUMBER'],
+    ['NULL', 'is null · coalesce · nullif', 'same'],
+    ['Text search', 'like · ilike · ~ (regex)', 'diff', 'ILIKE нет; LIKE и так не различает регистр; REGEXP вместо ~'],
+    ['Conditions', 'case when · in · between', 'same'],
+    ['Strings', '|| · concat · substring · length', 'diff', '|| в MySQL — это OR; только CONCAT()'],
+    ['Numbers', 'round · / · %', 'diff', '7 / 2 = 3 в PG и 3.5000 в MySQL'],
+    ['Dates basics', 'now() · extract · interval', 'diff', 'DATE_ADD, TIMESTAMPDIFF вместо интервалов PG'],
+  ]},
+  { n: 2, name: 'Joins & aggregation', ru: 'Связи и агрегаты', desc: 'Соединить таблицы и посчитать итоги', topics: [
+    ['Inner / left / right join', 'join … on · using', 'same'],
+    ['Full outer join', 'full join', 'none', 'Нет; эмуляция через LEFT JOIN + UNION'],
+    ['Self & cross join', 'self join · cross join', 'same'],
+    ['Group by & having', 'group by · having', 'same'],
+    ['Aggregates', 'count · sum · avg · count(distinct)', 'same'],
+    ['Text aggregation', 'string_agg · array_agg', 'diff', 'GROUP_CONCAT, массивов нет'],
+    ['Conditional aggregates', 'count(*) filter (where …)', 'none', 'FILTER нет; SUM(CASE WHEN …)'],
+    ['Set operations', 'union · intersect · except', 'same', 'INTERSECT и EXCEPT с версии 8.0.31'],
+    ['Subqueries', 'in · exists · scalar · correlated', 'same'],
+    ['Type casting', 'cast · ::', 'diff', ':: нет, только CAST()'],
+  ]},
+  { n: 3, name: 'Analytics', ru: 'Аналитика', desc: 'Рейтинги, сравнения, временные ряды', topics: [
+    ['CTE', 'with … as', 'same'],
+    ['Ranking', 'row_number · rank · dense_rank · ntile', 'same'],
+    ['Previous / next row', 'lag · lead · first_value', 'same'],
+    ['Window frames, running totals', 'rows between · range · groups', 'diff', 'Режима GROUPS нет'],
+    ['Subtotals', 'grouping sets · rollup · cube', 'diff', 'Только WITH ROLLUP'],
+    ['Lateral joins', 'join lateral', 'same', 'С версии 8.0.14'],
+    ['Filling gaps in dates', 'generate_series', 'none', 'Нет; рекурсивный CTE'],
+    ['Pivot', 'conditional aggregation · crosstab', 'diff', 'Только условная агрегация'],
+    ['Hierarchies & graphs', 'with recursive', 'same'],
+    ['Gaps & islands', 'row_number − row_number', 'same'],
+    ['Dates in depth', 'date_trunc · time zones · age', 'diff', 'date_trunc нет; DATE_FORMAT'],
+  ]},
+  { n: 4, name: 'Data & structure', ru: 'Данные и структура', desc: 'Создавать таблицы, менять данные, хранить логику', topics: [
+    ['Creating tables', 'create table · data types · identity', 'diff', 'AUTO_INCREMENT вместо IDENTITY'],
+    ['Constraints', 'primary/foreign key · unique · check', 'same'],
+    ['Changing data', 'insert · update · delete · returning', 'diff', 'RETURNING нет'],
+    ['Upsert', 'on conflict do update', 'diff', 'ON DUPLICATE KEY UPDATE'],
+    ['Merge', 'merge into', 'none', 'Нет'],
+    ['Transactions', 'begin · commit · rollback · savepoint', 'diff', 'CREATE/ALTER не откатываются'],
+    ['Temporary tables', 'create temp table', 'diff', 'CREATE TEMPORARY TABLE'],
+    ['Views', 'create view', 'same'],
+    ['Materialized views', 'create materialized view · refresh', 'none', 'Нет'],
+    ['Schemas & normalization', 'schema · 1NF–3NF', 'diff', 'Схема в MySQL = отдельная база'],
+    ['JSON', 'jsonb · -> · ->> · @>', 'diff', 'Тип JSON, другие функции'],
+    ['Arrays', 'array · unnest · any', 'none', 'Нет'],
+    ['Generated columns', 'generated always as', 'same'],
+  ]},
+  { n: 5, name: 'Programming & performance', ru: 'Программирование и производительность', desc: 'Логика внутри базы и скорость запросов', topics: [
+    ['Functions', 'create function · plpgsql · returns table', 'diff', 'Другой синтаксис, DELIMITER'],
+    ['Procedures & blocks', 'create procedure · call · do', 'diff', 'Анонимных DO-блоков нет'],
+    ['Control flow', 'declare · if · loop · exception', 'diff', 'DECLARE … HANDLER для ошибок'],
+    ['Triggers', 'create trigger · new / old', 'diff', 'Тело прямо в триггере'],
+    ['Indexes', 'b-tree · composite · expression', 'diff', 'По выражению с версии 8.0.13'],
+    ['Partial & covering indexes', 'where · include', 'none', 'Частичных нет; INCLUDE нет'],
+    ['Query plans', 'explain · explain analyze', 'diff', 'Другой формат вывода'],
+    ['Full-text search', 'tsvector · tsquery · gin', 'diff', 'FULLTEXT-индекс, MATCH … AGAINST'],
+    ['Partitioning', 'partition by range / list', 'diff'],
+    ['Locks & isolation', 'read committed · repeatable read · deadlock', 'theory', 'По умолчанию: PG — READ COMMITTED, MySQL — REPEATABLE READ'],
+  ]},
+];
+
+const STATUS = { same: 'как в PG', diff: 'иначе', none: 'нет', theory: 'теория' };
+
+document.getElementById('levels').innerHTML = LEVELS.map(l => `
+  <div class="level">
+    <div class="level-head"><span class="level-num">L${l.n}</span><h3>${l.ru}</h3><p>${l.desc} · ${l.topics.length} тем</p></div>
+    <div class="topics">${l.topics.map(([name, terms, st, note]) => `
+      <div class="topic">
+        <span class="name">${name}</span>
+        <span class="terms">${terms}</span>
+        <span class="my"><span class="st ${st}">${STATUS[st]}</span>${note ? `<small>${note}</small>` : ''}</span>
+      </div>`).join('')}
+    </div>
+  </div>`).join('');
+
+const DATASETS = [
+  ['Chinook', 'Цифровой музыкальный магазин: артисты, альбомы, треки, счета', 'MIT', 'обе официально', '≈ 15 тыс. строк, 11 таблиц', '1–3', 'JOIN, агрегаты, подзапросы', 100],
+  ['Sakila', 'Прокат DVD: фильмы, актёры, прокаты, платежи', 'BSD', 'MySQL; PG собираем из тех же данных', '≈ 47 тыс. строк, 16 таблиц', '1–5', 'Даты, представления, функции и триггеры', 150],
+  ['Northwind', 'Оптовая торговля: заказы, товары, поставщики', 'MIT', 'обе', '≈ 3 тыс. строк', '1–3', 'Классические бизнес-отчёты', 120],
+  ['Employees', 'Сотрудники с историей зарплат и должностей', 'CC BY-SA 3.0', 'MySQL; PG конвертируем', '300 тыс. сотрудников, 2,8 млн зарплат → берём часть', '2–5', 'История во времени, окна, очистка данных (ошибки в базе оставлены специально)', 130],
+  ['AdventureWorks', 'Производитель велосипедов: 68 таблиц в 5 схемах', 'MIT', 'PG-порт; MySQL конвертируем', '≈ 31 тыс. заказов, 20 тыс. клиентов', '3–5', 'Сложные связи, схемы, иерархия сотрудников', 150],
+  ['Airlines', 'Авиаперевозки: бронирования, билеты, рейсы, места (Postgres Pro)', 'PostgreSQL / MIT', 'PG; MySQL конвертируем', 'малый вариант базы', '3–5', 'JSONB, часовые пояса, представления, функции', 150],
+  ['Lahman Baseball', 'Статистика бейсбола с 1871 по 2025 год', 'CC BY-SA 3.0', 'CSV → обе', 'основные таблицы, сотни тысяч строк', '2–5', 'Оконные функции, рейтинги, аналитика по сезонам', 120],
+  ['Olympics', '120 лет Олимпийских игр: одна плоская таблица', 'Public domain', 'CSV → обе', '271 тыс. строк', '1–4', 'Нормализация: спроектировать схему из одной таблицы, очистка данных', 100],
+  ['OpenFlights', 'Аэропорты, авиакомпании, маршруты', 'ODbL', 'CSV → обе', '≈ 67 тыс. маршрутов, 7 тыс. аэропортов', '3–5', 'Графы: маршруты с пересадками через рекурсивные CTE', 100],
+  ['Delivery (наш)', 'Доставка еды — генерируем сами, как сейчас', 'наш', 'обе', 'настраивается: 200 тыс. строк и больше', '2–5', 'Индексы, планы выполнения, производительность', 100],
+];
+document.getElementById('datasets').innerHTML = DATASETS.map(([name, about, lic, dbs, size, lvl, best, n]) => `
+  <tr><td><b>${name}</b><span class="muted">${about}</span></td><td class="lic">${lic}</td><td>${dbs}</td><td>${size}</td><td class="n">${lvl}</td><td>${best}</td><td class="n">${n}</td></tr>`).join('') +
+  `<tr><td colspan="6"><b>Итого</b></td><td class="n">${DATASETS.reduce((s, d) => s + d[7], 0).toLocaleString('ru-RU')}</td></tr>`;
+
+const DIFFS = [
+  ['Склейка строк', "'a' || 'b'", "CONCAT('a', 'b')", 'В MySQL || по умолчанию означает логическое ИЛИ. Запрос не упадёт, а молча вернёт 0 или 1.'],
+  ['Деление целых', '7 / 2  →  3', '7 / 2  →  3.5000', 'Одна из самых частых причин «почему цифры не сходятся».'],
+  ['Регистр в поиске', "name ILIKE 'noa%'", "name LIKE 'noa%'", 'В MySQL сравнение строк обычно не различает регистр, это зависит от collation.'],
+  ['Вернуть изменённые строки', 'insert … returning id', 'нет; LAST_INSERT_ID()', 'PG возвращает строки сразу, в MySQL нужен отдельный запрос.'],
+  ['Upsert', 'on conflict (id) do update', 'on duplicate key update', 'Идея одна, синтаксис разный.'],
+  ['Условная агрегация', 'count(*) filter (where …)', 'sum(case when … then 1 else 0 end)', 'Вариант с CASE работает в обеих, поэтому полезно знать оба.'],
+  ['Ряд дат', 'generate_series(…)', 'with recursive …', 'Рекурсивный CTE работает в обеих СУБД.'],
+  ['Транзакции и DDL', 'create table откатывается', 'create table коммитит сразу', 'В MySQL ROLLBACK не отменит созданную таблицу.'],
+];
+document.getElementById('diffs').innerHTML = DIFFS.map(([t, pg, my, note]) => `
+  <div class="d"><h3>${t}</h3><div class="pair"><span>PG</span><span>${pg}</span><span>MySQL</span><span>${my}</span></div><p>${note}</p></div>`).join('');
+
+const SOLUTIONS = [
+  { id: 'A', name: 'generate_series',
+    pg: `select m.month::date,
+       count(r.rental_id) as rentals
+from generate_series(date '2005-05-01', date '2006-02-01', interval '1 month') as m(month)
+left join rental r
+       on date_trunc('month', r.rental_date) = m.month
+group by m.month
+order by m.month;`,
+    my: null,
+    myNote: 'В MySQL нет generate_series. Используй решение B: рекурсивный CTE работает в обеих СУБД.',
+    note: 'Самое короткое решение: generate_series создаёт ряд месяцев, LEFT JOIN оставляет месяцы без прокатов.' },
+  { id: 'B', name: 'recursive CTE',
+    pg: `with recursive months(month) as (
+  select date '2005-05-01'
+  union all
+  select (month + interval '1 month')::date
+  from months
+  where month < date '2006-02-01'
+)
+select m.month,
+       count(r.rental_id) as rentals
+from months m
+left join rental r
+       on r.rental_date >= m.month
+      and r.rental_date <  m.month + interval '1 month'
+group by m.month
+order by m.month;`,
+    my: `with recursive months(month) as (
+  select date '2005-05-01'
+  union all
+  select month + interval 1 month
+  from months
+  where month < '2006-02-01'
+)
+select m.month,
+       count(r.rental_id) as rentals
+from months m
+left join rental r
+       on r.rental_date >= m.month
+      and r.rental_date <  m.month + interval 1 month
+group by m.month
+order by m.month;`,
+    myNote: 'Отличие одно: интервал пишется как interval 1 month, без кавычек. Приведение ::date не нужно.',
+    note: 'Ряд месяцев строится рекурсией. Условие-диапазон по rental_date позволяет использовать индекс.' },
+];
+
+let sol = 'A', db = 'pg';
+const tabs = document.getElementById('solTabs');
+const body = document.getElementById('solBody');
+const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+function render() {
+  tabs.innerHTML = SOLUTIONS.map(s => `<button type="button" role="tab" id="tab-${s.id}" aria-selected="${s.id === sol}">Solution ${s.id} · ${s.name}</button>`).join('');
+  const s = SOLUTIONS.find(x => x.id === sol);
+  if (db === 'pg') {
+    body.innerHTML = `<pre>${esc(s.pg)}</pre><p class="sol-note">${s.note}</p>`;
+  } else if (s.my) {
+    body.innerHTML = `<pre>${esc(s.my)}</pre><p class="sol-note"><span class="st diff">MySQL 8.4</span> ${s.myNote}</p>`;
+  } else {
+    body.innerHTML = `<div class="unavailable"><b>Так в MySQL не сделать.</b> ${s.myNote}</div>`;
+  }
+  document.querySelectorAll('#dbToggle button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.db === db)));
+}
+tabs.addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; sol = b.id.replace('tab-', ''); render(); });
+document.getElementById('dbToggle').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; db = b.dataset.db; render(); });
+render();
+</script>

@@ -1,0 +1,48 @@
+# Rebuilds both datasets from the official sources and checks every exercise on real PostgreSQL and MySQL.
+# A change that breaks any solution, or makes the two databases disagree, fails this workflow.
+name: Verify
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+
+      - name: Start MySQL 8.4
+        run: |
+          docker run --name sql-playbook-mysql -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 127.0.0.1:3306:3306 -d mysql:8.4
+          for i in $(seq 1 60); do docker exec sql-playbook-mysql mysqladmin ping --silent && break; sleep 2; done
+
+      - name: Download the official dataset sources
+        run: |
+          mkdir -p datasets/raw
+          curl -sSfL -o datasets/raw/sakila-db.tar.gz https://downloads.mysql.com/docs/sakila-db.tar.gz
+          tar -xzf datasets/raw/sakila-db.tar.gz -C datasets/raw
+          # Chinook is pinned to release v1.4.5; the release file uses Windows line endings.
+          curl -sSfL https://raw.githubusercontent.com/lerocha/chinook-database/v1.4.5/ChinookDatabase/DataSources/Chinook_MySql.sql \
+            | sed '1s/^\xEF\xBB\xBF//' | tr -d '\r' > datasets/raw/Chinook_MySql.sql
+
+      - name: Rebuild datasets (PostgreSQL and MySQL builds must match row by row)
+        run: npm run build:datasets
+
+      - name: Committed dataset files are up to date
+        run: git diff --exit-code -- public/datasets datasets/build src/content/datasets
+
+      - name: Verify every exercise on PostgreSQL and MySQL
+        run: npm run verify
+
+      - run: npm run typecheck
+
+      - run: npm run build

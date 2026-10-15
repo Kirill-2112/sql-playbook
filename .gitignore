@@ -1,0 +1,6 @@
+node_modules
+dist
+.DS_Store
+# Official sources are downloaded (see README); the built files are committed.
+datasets/raw/
+*.tsbuildinfo

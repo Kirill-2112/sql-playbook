@@ -1,0 +1,1032 @@
+{
+  "generatedAt": "2026-10-15T09:23:12.508Z",
+  "postgres": "18.6",
+  "mysql": "8.4.11",
+  "exercises": {
+    "sakila-001": {
+      "rows": 9,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-002": {
+      "rows": 10,
+      "solutions": [
+        {
+          "pgMs": 0.65,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.69,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        }
+      ]
+    },
+    "sakila-003": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": 0.57,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.58,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-004": {
+      "rows": 183,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-005": {
+      "rows": 4,
+      "solutions": [
+        {
+          "pgMs": 0.17,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.13,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-006": {
+      "rows": 10,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-007": {
+      "rows": 13,
+      "solutions": [
+        {
+          "pgMs": 0.04,
+          "usesIndex": true,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.04,
+          "usesIndex": true,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-008": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-009": {
+      "rows": 8,
+      "solutions": [
+        {
+          "pgMs": 0.02,
+          "usesIndex": true,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 1.31,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-010": {
+      "rows": 56,
+      "solutions": [
+        {
+          "pgMs": 0.18,
+          "usesIndex": true,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.17,
+          "usesIndex": true,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-011": {
+      "rows": 42,
+      "solutions": [
+        {
+          "pgMs": 2.19,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 2.13,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 1.92,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 4.36,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-012": {
+      "rows": 16,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-013": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-014": {
+      "rows": 2,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-015": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": 0.65,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        },
+        {
+          "pgMs": 0.69,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.61,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-016": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-017": {
+      "rows": 108,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-018": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": 0.74,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.96,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-019": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": 2.44,
+          "usesIndex": true,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 6.05,
+          "usesIndex": true,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.22,
+          "usesIndex": true,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-020": {
+      "rows": 10,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-021": {
+      "rows": 72,
+      "solutions": [
+        {
+          "pgMs": 0.5,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.52,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-022": {
+      "rows": 48,
+      "solutions": [
+        {
+          "pgMs": 24.12,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 29.43,
+          "usesIndex": true,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-023": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": 16.75,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 16.9,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-024": {
+      "rows": 32,
+      "solutions": [
+        {
+          "pgMs": 0.08,
+          "usesIndex": true,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.44,
+          "usesIndex": true,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-025": {
+      "rows": 10,
+      "solutions": [
+        {
+          "pgMs": 11.49,
+          "usesIndex": true,
+          "mysql": "unsupported"
+        },
+        {
+          "pgMs": 11.16,
+          "usesIndex": true,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-026": {
+      "rows": 10,
+      "solutions": [
+        {
+          "pgMs": 9,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 8.86,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-027": {
+      "rows": 4,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-028": {
+      "rows": 6,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-029": {
+      "rows": 16,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-030": {
+      "rows": 13,
+      "solutions": [
+        {
+          "pgMs": 22.05,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 36.69,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-031": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-032": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-033": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-034": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-035": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-036": {
+      "rows": 2,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        }
+      ]
+    },
+    "sakila-037": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-038": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-039": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-040": {
+      "rows": 2,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        }
+      ]
+    },
+    "sakila-041": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-042": {
+      "rows": 12,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-043": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-044": {
+      "rows": 16,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-001": {
+      "rows": 218,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-002": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-003": {
+      "rows": 24,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-004": {
+      "rows": 47,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-005": {
+      "rows": 114,
+      "solutions": [
+        {
+          "pgMs": 2.41,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 1.94,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-006": {
+      "rows": 10,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-007": {
+      "rows": 8,
+      "solutions": [
+        {
+          "pgMs": 0.03,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.04,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-008": {
+      "rows": 10,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-009": {
+      "rows": 7,
+      "solutions": [
+        {
+          "pgMs": 0.06,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.13,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-010": {
+      "rows": 18,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-011": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": 0.56,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.31,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.27,
+          "usesIndex": true,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-012": {
+      "rows": 25,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-013": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-014": {
+      "rows": 24,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-015": {
+      "rows": 3,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-016": {
+      "rows": 2,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-017": {
+      "rows": 8,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-018": {
+      "rows": 25,
+      "solutions": [
+        {
+          "pgMs": 1.82,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        },
+        {
+          "pgMs": 1.79,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-019": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": 0.04,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.06,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-020": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": 2.45,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 2.61,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 2.86,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-021": {
+      "rows": 10,
+      "solutions": [
+        {
+          "pgMs": 0.02,
+          "usesIndex": true,
+          "mysql": "unsupported"
+        },
+        {
+          "pgMs": 0.02,
+          "usesIndex": true,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-022": {
+      "rows": 24,
+      "solutions": [
+        {
+          "pgMs": 6.33,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 5.79,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        }
+      ]
+    },
+    "chinook-023": {
+      "rows": 8,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-024": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-025": {
+      "rows": 60,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-026": {
+      "rows": 19,
+      "solutions": [
+        {
+          "pgMs": 0.34,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.5,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-027": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": 0.38,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.35,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        }
+      ]
+    },
+    "chinook-028": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-029": {
+      "rows": 23,
+      "solutions": [
+        {
+          "pgMs": 0.22,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.21,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        }
+      ]
+    },
+    "chinook-030": {
+      "rows": 49,
+      "solutions": [
+        {
+          "pgMs": 5.26,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 2.5,
+          "usesIndex": true,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-031": {
+      "rows": 2,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-032": {
+      "rows": 3,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-033": {
+      "rows": 18,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-034": {
+      "rows": 2,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-035": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-036": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        }
+      ]
+    }
+  }
+}

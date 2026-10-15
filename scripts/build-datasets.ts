@@ -18,6 +18,7 @@ import mysql from 'mysql2/promise'
 import { connectMysql, type MysqlConnection } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
+import { loadEmployeesSample } from './sources/employees'
 import { convertNorthwind } from './sources/northwind'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -31,6 +32,8 @@ interface DatasetConfig {
   sourceFiles?: string[]
   /** Or: SQL generated from a non-MySQL original; always reloaded so converter changes take effect. */
   sourceSql?: () => string
+  /** Or: a custom loader, e.g. one that builds a sample from a database too big for the browser. */
+  customLoad?: (conn: MysqlConnection) => Promise<void>
   /** Convert PascalCase identifiers to snake_case (Chinook uses PascalCase). */
   snakeCase: boolean
   /** Columns that cannot exist in both databases, e.g. MySQL GEOMETRY. */
@@ -60,6 +63,13 @@ const DATASETS: DatasetConfig[] = [
     sourceSchema: 'northwind_src',
     // Microsoft's official T-SQL script, converted to MySQL (see scripts/sources/northwind.ts).
     sourceSql: () => convertNorthwind(readFileSync(join(ROOT, 'datasets/raw/instnwnd.sql'), 'utf8')).sql,
+    snakeCase: false,
+  },
+  {
+    id: 'employees',
+    sourceSchema: 'employees_sample',
+    // A consistent sample of datacharmer/test_db (see scripts/sources/employees.ts).
+    customLoad: (conn) => loadEmployeesSample(conn, ROOT, MYSQL_CONTAINER),
     snakeCase: false,
   },
 ]
@@ -364,6 +374,10 @@ function emitMysql(cfg: DatasetConfig, tables: Table[], rows: Map<string, unknow
 async function loadSource(conn: MysqlConnection, cfg: DatasetConfig) {
   const env = { ...process.env, PATH: `${process.env.HOME}/.orbstack/bin:${process.env.PATH}` }
   const mysqlCli = ['exec', '-i', MYSQL_CONTAINER, 'mysql', '--default-character-set=utf8mb4']
+  if (cfg.customLoad) {
+    await cfg.customLoad(conn)
+    return
+  }
   if (cfg.sourceSql) {
     execFileSync('docker', mysqlCli, { input: cfg.sourceSql(), env })
     return

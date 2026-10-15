@@ -1,6 +1,6 @@
 export type Level = 1 | 2 | 3 | 4 | 5
 
-export type DatasetId = 'sakila' | 'chinook' | 'northwind'
+export type DatasetId = 'sakila' | 'chinook' | 'northwind' | 'employees'
 
 export type MysqlSupport = 'same' | 'diff' | 'none' | 'theory'
 

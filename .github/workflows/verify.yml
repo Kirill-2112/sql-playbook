@@ -42,6 +42,10 @@ jobs:
           # Northwind: Microsoft's official script, pinned to the commit that last changed it (April 2023).
           curl -sSfL -o datasets/raw/instnwnd.sql \
             https://raw.githubusercontent.com/microsoft/sql-server-samples/2f85f3724ee45776a5183ed34d064488a6e1dc53/samples/databases/northwind-pubs/instnwnd.sql
+          # Employees: datacharmer/test_db pinned to a commit; the build loads it in full and samples it.
+          mkdir -p datasets/raw/test_db
+          curl -sSfL https://github.com/datacharmer/test_db/archive/e324b56193ca506ab7cc1ab143a9153d8c4535d7.tar.gz \
+            | tar -xz -C datasets/raw/test_db --strip-components=1
 
       - name: Rebuild datasets (PostgreSQL and MySQL builds must match row by row)
         run: npm run build:datasets

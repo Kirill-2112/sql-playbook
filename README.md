@@ -53,6 +53,8 @@ Download the official sources into `datasets/raw/`:
 ```bash
 curl -L -o datasets/raw/sakila-db.tar.gz https://downloads.mysql.com/docs/sakila-db.tar.gz && tar -xzf datasets/raw/sakila-db.tar.gz -C datasets/raw
 curl -sSfL https://raw.githubusercontent.com/lerocha/chinook-database/v1.4.5/ChinookDatabase/DataSources/Chinook_MySql.sql | tr -d "\r" > datasets/raw/Chinook_MySql.sql
+curl -sSfL -o datasets/raw/instnwnd.sql https://raw.githubusercontent.com/microsoft/sql-server-samples/2f85f3724ee45776a5183ed34d064488a6e1dc53/samples/databases/northwind-pubs/instnwnd.sql
+mkdir -p datasets/raw/test_db && curl -sSfL https://github.com/datacharmer/test_db/archive/e324b56193ca506ab7cc1ab143a9153d8c4535d7.tar.gz | tar -xz -C datasets/raw/test_db --strip-components=1
 ```
 
 Then:
@@ -68,6 +70,8 @@ npm run verify
 |---|---|---|---|
 | Sakila | [MySQL sample databases](https://dev.mysql.com/doc/sakila/en/) | New BSD (schema and data) | `address.location` (spatial) and `film_text` left out |
 | Chinook | [lerocha/chinook-database](https://github.com/lerocha/chinook-database) v1.4.5 | MIT, © 2008–2024 Luis Rocha | identifiers converted to snake_case |
+| Northwind | [microsoft/sql-server-samples](https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs) | MIT, © Microsoft | converted from T-SQL by `scripts/sources/northwind.ts`; photos, pictures, empty demographics tables, views and procedures left out |
+| Employees | [datacharmer/test_db](https://github.com/datacharmer/test_db) | CC BY-SA 3.0 | a sample (`scripts/sources/employees.ts`): all departments and managers, employees with emp_no divisible by 50, complete history. `public/datasets/employees.pg.sql` and `datasets/build/employees.mysql.sql` are shared under CC BY-SA 3.0 |
 
 Documentation links point to the official [PostgreSQL](https://www.postgresql.org/docs/current/) and
 [MySQL 8.4](https://dev.mysql.com/doc/refman/8.4/en/) manuals. MySQL documentation text is not copied (Oracle license); explanations are original.

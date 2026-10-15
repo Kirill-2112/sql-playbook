@@ -1,0 +1,245 @@
+[
+  {
+    "name": "departments",
+    "rows": 9,
+    "primaryKey": [
+      "dept_no"
+    ],
+    "columns": [
+      {
+        "name": "dept_no",
+        "type": "varchar(4)",
+        "nullable": false
+      },
+      {
+        "name": "dept_name",
+        "type": "varchar(40)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "dept_emp",
+    "rows": 6629,
+    "primaryKey": [
+      "emp_no",
+      "dept_no"
+    ],
+    "columns": [
+      {
+        "name": "emp_no",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "dept_no",
+        "type": "varchar(4)",
+        "nullable": false
+      },
+      {
+        "name": "from_date",
+        "type": "date",
+        "nullable": false
+      },
+      {
+        "name": "to_date",
+        "type": "date",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "emp_no"
+        ],
+        "refTable": "employees",
+        "refColumns": [
+          "emp_no"
+        ]
+      },
+      {
+        "columns": [
+          "dept_no"
+        ],
+        "refTable": "departments",
+        "refColumns": [
+          "dept_no"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "dept_manager",
+    "rows": 24,
+    "primaryKey": [
+      "emp_no",
+      "dept_no"
+    ],
+    "columns": [
+      {
+        "name": "emp_no",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "dept_no",
+        "type": "varchar(4)",
+        "nullable": false
+      },
+      {
+        "name": "from_date",
+        "type": "date",
+        "nullable": false
+      },
+      {
+        "name": "to_date",
+        "type": "date",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "emp_no"
+        ],
+        "refTable": "employees",
+        "refColumns": [
+          "emp_no"
+        ]
+      },
+      {
+        "columns": [
+          "dept_no"
+        ],
+        "refTable": "departments",
+        "refColumns": [
+          "dept_no"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "employees",
+    "rows": 6024,
+    "primaryKey": [
+      "emp_no"
+    ],
+    "columns": [
+      {
+        "name": "emp_no",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "birth_date",
+        "type": "date",
+        "nullable": false
+      },
+      {
+        "name": "first_name",
+        "type": "varchar(14)",
+        "nullable": false
+      },
+      {
+        "name": "last_name",
+        "type": "varchar(16)",
+        "nullable": false
+      },
+      {
+        "name": "gender",
+        "type": "text",
+        "nullable": false
+      },
+      {
+        "name": "hire_date",
+        "type": "date",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "salaries",
+    "rows": 57362,
+    "primaryKey": [
+      "emp_no",
+      "from_date"
+    ],
+    "columns": [
+      {
+        "name": "emp_no",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "salary",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "from_date",
+        "type": "date",
+        "nullable": false
+      },
+      {
+        "name": "to_date",
+        "type": "date",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "emp_no"
+        ],
+        "refTable": "employees",
+        "refColumns": [
+          "emp_no"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "titles",
+    "rows": 8949,
+    "primaryKey": [
+      "emp_no",
+      "title",
+      "from_date"
+    ],
+    "columns": [
+      {
+        "name": "emp_no",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "title",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "from_date",
+        "type": "date",
+        "nullable": false
+      },
+      {
+        "name": "to_date",
+        "type": "date",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "emp_no"
+        ],
+        "refTable": "employees",
+        "refColumns": [
+          "emp_no"
+        ]
+      }
+    ]
+  }
+]

@@ -31,6 +31,16 @@ export const DATASETS: Record<DatasetId, DatasetMeta> = {
     attribution:
       'Northwind sample database © Microsoft Corporation, MIT license. Converted here from the official SQL Server script: identifiers in snake_case, money and discount as exact decimals, employee photos, category pictures, the two empty demographics tables, views and procedures left out.',
   },
+  employees: {
+    id: 'employees',
+    name: 'Employees',
+    about:
+      'A company\'s HR history from 1985 to 2002: every salary, job title and department of each employee, with start and end dates. An end date of 9999-01-01 means "still current".',
+    license: 'CC BY-SA 3.0',
+    source: { label: 'datacharmer/test_db', url: 'https://github.com/datacharmer/test_db' },
+    attribution:
+      'Employees sample database by Fusheng Wang and Carlo Zaniolo (Siemens Corporate Research), relational schema by Giuseppe Maxia, data export by Patrick Crews; CC BY-SA 3.0. This is a sample of it, shared under the same license: all departments and managers, every employee whose number is a multiple of 50, and their complete history (6,024 of 300,024 employees).',
+  },
 }
 
 export const DATASET_IDS = Object.keys(DATASETS) as DatasetId[]

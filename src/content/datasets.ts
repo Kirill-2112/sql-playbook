@@ -41,6 +41,19 @@ export const DATASETS: Record<DatasetId, DatasetMeta> = {
     attribution:
       'Employees sample database by Fusheng Wang and Carlo Zaniolo (Siemens Corporate Research), relational schema by Giuseppe Maxia, data export by Patrick Crews; CC BY-SA 3.0. This is a sample of it, shared under the same license: all departments and managers, every employee whose number is a multiple of 50, and their complete history (6,024 of 300,024 employees).',
   },
+  adventureworks: {
+    id: 'adventureworks',
+    name: 'AdventureWorks',
+    about:
+      'Adventure Works Cycles, a bicycle maker: products in categories and subcategories, sales orders, customers, stores, salespeople and their quotas, territories, vendors and purchase orders, and an org chart of 290 employees. 2022 to 2025.',
+    license: 'MIT',
+    source: {
+      label: 'microsoft/sql-server-samples',
+      url: 'https://github.com/microsoft/sql-server-samples/releases/tag/adventureworks',
+    },
+    attribution:
+      'AdventureWorks OLTP sample © Microsoft Corporation, MIT license. Converted here from the official install script: 37 of 71 tables, schemas flattened, identifiers in snake_case, the hierarchyid org chart turned into manager_id, XML and binary columns left out, and every 4th sales order kept with all its lines.',
+  },
 }
 
 export const DATASET_IDS = Object.keys(DATASETS) as DatasetId[]

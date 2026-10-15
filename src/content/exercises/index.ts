@@ -7,6 +7,7 @@ const loaders: Record<DatasetId, () => Promise<Exercise[]>> = {
   chinook: () => import('./chinook').then((m) => m.chinookExercises),
   northwind: () => import('./northwind').then((m) => m.northwindExercises),
   employees: () => import('./employees').then((m) => m.employeesExercises),
+  adventureworks: () => import('./adventureworks').then((m) => m.adventureworksExercises),
 }
 
 const cache = new Map<DatasetId, Promise<Exercise[]>>()

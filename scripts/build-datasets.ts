@@ -18,6 +18,7 @@ import mysql from 'mysql2/promise'
 import { connectMysql, type MysqlConnection } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
+import { loadAdventureWorksSample } from './sources/adventureworks'
 import { loadEmployeesSample } from './sources/employees'
 import { convertNorthwind } from './sources/northwind'
 
@@ -70,6 +71,13 @@ const DATASETS: DatasetConfig[] = [
     sourceSchema: 'employees_sample',
     // A consistent sample of datacharmer/test_db (see scripts/sources/employees.ts).
     customLoad: (conn) => loadEmployeesSample(conn, ROOT, MYSQL_CONTAINER),
+    snakeCase: false,
+  },
+  {
+    id: 'adventureworks',
+    sourceSchema: 'adventureworks_src',
+    // Microsoft's OLTP install script converted to MySQL, sales orders sampled (see scripts/sources/adventureworks.ts).
+    customLoad: (conn) => loadAdventureWorksSample(conn, ROOT, MYSQL_CONTAINER),
     snakeCase: false,
   },
 ]
@@ -265,6 +273,16 @@ function mysqlType(c: Column): string {
   return c.columnType.replace(/ (character set|collate) \S+/gi, '')
 }
 
+// ---------- names ----------
+
+/** Constraint and index names must fit both limits (PostgreSQL 63, MySQL 64 characters). */
+function objectName(name: string): string {
+  if (name.length <= 60) return name
+  let hash = 2166136261
+  for (const ch of name) hash = Math.imul(hash ^ ch.charCodeAt(0), 16777619) >>> 0
+  return `${name.slice(0, 51)}_${hash.toString(16).padStart(8, '0')}`
+}
+
 // ---------- defaults ----------
 
 const isNumeric = (s: string) => /^-?\d+(\.\d+)?$/.test(s)
@@ -321,11 +339,11 @@ function emitPostgres(cfg: DatasetConfig, tables: Table[], rows: Map<string, unk
     for (const c of t.columns.filter((col) => col.autoIncrement))
       out.push(`select setval(pg_get_serial_sequence('${t.name}', '${c.name}'), (select max(${c.name}) from ${t.name}));`)
   for (const t of tables) {
-    for (const u of t.uniques) out.push(`create unique index ${t.name}_${u.join('_')}_key on ${t.name} (${u.join(', ')});`)
-    for (const ix of t.indexes) out.push(`create index ${t.name}_${ix.join('_')}_idx on ${t.name} (${ix.join(', ')});`)
+    for (const u of t.uniques) out.push(`create unique index ${objectName(`${t.name}_${u.join('_')}_key`)} on ${t.name} (${u.join(', ')});`)
+    for (const ix of t.indexes) out.push(`create index ${objectName(`${t.name}_${ix.join('_')}_idx`)} on ${t.name} (${ix.join(', ')});`)
     for (const fk of t.foreignKeys)
       out.push(
-        `alter table ${t.name} add constraint ${t.name}_${fk.columns.join('_')}_fkey foreign key (${fk.columns.join(', ')}) references ${fk.refTable} (${fk.refColumns.join(', ')});`,
+        `alter table ${t.name} add constraint ${objectName(`${t.name}_${fk.columns.join('_')}_fkey`)} foreign key (${fk.columns.join(', ')}) references ${fk.refTable} (${fk.refColumns.join(', ')});`,
       )
   }
   out.push('analyze;')
@@ -348,8 +366,8 @@ function emitMysql(cfg: DatasetConfig, tables: Table[], rows: Map<string, unknow
       return `  ${q(c.name)} ${mysqlType(c)}${c.nullable ? '' : ' not null'}${def ? ' default ' + def : ''}${c.onUpdateNow ? ' on update current_timestamp' : ''}${c.autoIncrement ? ' auto_increment' : ''}`
     })
     if (t.primaryKey.length) defs.push(`  primary key (${t.primaryKey.map(q).join(', ')})`)
-    for (const u of t.uniques) defs.push(`  unique key ${q(`${t.name}_${u.join('_')}_key`)} (${u.map(q).join(', ')})`)
-    for (const ix of t.indexes) defs.push(`  key ${q(`${t.name}_${ix.join('_')}_idx`)} (${ix.map(q).join(', ')})`)
+    for (const u of t.uniques) defs.push(`  unique key ${q(objectName(`${t.name}_${u.join('_')}_key`))} (${u.map(q).join(', ')})`)
+    for (const ix of t.indexes) defs.push(`  key ${q(objectName(`${t.name}_${ix.join('_')}_idx`))} (${ix.map(q).join(', ')})`)
     out.push(`create table ${q(t.name)} (\n${defs.join(',\n')}\n) engine=InnoDB;`)
   }
   for (const t of tables) {
@@ -362,7 +380,7 @@ function emitMysql(cfg: DatasetConfig, tables: Table[], rows: Map<string, unknow
   for (const t of tables)
     for (const fk of t.foreignKeys)
       out.push(
-        `alter table ${q(t.name)} add constraint ${q(`${t.name}_${fk.columns.join('_')}_fkey`)} foreign key (${fk.columns.map(q).join(', ')}) references ${q(fk.refTable)} (${fk.refColumns.map(q).join(', ')});`,
+        `alter table ${q(t.name)} add constraint ${q(objectName(`${t.name}_${fk.columns.join('_')}_fkey`))} foreign key (${fk.columns.map(q).join(', ')}) references ${q(fk.refTable)} (${fk.refColumns.map(q).join(', ')});`,
       )
   out.push('set foreign_key_checks = 1;', 'analyze table ' + tables.map((t) => q(t.name)).join(', ') + ';')
   return out.join('\n') + '\n'

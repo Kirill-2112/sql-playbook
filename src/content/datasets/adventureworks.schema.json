@@ -1,0 +1,1960 @@
+[
+  {
+    "name": "country_region",
+    "rows": 238,
+    "primaryKey": [
+      "country_region_code"
+    ],
+    "columns": [
+      {
+        "name": "country_region_code",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "culture",
+    "rows": 8,
+    "primaryKey": [
+      "culture_id"
+    ],
+    "columns": [
+      {
+        "name": "culture_id",
+        "type": "varchar(6)",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "customer",
+    "rows": 6604,
+    "primaryKey": [
+      "customer_id"
+    ],
+    "columns": [
+      {
+        "name": "customer_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "person_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "store_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "territory_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "account_number",
+        "type": "varchar(10)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "person_id"
+        ],
+        "refTable": "person",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      },
+      {
+        "columns": [
+          "store_id"
+        ],
+        "refTable": "store",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      },
+      {
+        "columns": [
+          "territory_id"
+        ],
+        "refTable": "sales_territory",
+        "refColumns": [
+          "territory_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "department",
+    "rows": 16,
+    "primaryKey": [
+      "department_id"
+    ],
+    "columns": [
+      {
+        "name": "department_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "group_name",
+        "type": "varchar(50)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "employee",
+    "rows": 290,
+    "primaryKey": [
+      "business_entity_id"
+    ],
+    "columns": [
+      {
+        "name": "business_entity_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "login_id",
+        "type": "varchar(256)",
+        "nullable": false
+      },
+      {
+        "name": "organization_level",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "job_title",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "birth_date",
+        "type": "date",
+        "nullable": false
+      },
+      {
+        "name": "marital_status",
+        "type": "varchar(1)",
+        "nullable": false
+      },
+      {
+        "name": "gender",
+        "type": "varchar(1)",
+        "nullable": false
+      },
+      {
+        "name": "hire_date",
+        "type": "date",
+        "nullable": false
+      },
+      {
+        "name": "salaried_flag",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "vacation_hours",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "sick_leave_hours",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "current_flag",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "manager_id",
+        "type": "integer",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "business_entity_id"
+        ],
+        "refTable": "person",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      },
+      {
+        "columns": [
+          "manager_id"
+        ],
+        "refTable": "employee",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "employee_department_history",
+    "rows": 296,
+    "primaryKey": [
+      "business_entity_id",
+      "start_date",
+      "department_id",
+      "shift_id"
+    ],
+    "columns": [
+      {
+        "name": "business_entity_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "department_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "shift_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "start_date",
+        "type": "date",
+        "nullable": false
+      },
+      {
+        "name": "end_date",
+        "type": "date",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "department_id"
+        ],
+        "refTable": "department",
+        "refColumns": [
+          "department_id"
+        ]
+      },
+      {
+        "columns": [
+          "business_entity_id"
+        ],
+        "refTable": "employee",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      },
+      {
+        "columns": [
+          "shift_id"
+        ],
+        "refTable": "shift",
+        "refColumns": [
+          "shift_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "employee_pay_history",
+    "rows": 316,
+    "primaryKey": [
+      "business_entity_id",
+      "rate_change_date"
+    ],
+    "columns": [
+      {
+        "name": "business_entity_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "rate_change_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "rate",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "pay_frequency",
+        "type": "smallint",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "business_entity_id"
+        ],
+        "refTable": "employee",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "location",
+    "rows": 14,
+    "primaryKey": [
+      "location_id"
+    ],
+    "columns": [
+      {
+        "name": "location_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "cost_rate",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "availability",
+        "type": "numeric(8, 2)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "person",
+    "rows": 6894,
+    "primaryKey": [
+      "business_entity_id"
+    ],
+    "columns": [
+      {
+        "name": "business_entity_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "person_type",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "name_style",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "title",
+        "type": "varchar(8)",
+        "nullable": true
+      },
+      {
+        "name": "first_name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "middle_name",
+        "type": "varchar(50)",
+        "nullable": true
+      },
+      {
+        "name": "last_name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "suffix",
+        "type": "varchar(10)",
+        "nullable": true
+      },
+      {
+        "name": "email_promotion",
+        "type": "integer",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "product",
+    "rows": 504,
+    "primaryKey": [
+      "product_id"
+    ],
+    "columns": [
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "product_number",
+        "type": "varchar(25)",
+        "nullable": false
+      },
+      {
+        "name": "make_flag",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "finished_goods_flag",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "color",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "safety_stock_level",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "reorder_point",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "standard_cost",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "list_price",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "size",
+        "type": "varchar(5)",
+        "nullable": true
+      },
+      {
+        "name": "size_unit_measure_code",
+        "type": "varchar(3)",
+        "nullable": true
+      },
+      {
+        "name": "weight_unit_measure_code",
+        "type": "varchar(3)",
+        "nullable": true
+      },
+      {
+        "name": "weight",
+        "type": "numeric(8, 2)",
+        "nullable": true
+      },
+      {
+        "name": "days_to_manufacture",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "product_line",
+        "type": "varchar(2)",
+        "nullable": true
+      },
+      {
+        "name": "class",
+        "type": "varchar(2)",
+        "nullable": true
+      },
+      {
+        "name": "style",
+        "type": "varchar(2)",
+        "nullable": true
+      },
+      {
+        "name": "product_subcategory_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "product_model_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "sell_start_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "sell_end_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "discontinued_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "size_unit_measure_code"
+        ],
+        "refTable": "unit_measure",
+        "refColumns": [
+          "unit_measure_code"
+        ]
+      },
+      {
+        "columns": [
+          "weight_unit_measure_code"
+        ],
+        "refTable": "unit_measure",
+        "refColumns": [
+          "unit_measure_code"
+        ]
+      },
+      {
+        "columns": [
+          "product_model_id"
+        ],
+        "refTable": "product_model",
+        "refColumns": [
+          "product_model_id"
+        ]
+      },
+      {
+        "columns": [
+          "product_subcategory_id"
+        ],
+        "refTable": "product_subcategory",
+        "refColumns": [
+          "product_subcategory_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "product_category",
+    "rows": 4,
+    "primaryKey": [
+      "product_category_id"
+    ],
+    "columns": [
+      {
+        "name": "product_category_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "product_cost_history",
+    "rows": 395,
+    "primaryKey": [
+      "product_id",
+      "start_date"
+    ],
+    "columns": [
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "start_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "end_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "standard_cost",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "product_id"
+        ],
+        "refTable": "product",
+        "refColumns": [
+          "product_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "product_description",
+    "rows": 762,
+    "primaryKey": [
+      "product_description_id"
+    ],
+    "columns": [
+      {
+        "name": "product_description_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "description",
+        "type": "varchar(400)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "product_inventory",
+    "rows": 1069,
+    "primaryKey": [
+      "product_id",
+      "location_id"
+    ],
+    "columns": [
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "location_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "shelf",
+        "type": "varchar(10)",
+        "nullable": false
+      },
+      {
+        "name": "bin",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "quantity",
+        "type": "smallint",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "location_id"
+        ],
+        "refTable": "location",
+        "refColumns": [
+          "location_id"
+        ]
+      },
+      {
+        "columns": [
+          "product_id"
+        ],
+        "refTable": "product",
+        "refColumns": [
+          "product_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "product_list_price_history",
+    "rows": 395,
+    "primaryKey": [
+      "product_id",
+      "start_date"
+    ],
+    "columns": [
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "start_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "end_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "list_price",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "product_id"
+        ],
+        "refTable": "product",
+        "refColumns": [
+          "product_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "product_model",
+    "rows": 128,
+    "primaryKey": [
+      "product_model_id"
+    ],
+    "columns": [
+      {
+        "name": "product_model_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "product_model_product_description_culture",
+    "rows": 762,
+    "primaryKey": [
+      "product_model_id",
+      "product_description_id",
+      "culture_id"
+    ],
+    "columns": [
+      {
+        "name": "product_model_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "product_description_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "culture_id",
+        "type": "varchar(6)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "product_description_id"
+        ],
+        "refTable": "product_description",
+        "refColumns": [
+          "product_description_id"
+        ]
+      },
+      {
+        "columns": [
+          "culture_id"
+        ],
+        "refTable": "culture",
+        "refColumns": [
+          "culture_id"
+        ]
+      },
+      {
+        "columns": [
+          "product_model_id"
+        ],
+        "refTable": "product_model",
+        "refColumns": [
+          "product_model_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "product_review",
+    "rows": 4,
+    "primaryKey": [
+      "product_review_id"
+    ],
+    "columns": [
+      {
+        "name": "product_review_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "reviewer_name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "review_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "rating",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "comments",
+        "type": "varchar(3850)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "product_id"
+        ],
+        "refTable": "product",
+        "refColumns": [
+          "product_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "product_subcategory",
+    "rows": 37,
+    "primaryKey": [
+      "product_subcategory_id"
+    ],
+    "columns": [
+      {
+        "name": "product_subcategory_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "product_category_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "product_category_id"
+        ],
+        "refTable": "product_category",
+        "refColumns": [
+          "product_category_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "product_vendor",
+    "rows": 460,
+    "primaryKey": [
+      "product_id",
+      "business_entity_id"
+    ],
+    "columns": [
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "business_entity_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "average_lead_time",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "standard_price",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "last_receipt_cost",
+        "type": "numeric(19, 4)",
+        "nullable": true
+      },
+      {
+        "name": "last_receipt_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "min_order_qty",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "max_order_qty",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "on_order_qty",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "unit_measure_code",
+        "type": "varchar(3)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "product_id"
+        ],
+        "refTable": "product",
+        "refColumns": [
+          "product_id"
+        ]
+      },
+      {
+        "columns": [
+          "unit_measure_code"
+        ],
+        "refTable": "unit_measure",
+        "refColumns": [
+          "unit_measure_code"
+        ]
+      },
+      {
+        "columns": [
+          "business_entity_id"
+        ],
+        "refTable": "vendor",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "purchase_order_detail",
+    "rows": 8845,
+    "primaryKey": [
+      "purchase_order_id",
+      "purchase_order_detail_id"
+    ],
+    "columns": [
+      {
+        "name": "purchase_order_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "purchase_order_detail_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "due_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "order_qty",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "unit_price",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "line_total",
+        "type": "numeric(19, 4)",
+        "nullable": true
+      },
+      {
+        "name": "received_qty",
+        "type": "numeric(8, 2)",
+        "nullable": false
+      },
+      {
+        "name": "rejected_qty",
+        "type": "numeric(8, 2)",
+        "nullable": false
+      },
+      {
+        "name": "stocked_qty",
+        "type": "numeric(9, 2)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "product_id"
+        ],
+        "refTable": "product",
+        "refColumns": [
+          "product_id"
+        ]
+      },
+      {
+        "columns": [
+          "purchase_order_id"
+        ],
+        "refTable": "purchase_order_header",
+        "refColumns": [
+          "purchase_order_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "purchase_order_header",
+    "rows": 4012,
+    "primaryKey": [
+      "purchase_order_id"
+    ],
+    "columns": [
+      {
+        "name": "purchase_order_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "revision_number",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "status",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "employee_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "vendor_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "ship_method_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "order_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "ship_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "sub_total",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "tax_amt",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "freight",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "total_due",
+        "type": "numeric(19, 4)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "employee_id"
+        ],
+        "refTable": "employee",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      },
+      {
+        "columns": [
+          "vendor_id"
+        ],
+        "refTable": "vendor",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      },
+      {
+        "columns": [
+          "ship_method_id"
+        ],
+        "refTable": "ship_method",
+        "refColumns": [
+          "ship_method_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sales_order_detail",
+    "rows": 31314,
+    "primaryKey": [
+      "sales_order_id",
+      "sales_order_detail_id"
+    ],
+    "columns": [
+      {
+        "name": "sales_order_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "sales_order_detail_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "carrier_tracking_number",
+        "type": "varchar(25)",
+        "nullable": true
+      },
+      {
+        "name": "order_qty",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "special_offer_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "unit_price",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "unit_price_discount",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "line_total",
+        "type": "numeric(38, 6)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "sales_order_id"
+        ],
+        "refTable": "sales_order_header",
+        "refColumns": [
+          "sales_order_id"
+        ]
+      },
+      {
+        "columns": [
+          "special_offer_id",
+          "product_id"
+        ],
+        "refTable": "special_offer_product",
+        "refColumns": [
+          "special_offer_id",
+          "product_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sales_order_header",
+    "rows": 7866,
+    "primaryKey": [
+      "sales_order_id"
+    ],
+    "columns": [
+      {
+        "name": "sales_order_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "revision_number",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "order_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "due_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "ship_date",
+        "type": "timestamp(0)",
+        "nullable": true
+      },
+      {
+        "name": "status",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "online_order_flag",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "sales_order_number",
+        "type": "varchar(25)",
+        "nullable": true
+      },
+      {
+        "name": "purchase_order_number",
+        "type": "varchar(25)",
+        "nullable": true
+      },
+      {
+        "name": "account_number",
+        "type": "varchar(15)",
+        "nullable": true
+      },
+      {
+        "name": "customer_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "sales_person_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "territory_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "bill_to_address_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "ship_to_address_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "ship_method_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "credit_card_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "currency_rate_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "sub_total",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "tax_amt",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "freight",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "total_due",
+        "type": "numeric(19, 4)",
+        "nullable": true
+      },
+      {
+        "name": "comment",
+        "type": "varchar(128)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "customer_id"
+        ],
+        "refTable": "customer",
+        "refColumns": [
+          "customer_id"
+        ]
+      },
+      {
+        "columns": [
+          "sales_person_id"
+        ],
+        "refTable": "sales_person",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      },
+      {
+        "columns": [
+          "ship_method_id"
+        ],
+        "refTable": "ship_method",
+        "refColumns": [
+          "ship_method_id"
+        ]
+      },
+      {
+        "columns": [
+          "territory_id"
+        ],
+        "refTable": "sales_territory",
+        "refColumns": [
+          "territory_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sales_order_header_sales_reason",
+    "rows": 6868,
+    "primaryKey": [
+      "sales_order_id",
+      "sales_reason_id"
+    ],
+    "columns": [
+      {
+        "name": "sales_order_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "sales_reason_id",
+        "type": "integer",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "sales_reason_id"
+        ],
+        "refTable": "sales_reason",
+        "refColumns": [
+          "sales_reason_id"
+        ]
+      },
+      {
+        "columns": [
+          "sales_order_id"
+        ],
+        "refTable": "sales_order_header",
+        "refColumns": [
+          "sales_order_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sales_person",
+    "rows": 17,
+    "primaryKey": [
+      "business_entity_id"
+    ],
+    "columns": [
+      {
+        "name": "business_entity_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "territory_id",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "sales_quota",
+        "type": "numeric(19, 4)",
+        "nullable": true
+      },
+      {
+        "name": "bonus",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "commission_pct",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "sales_ytd",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "sales_last_year",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "business_entity_id"
+        ],
+        "refTable": "employee",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      },
+      {
+        "columns": [
+          "territory_id"
+        ],
+        "refTable": "sales_territory",
+        "refColumns": [
+          "territory_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sales_person_quota_history",
+    "rows": 163,
+    "primaryKey": [
+      "business_entity_id",
+      "quota_date"
+    ],
+    "columns": [
+      {
+        "name": "business_entity_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "quota_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "sales_quota",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "business_entity_id"
+        ],
+        "refTable": "sales_person",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "sales_reason",
+    "rows": 10,
+    "primaryKey": [
+      "sales_reason_id"
+    ],
+    "columns": [
+      {
+        "name": "sales_reason_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "reason_type",
+        "type": "varchar(50)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "sales_territory",
+    "rows": 10,
+    "primaryKey": [
+      "territory_id"
+    ],
+    "columns": [
+      {
+        "name": "territory_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "country_region_code",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "territory_group",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "sales_ytd",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "sales_last_year",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "cost_ytd",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "cost_last_year",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "country_region_code"
+        ],
+        "refTable": "country_region",
+        "refColumns": [
+          "country_region_code"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "shift",
+    "rows": 3,
+    "primaryKey": [
+      "shift_id"
+    ],
+    "columns": [
+      {
+        "name": "shift_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "start_time",
+        "type": "time(0)",
+        "nullable": false
+      },
+      {
+        "name": "end_time",
+        "type": "time(0)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "ship_method",
+    "rows": 5,
+    "primaryKey": [
+      "ship_method_id"
+    ],
+    "columns": [
+      {
+        "name": "ship_method_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "ship_base",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "ship_rate",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "special_offer",
+    "rows": 16,
+    "primaryKey": [
+      "special_offer_id"
+    ],
+    "columns": [
+      {
+        "name": "special_offer_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "description",
+        "type": "varchar(255)",
+        "nullable": false
+      },
+      {
+        "name": "discount_pct",
+        "type": "numeric(19, 4)",
+        "nullable": false
+      },
+      {
+        "name": "type",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "category",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "start_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "end_date",
+        "type": "timestamp(0)",
+        "nullable": false
+      },
+      {
+        "name": "min_qty",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "max_qty",
+        "type": "integer",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "special_offer_product",
+    "rows": 538,
+    "primaryKey": [
+      "special_offer_id",
+      "product_id"
+    ],
+    "columns": [
+      {
+        "name": "special_offer_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "product_id",
+        "type": "integer",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "product_id"
+        ],
+        "refTable": "product",
+        "refColumns": [
+          "product_id"
+        ]
+      },
+      {
+        "columns": [
+          "special_offer_id"
+        ],
+        "refTable": "special_offer",
+        "refColumns": [
+          "special_offer_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "state_province",
+    "rows": 181,
+    "primaryKey": [
+      "state_province_id"
+    ],
+    "columns": [
+      {
+        "name": "state_province_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "state_province_code",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "country_region_code",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "is_only_state_province_flag",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "territory_id",
+        "type": "integer",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "country_region_code"
+        ],
+        "refTable": "country_region",
+        "refColumns": [
+          "country_region_code"
+        ]
+      },
+      {
+        "columns": [
+          "territory_id"
+        ],
+        "refTable": "sales_territory",
+        "refColumns": [
+          "territory_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "store",
+    "rows": 475,
+    "primaryKey": [
+      "business_entity_id"
+    ],
+    "columns": [
+      {
+        "name": "business_entity_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "sales_person_id",
+        "type": "integer",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "sales_person_id"
+        ],
+        "refTable": "sales_person",
+        "refColumns": [
+          "business_entity_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "unit_measure",
+    "rows": 38,
+    "primaryKey": [
+      "unit_measure_code"
+    ],
+    "columns": [
+      {
+        "name": "unit_measure_code",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "vendor",
+    "rows": 104,
+    "primaryKey": [
+      "business_entity_id"
+    ],
+    "columns": [
+      {
+        "name": "business_entity_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "account_number",
+        "type": "varchar(15)",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "credit_rating",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "preferred_vendor_status",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "active_flag",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "purchasing_web_service_url",
+        "type": "varchar(1024)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": []
+  }
+]

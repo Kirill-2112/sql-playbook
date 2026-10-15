@@ -46,6 +46,11 @@ jobs:
           mkdir -p datasets/raw/test_db
           curl -sSfL https://github.com/datacharmer/test_db/archive/e324b56193ca506ab7cc1ab143a9153d8c4535d7.tar.gz \
             | tar -xz -C datasets/raw/test_db --strip-components=1
+          # AdventureWorks: the release asset has no commit to pin to, so its checksum is verified instead.
+          curl -sSfL -o datasets/raw/aw.zip \
+            https://github.com/microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks-oltp-install-script.zip
+          echo "58962e94ea386ef7cd3d8a08211bfd42a79d9b81bdd68fd4b6b0051de6c5bd42  datasets/raw/aw.zip" | sha256sum -c
+          mkdir -p datasets/raw/aw && unzip -q datasets/raw/aw.zip -d datasets/raw/aw
 
       - name: Rebuild datasets (PostgreSQL and MySQL builds must match row by row)
         run: npm run build:datasets

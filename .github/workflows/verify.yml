@@ -23,7 +23,13 @@ jobs:
       - name: Start MySQL 8.4
         run: |
           docker run --name sql-playbook-mysql -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -p 127.0.0.1:3306:3306 -d mysql:8.4
-          for i in $(seq 1 60); do docker exec sql-playbook-mysql mysqladmin ping --silent && break; sleep 2; done
+          # The image first runs a temporary init server without networking, then restarts.
+          # Wait until the final server answers over TCP, the way the scripts connect.
+          for i in $(seq 1 90); do
+            docker exec sql-playbook-mysql mysql --protocol=TCP -h127.0.0.1 -uroot -e 'select 1' >/dev/null 2>&1 && break
+            sleep 2
+          done
+          docker exec sql-playbook-mysql mysql --protocol=TCP -h127.0.0.1 -uroot -e 'select version()'
 
       - name: Download the official dataset sources
         run: |

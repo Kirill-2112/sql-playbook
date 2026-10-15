@@ -51,6 +51,9 @@ jobs:
             https://github.com/microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks-oltp-install-script.zip
           echo "58962e94ea386ef7cd3d8a08211bfd42a79d9b81bdd68fd4b6b0051de6c5bd42  datasets/raw/aw.zip" | sha256sum -c
           mkdir -p datasets/raw/aw && unzip -q datasets/raw/aw.zip -d datasets/raw/aw
+          # Airlines: the Postgres Pro demo database (a PostgreSQL dump); the file is not versioned, so its checksum is verified.
+          curl -sSfL -o datasets/raw/demo-20250901-3m.sql.gz https://edu.postgrespro.ru/demo-20250901-3m.sql.gz
+          echo "083221c60f1246597b9a175a0ffa0533565cf30a02b89d97c5578cdf86295e0c  datasets/raw/demo-20250901-3m.sql.gz" | sha256sum -c
 
       - name: Rebuild datasets (PostgreSQL and MySQL builds must match row by row)
         run: npm run build:datasets

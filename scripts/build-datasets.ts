@@ -19,6 +19,7 @@ import { connectMysql, type MysqlConnection } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
 import { loadAdventureWorksSample } from './sources/adventureworks'
+import { loadAirlinesSample } from './sources/airlines'
 import { loadEmployeesSample } from './sources/employees'
 import { convertNorthwind } from './sources/northwind'
 
@@ -40,6 +41,12 @@ interface DatasetConfig {
   /** Columns that cannot exist in both databases, e.g. MySQL GEOMETRY. */
   dropColumns?: Record<string, string[]>
   dropTables?: string[]
+  /**
+   * PostgreSQL types that MySQL has no equivalent for, by "table.column": timestamptz (MySQL DATETIME holding UTC),
+   * interval (MySQL TIME), boolean (MySQL TINYINT(1)), integer[] (MySQL JSON array).
+   * A dataset with timestamptz columns is loaded with the session time zone set to UTC.
+   */
+  pgTypes?: Record<string, string>
 }
 
 const DATASETS: DatasetConfig[] = [
@@ -80,6 +87,26 @@ const DATASETS: DatasetConfig[] = [
     customLoad: (conn) => loadAdventureWorksSample(conn, ROOT, MYSQL_CONTAINER),
     snakeCase: false,
   },
+  {
+    id: 'airlines',
+    sourceSchema: 'airlines_src',
+    // The Postgres Pro demo database (a PostgreSQL dump), sampled and loaded into MySQL (see scripts/sources/airlines.ts).
+    customLoad: (conn) => loadAirlinesSample(conn, ROOT),
+    snakeCase: false,
+    pgTypes: {
+      'routes.valid_from': 'timestamptz',
+      'routes.valid_to': 'timestamptz',
+      'routes.days_of_week': 'integer[]',
+      'routes.duration': 'interval',
+      'flights.scheduled_departure': 'timestamptz',
+      'flights.scheduled_arrival': 'timestamptz',
+      'flights.actual_departure': 'timestamptz',
+      'flights.actual_arrival': 'timestamptz',
+      'bookings.book_date': 'timestamptz',
+      'tickets.outbound': 'boolean',
+      'boarding_passes.boarding_time': 'timestamptz',
+    },
+  },
 ]
 
 // ---------- schema model ----------
@@ -97,6 +124,8 @@ interface Column {
   defaultValue: string | null
   autoIncrement: boolean
   onUpdateNow: boolean
+  /** From DatasetConfig.pgTypes. */
+  pgOverride?: string
 }
 
 interface ForeignKey {
@@ -175,6 +204,7 @@ async function readSchema(conn: MysqlConnection, cfg: DatasetConfig): Promise<Ta
         defaultValue: r.def === null ? null : String(r.def),
         autoIncrement: /auto_increment/i.test(r.extra),
         onUpdateNow: /on update current_timestamp/i.test(r.extra),
+        pgOverride: cfg.pgTypes?.[`${rename(t)}.${rename(r.c)}`],
       }))
 
     const group = (rows: mysql.RowDataPacket[]) => {
@@ -212,6 +242,7 @@ async function readSchema(conn: MysqlConnection, cfg: DatasetConfig): Promise<Ta
 // ---------- type mapping ----------
 
 function pgType(c: Column): string {
+  if (c.pgOverride) return c.pgOverride
   const unsigned = c.columnType.toLowerCase().includes('unsigned')
   switch (c.dataType) {
     case 'tinyint':
@@ -250,6 +281,8 @@ function pgType(c: Column): string {
       return 'time(0)'
     case 'year':
       return 'smallint'
+    case 'json':
+      return 'jsonb'
     case 'blob':
     case 'tinyblob':
     case 'mediumblob':
@@ -312,11 +345,28 @@ function pgLiteral(value: unknown): string {
   return `'${String(value).replace(/'/g, "''")}'`
 }
 
+/** A value read from MySQL, written for the column's PostgreSQL type. */
+function pgColumnLiteral(c: Column, value: unknown): string {
+  if (value === null || value === undefined) return 'null'
+  switch (c.pgOverride) {
+    case 'timestamptz':
+      return `'${String(value)}+00'`
+    case 'boolean':
+      return Number(value) ? 'true' : 'false'
+    case 'integer[]':
+      return `'{${(value as number[]).join(',')}}'`
+  }
+  if (c.dataType === 'json') return pgLiteral(JSON.stringify(value))
+  return pgLiteral(value)
+}
+
 function emitPostgres(cfg: DatasetConfig, tables: Table[], rows: Map<string, unknown[][]>): string {
   const out: string[] = [
     `-- ${cfg.id}: built by scripts/build-datasets.ts from the official source. Do not edit by hand.`,
     'set client_min_messages = warning;',
   ]
+  // timestamptz is shown in the session time zone, which PGlite takes from the computer. MySQL DATETIME holds UTC.
+  if (tables.some((t) => t.columns.some((c) => c.pgOverride === 'timestamptz'))) out.push(`set timezone = 'UTC';`)
   for (const t of tables) {
     const defs = t.columns.map((c) => {
       const check = enumCheck(c)
@@ -330,7 +380,7 @@ function emitPostgres(cfg: DatasetConfig, tables: Table[], rows: Map<string, unk
   for (const t of tables) {
     const data = rows.get(t.name) ?? []
     for (let i = 0; i < data.length; i += BATCH) {
-      const values = data.slice(i, i + BATCH).map((r) => `(${r.map(pgLiteral).join(', ')})`)
+      const values = data.slice(i, i + BATCH).map((r) => `(${r.map((v, j) => pgColumnLiteral(t.columns[j]!, v)).join(', ')})`)
       out.push(`insert into ${t.name} (${t.columns.map((c) => c.name).join(', ')}) values\n${values.join(',\n')};`)
     }
   }
@@ -373,7 +423,9 @@ function emitMysql(cfg: DatasetConfig, tables: Table[], rows: Map<string, unknow
   for (const t of tables) {
     const data = rows.get(t.name) ?? []
     for (let i = 0; i < data.length; i += BATCH) {
-      const values = data.slice(i, i + BATCH).map((r) => `(${r.map((v) => mysql.escape(v as Parameters<typeof mysql.escape>[0])).join(', ')})`)
+      const values = data
+        .slice(i, i + BATCH)
+        .map((r) => `(${r.map((v, j) => mysql.escape((t.columns[j]!.dataType === 'json' && v !== null ? JSON.stringify(v) : v) as Parameters<typeof mysql.escape>[0])).join(', ')})`)
       out.push(`insert into ${q(t.name)} (${t.columns.map((c) => q(c.name)).join(', ')}) values\n${values.join(',\n')};`)
     }
   }

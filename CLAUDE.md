@@ -10,11 +10,28 @@ Nothing is published unless `npm run verify` passes: every PostgreSQL solution r
 every MySQL solution returns the same rows as PostgreSQL, and each exercise has at least one solution verified on MySQL.
 GitHub Actions (`.github/workflows/verify.yml`) runs the whole pipeline on every push.
 
+## Commercial use (the owner plans a paid subscription app)
+
+Only use datasets, libraries, fonts and tools whose license allows commercial use. Verify the license from the primary
+source (the license file or official page) before adding anything, and record it in `datasets.ts` and README.
+Audit of 2026-10-15:
+- OK: Sakila (BSD, keep Oracle notice), Chinook (MIT), Northwind + AdventureWorks (MIT, microsoft/sql-server-samples
+  license.txt), Airlines / Postgres Pro demo 2025 (MIT), Employees (CC BY-SA 3.0: commercial use allowed, but our sample
+  must stay CC BY-SA, credited, and freely downloadable — keep it in the public repo).
+- Runtime deps: MIT/ISC, PGlite Apache-2.0 (ship its license/NOTICE with the app). Font IBM Plex: OFL.
+  MySQL server (GPL) is only used locally/in CI for verification, never shipped.
+- Rejected: OpenFlights (ODbL, but the author sells separate commercial licenses; Wikipedia-derived parts may be GFDL),
+  Olympics/Kaggle "120 years" (scraped from sports-reference.com; its terms forbid using the data with AI tools).
+- Unverified: Lahman (said to be CC BY-SA 3.0; re-check the readme in the official download since SABR took it over).
+- The repo has no LICENSE file on purpose (code and exercises: all rights reserved).
+- Before launch: a Licenses/credits page in the app with every dataset's and library's notice.
+
 ## Layout
 
 - `scripts/build-datasets.ts` — official source → MySQL → `public/datasets/<id>.pg.sql` + `datasets/build/<id>.mysql.sql`
   + `src/content/datasets/<id>.schema.json`, then compares both builds row by row. Output must be byte-for-byte reproducible.
-- `scripts/sources/*.ts` — converters/samplers for sources that are not plain MySQL (Northwind, Employees, AdventureWorks).
+- `scripts/sources/*.ts` — converters/samplers for sources that are not plain MySQL (Northwind, Employees, AdventureWorks,
+  Airlines). `pgTypes` in a dataset config gives a column a PostgreSQL-only type (timestamptz, interval, boolean, integer[]).
 - `scripts/verify.ts` — checks every exercise on PGlite and the local MySQL; writes `src/content/generated/verification.json`.
 - `src/content/exercises/<dataset>.ts` — exercises (`Exercise` type in `src/content/types.ts`). Script exercises (DDL/DML,
   functions, triggers) set `checkSql` (and `checkSqlMysql` if needed); PG runs them in a rolled-back transaction, MySQL on a
@@ -40,13 +57,18 @@ GitHub Actions (`.github/workflows/verify.yml`) runs the whole pipeline on every
 - MySQL: no FILTER, FULL JOIN, MERGE, RETURNING, DISTINCT ON, generate_series, ::, partial indexes, bool_and;
   `||` is OR; `/` is decimal (use DIV); temp tables can't be referenced twice in one query.
 - When a learner-visible claim mentions a number (counts, percentages), check it against the data first.
+- Airlines times: timestamptz in PG (the .pg.sql sets `timezone = 'UTC'`, otherwise PGlite uses the computer's zone),
+  DATETIME holding UTC in MySQL; compareRows treats "…+00" and the bare value as equal. Local time: AT TIME ZONE vs
+  CONVERT_TZ (needs MySQL tz tables, present in the official image). Express durations that may exceed a day as minutes:
+  PG prints intervals as "1 day 02:00:00", MySQL TIME as "26:00:00".
 
 ## Status (2026-10-15)
 
-- 5 datasets: Sakila, Chinook, Northwind (from Microsoft T-SQL), Employees (sample of datacharmer/test_db, CC BY-SA),
-  AdventureWorks (from Microsoft OLTP install script, every 4th order). 165 exercises, 52/53 topics (locks/isolation: theory only).
+- 6 datasets: Sakila, Chinook, Northwind (from Microsoft T-SQL), Employees (sample of datacharmer/test_db, CC BY-SA),
+  AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
+  every 200th booking). 199 exercises, 52/53 topics (locks/isolation: theory only).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
-- Next candidates: Airlines (Postgres Pro demo, PG-only → needs MySQL conversion), Lahman Baseball, Olympics,
-  OpenFlights (non-commercial license), MySQL version of the synthetic Delivery dataset; a functions reference section;
+- Next candidates: Lahman Baseball (check license first),
+  MySQL version of the synthetic Delivery dataset; a functions reference section;
   deploying the site (GitHub Pages).
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

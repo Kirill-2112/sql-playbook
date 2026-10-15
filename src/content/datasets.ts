@@ -54,6 +54,16 @@ export const DATASETS: Record<DatasetId, DatasetMeta> = {
     attribution:
       'AdventureWorks OLTP sample © Microsoft Corporation, MIT license. Converted here from the official install script: 37 of 71 tables, schemas flattened, identifiers in snake_case, the hierarchyid org chart turned into manager_id, XML and binary columns left out, and every 4th sales order kept with all its lines.',
   },
+  airlines: {
+    id: 'airlines',
+    name: 'Airlines',
+    about:
+      'A fictional airline flying worldwide: airplanes and their seats, airports with time zones, monthly route schedules, flights, bookings, tickets, flight segments and boarding passes. Flights from October 2025 to January 2026; the snapshot is taken at 2025-12-01 00:00 UTC, so later flights are still scheduled. All times are in UTC.',
+    license: 'MIT',
+    source: { label: 'Postgres Pro demo database', url: 'https://postgrespro.com/community/demodb' },
+    attribution:
+      'Demo database © Postgres Professional, MIT license, version 2025-09-01 (3 months). Converted here from the official PostgreSQL dump: every 200th booking kept with all its tickets, segments and boarding passes (6,465 of 1,292,893), all reference data and flights in full; English names only; coordinates as latitude/longitude; the route validity range as valid_from/valid_to; times in whole seconds; range renamed range_km and speed speed_kmh; check constraints, views and functions left out.',
+  },
 }
 
 export const DATASET_IDS = Object.keys(DATASETS) as DatasetId[]

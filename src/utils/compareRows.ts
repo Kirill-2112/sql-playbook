@@ -4,6 +4,8 @@
 //   bytes -> hex                                  null stays null
 // Used by the browser (checking a learner's answer) and by scripts/verify.ts.
 const NUMERIC = /^-?\d+(\.\d+)?$/
+// A timestamptz shown in UTC ("2025-10-01 10:55:00+00") equals a MySQL DATETIME that holds UTC ("2025-10-01 10:55:00").
+const UTC_TIMESTAMP = /^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)?)\+00$/
 
 function canonicalNumber(text: string): string {
   if (!text.includes('.')) return text === '-0' ? '0' : text
@@ -20,7 +22,7 @@ export function normalizeValue(value: unknown): string | null {
   if (typeof value === 'boolean') return value ? '1' : '0'
   if (typeof value === 'number' || typeof value === 'bigint') return canonicalNumber(String(value))
   if (value instanceof Uint8Array) return 'x' + toHex(value)
-  if (typeof value === 'string') return NUMERIC.test(value) ? canonicalNumber(value) : value
+  if (typeof value === 'string') return NUMERIC.test(value) ? canonicalNumber(value) : value.replace(UTC_TIMESTAMP, '$1')
   return JSON.stringify(value)
 }
 

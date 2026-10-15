@@ -8,7 +8,7 @@ Queries run on real PostgreSQL inside the browser; MySQL versions are verified a
 
 ## What is inside
 
-- **Exercises** — 60 exercises on two datasets (Sakila, Chinook), levels 1–3, each with 1–4 solutions,
+- **Exercises** — 199 exercises on six datasets, levels 1–5, each with 1–4 solutions,
   a MySQL 8.4 version (or an explanation of why it is impossible in MySQL) and links to the official docs.
 - **Situations** — problem-first guides ("top N per group", "rows with no match", …).
 - **Index Lab** — `EXPLAIN ANALYZE` before and after adding an index on 200,000 rows, including the cases where an index does not help.
@@ -56,6 +56,7 @@ curl -sSfL https://raw.githubusercontent.com/lerocha/chinook-database/v1.4.5/Chi
 curl -sSfL -o datasets/raw/instnwnd.sql https://raw.githubusercontent.com/microsoft/sql-server-samples/2f85f3724ee45776a5183ed34d064488a6e1dc53/samples/databases/northwind-pubs/instnwnd.sql
 mkdir -p datasets/raw/test_db && curl -sSfL https://github.com/datacharmer/test_db/archive/e324b56193ca506ab7cc1ab143a9153d8c4535d7.tar.gz | tar -xz -C datasets/raw/test_db --strip-components=1
 curl -sSfL -o datasets/raw/aw.zip https://github.com/microsoft/sql-server-samples/releases/download/adventureworks/AdventureWorks-oltp-install-script.zip && mkdir -p datasets/raw/aw && unzip -q datasets/raw/aw.zip -d datasets/raw/aw
+curl -sSfL -o datasets/raw/demo-20250901-3m.sql.gz https://edu.postgrespro.ru/demo-20250901-3m.sql.gz
 ```
 
 Then:
@@ -73,6 +74,7 @@ npm run verify
 | Chinook | [lerocha/chinook-database](https://github.com/lerocha/chinook-database) v1.4.5 | MIT, © 2008–2024 Luis Rocha | identifiers converted to snake_case |
 | Northwind | [microsoft/sql-server-samples](https://github.com/microsoft/sql-server-samples/tree/master/samples/databases/northwind-pubs) | MIT, © Microsoft | converted from T-SQL by `scripts/sources/northwind.ts`; photos, pictures, empty demographics tables, views and procedures left out |
 | AdventureWorks | [microsoft/sql-server-samples release](https://github.com/microsoft/sql-server-samples/releases/tag/adventureworks) (SHA-256 checked) | MIT, © Microsoft | converted by `scripts/sources/adventureworks.ts`: 37 of 71 tables, hierarchyid → manager_id, XML/binary columns left out, every 4th sales order |
+| Airlines | [Postgres Pro demo database](https://postgrespro.com/community/demodb) 2025-09-01, 3 months (SHA-256 checked) | MIT, © Postgres Professional | converted from the PostgreSQL dump by `scripts/sources/airlines.ts`: every 200th booking with its tickets, segments and boarding passes; English names only; point → latitude/longitude, tstzrange → valid_from/valid_to; integer[] stays an array in PostgreSQL and is JSON in MySQL; times in UTC, whole seconds |
 | Employees | [datacharmer/test_db](https://github.com/datacharmer/test_db) | CC BY-SA 3.0 | a sample (`scripts/sources/employees.ts`): all departments and managers, employees with emp_no divisible by 50, complete history. `public/datasets/employees.pg.sql` and `datasets/build/employees.mysql.sql` are shared under CC BY-SA 3.0 |
 
 Documentation links point to the official [PostgreSQL](https://www.postgresql.org/docs/current/) and
@@ -83,6 +85,10 @@ Documentation links point to the official [PostgreSQL](https://www.postgresql.or
 React + TypeScript (strict) + styled-components, Vite. [PGlite](https://pglite.dev) (PostgreSQL 18 in WebAssembly).
 Scripts run with tsx and use mysql2.
 
+Licenses of what ships to the browser: React, React Router, styled-components and their dependencies (MIT/ISC),
+PGlite (Apache-2.0, includes PostgreSQL under the PostgreSQL License), IBM Plex fonts (SIL Open Font License).
+MySQL Server is used only to verify solutions and is not distributed.
+
 ## Roadmap
 
-See the plan: 10 datasets, ~1,200 exercises across 53 topics and 5 levels, a reference section, CI verification on GitHub Actions.
+See the plan: 8 datasets so far, ~1,000 exercises across 53 topics and 5 levels, a reference section, CI verification on GitHub Actions.

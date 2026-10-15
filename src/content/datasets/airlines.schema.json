@@ -1,0 +1,410 @@
+[
+  {
+    "name": "airplanes",
+    "rows": 10,
+    "primaryKey": [
+      "airplane_code"
+    ],
+    "columns": [
+      {
+        "name": "airplane_code",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "model",
+        "type": "varchar(100)",
+        "nullable": false
+      },
+      {
+        "name": "range_km",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "speed_kmh",
+        "type": "integer",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "airports",
+    "rows": 5501,
+    "primaryKey": [
+      "airport_code"
+    ],
+    "columns": [
+      {
+        "name": "airport_code",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "airport_name",
+        "type": "varchar(100)",
+        "nullable": false
+      },
+      {
+        "name": "city",
+        "type": "varchar(100)",
+        "nullable": false
+      },
+      {
+        "name": "country",
+        "type": "varchar(100)",
+        "nullable": false
+      },
+      {
+        "name": "latitude",
+        "type": "numeric(7, 4)",
+        "nullable": false
+      },
+      {
+        "name": "longitude",
+        "type": "numeric(7, 4)",
+        "nullable": false
+      },
+      {
+        "name": "timezone",
+        "type": "varchar(40)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "boarding_passes",
+    "rows": 12115,
+    "primaryKey": [
+      "ticket_no",
+      "flight_id"
+    ],
+    "columns": [
+      {
+        "name": "ticket_no",
+        "type": "varchar(13)",
+        "nullable": false
+      },
+      {
+        "name": "flight_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "seat_no",
+        "type": "varchar(4)",
+        "nullable": false
+      },
+      {
+        "name": "boarding_no",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "boarding_time",
+        "type": "timestamptz",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "ticket_no",
+          "flight_id"
+        ],
+        "refTable": "segments",
+        "refColumns": [
+          "ticket_no",
+          "flight_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "bookings",
+    "rows": 6465,
+    "primaryKey": [
+      "book_ref"
+    ],
+    "columns": [
+      {
+        "name": "book_ref",
+        "type": "varchar(6)",
+        "nullable": false
+      },
+      {
+        "name": "book_date",
+        "type": "timestamptz",
+        "nullable": false
+      },
+      {
+        "name": "total_amount",
+        "type": "numeric(10, 2)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "flights",
+    "rows": 21758,
+    "primaryKey": [
+      "flight_id"
+    ],
+    "columns": [
+      {
+        "name": "flight_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "route_no",
+        "type": "varchar(6)",
+        "nullable": false
+      },
+      {
+        "name": "status",
+        "type": "varchar(10)",
+        "nullable": false
+      },
+      {
+        "name": "scheduled_departure",
+        "type": "timestamptz",
+        "nullable": false
+      },
+      {
+        "name": "scheduled_arrival",
+        "type": "timestamptz",
+        "nullable": false
+      },
+      {
+        "name": "actual_departure",
+        "type": "timestamptz",
+        "nullable": true
+      },
+      {
+        "name": "actual_arrival",
+        "type": "timestamptz",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "routes",
+    "rows": 1162,
+    "primaryKey": [
+      "route_no",
+      "valid_from"
+    ],
+    "columns": [
+      {
+        "name": "route_no",
+        "type": "varchar(6)",
+        "nullable": false
+      },
+      {
+        "name": "valid_from",
+        "type": "timestamptz",
+        "nullable": false
+      },
+      {
+        "name": "valid_to",
+        "type": "timestamptz",
+        "nullable": false
+      },
+      {
+        "name": "departure_airport",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "arrival_airport",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "airplane_code",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "days_of_week",
+        "type": "integer[]",
+        "nullable": false
+      },
+      {
+        "name": "scheduled_time",
+        "type": "time(0)",
+        "nullable": false
+      },
+      {
+        "name": "duration",
+        "type": "interval",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "departure_airport"
+        ],
+        "refTable": "airports",
+        "refColumns": [
+          "airport_code"
+        ]
+      },
+      {
+        "columns": [
+          "arrival_airport"
+        ],
+        "refTable": "airports",
+        "refColumns": [
+          "airport_code"
+        ]
+      },
+      {
+        "columns": [
+          "airplane_code"
+        ],
+        "refTable": "airplanes",
+        "refColumns": [
+          "airplane_code"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "seats",
+    "rows": 1741,
+    "primaryKey": [
+      "airplane_code",
+      "seat_no"
+    ],
+    "columns": [
+      {
+        "name": "airplane_code",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "seat_no",
+        "type": "varchar(4)",
+        "nullable": false
+      },
+      {
+        "name": "fare_conditions",
+        "type": "varchar(10)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "airplane_code"
+        ],
+        "refTable": "airplanes",
+        "refColumns": [
+          "airplane_code"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "segments",
+    "rows": 19446,
+    "primaryKey": [
+      "ticket_no",
+      "flight_id"
+    ],
+    "columns": [
+      {
+        "name": "ticket_no",
+        "type": "varchar(13)",
+        "nullable": false
+      },
+      {
+        "name": "flight_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "fare_conditions",
+        "type": "varchar(10)",
+        "nullable": false
+      },
+      {
+        "name": "price",
+        "type": "numeric(10, 2)",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "ticket_no"
+        ],
+        "refTable": "tickets",
+        "refColumns": [
+          "ticket_no"
+        ]
+      },
+      {
+        "columns": [
+          "flight_id"
+        ],
+        "refTable": "flights",
+        "refColumns": [
+          "flight_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "tickets",
+    "rows": 14668,
+    "primaryKey": [
+      "ticket_no"
+    ],
+    "columns": [
+      {
+        "name": "ticket_no",
+        "type": "varchar(13)",
+        "nullable": false
+      },
+      {
+        "name": "book_ref",
+        "type": "varchar(6)",
+        "nullable": false
+      },
+      {
+        "name": "passenger_id",
+        "type": "varchar(20)",
+        "nullable": false
+      },
+      {
+        "name": "passenger_name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "outbound",
+        "type": "boolean",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "book_ref"
+        ],
+        "refTable": "bookings",
+        "refColumns": [
+          "book_ref"
+        ]
+      }
+    ]
+  }
+]

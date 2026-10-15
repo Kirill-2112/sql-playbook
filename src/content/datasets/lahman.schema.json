@@ -1,0 +1,1128 @@
+[
+  {
+    "name": "allstar_full",
+    "rows": 1161,
+    "primaryKey": [
+      "player_id",
+      "year_id",
+      "game_num"
+    ],
+    "columns": [
+      {
+        "name": "player_id",
+        "type": "varchar(9)",
+        "nullable": false
+      },
+      {
+        "name": "year_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "game_num",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "game_id",
+        "type": "varchar(12)",
+        "nullable": true
+      },
+      {
+        "name": "team_id",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "lg_id",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "gp",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "starting_pos",
+        "type": "varchar(4)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "player_id"
+        ],
+        "refTable": "people",
+        "refColumns": [
+          "player_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "awards_players",
+    "rows": 3367,
+    "primaryKey": [
+      "award_no"
+    ],
+    "columns": [
+      {
+        "name": "award_no",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "player_id",
+        "type": "varchar(9)",
+        "nullable": false
+      },
+      {
+        "name": "award_id",
+        "type": "varchar(60)",
+        "nullable": false
+      },
+      {
+        "name": "year_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "lg_id",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "tie",
+        "type": "varchar(1)",
+        "nullable": true
+      },
+      {
+        "name": "notes",
+        "type": "varchar(100)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "player_id"
+        ],
+        "refTable": "people",
+        "refColumns": [
+          "player_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "batting",
+    "rows": 24276,
+    "primaryKey": [
+      "player_id",
+      "year_id",
+      "stint"
+    ],
+    "columns": [
+      {
+        "name": "player_id",
+        "type": "varchar(9)",
+        "nullable": false
+      },
+      {
+        "name": "year_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "stint",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "team_id",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "lg_id",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "g",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ab",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "r",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "h",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "doubles",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "triples",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "hr",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "rbi",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sb",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "cs",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "bb",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "so",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ibb",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "hbp",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sh",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sf",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "gidp",
+        "type": "smallint",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "player_id"
+        ],
+        "refTable": "people",
+        "refColumns": [
+          "player_id"
+        ]
+      },
+      {
+        "columns": [
+          "year_id",
+          "team_id"
+        ],
+        "refTable": "teams",
+        "refColumns": [
+          "year_id",
+          "team_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "hall_of_fame",
+    "rows": 6295,
+    "primaryKey": [
+      "player_id",
+      "year_id",
+      "voted_by"
+    ],
+    "columns": [
+      {
+        "name": "player_id",
+        "type": "varchar(10)",
+        "nullable": false
+      },
+      {
+        "name": "year_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "voted_by",
+        "type": "varchar(64)",
+        "nullable": false
+      },
+      {
+        "name": "ballots",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "needed",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "votes",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "inducted",
+        "type": "varchar(1)",
+        "nullable": true
+      },
+      {
+        "name": "category",
+        "type": "varchar(20)",
+        "nullable": false
+      },
+      {
+        "name": "needed_note",
+        "type": "varchar(120)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "player_id"
+        ],
+        "refTable": "people",
+        "refColumns": [
+          "player_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "managers",
+    "rows": 3825,
+    "primaryKey": [
+      "year_id",
+      "team_id",
+      "inseason"
+    ],
+    "columns": [
+      {
+        "name": "player_id",
+        "type": "varchar(9)",
+        "nullable": false
+      },
+      {
+        "name": "year_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "team_id",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "lg_id",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "inseason",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "g",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "w",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "l",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "standing",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "plyr_mgr",
+        "type": "varchar(1)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "player_id"
+        ],
+        "refTable": "people",
+        "refColumns": [
+          "player_id"
+        ]
+      },
+      {
+        "columns": [
+          "year_id",
+          "team_id"
+        ],
+        "refTable": "teams",
+        "refColumns": [
+          "year_id",
+          "team_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "people",
+    "rows": 6933,
+    "primaryKey": [
+      "player_id"
+    ],
+    "columns": [
+      {
+        "name": "player_id",
+        "type": "varchar(9)",
+        "nullable": false
+      },
+      {
+        "name": "birth_year",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "birth_month",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "birth_day",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "birth_country",
+        "type": "varchar(50)",
+        "nullable": true
+      },
+      {
+        "name": "birth_state",
+        "type": "varchar(50)",
+        "nullable": true
+      },
+      {
+        "name": "birth_city",
+        "type": "varchar(50)",
+        "nullable": true
+      },
+      {
+        "name": "death_year",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "death_month",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "death_day",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "death_country",
+        "type": "varchar(50)",
+        "nullable": true
+      },
+      {
+        "name": "death_state",
+        "type": "varchar(50)",
+        "nullable": true
+      },
+      {
+        "name": "death_city",
+        "type": "varchar(50)",
+        "nullable": true
+      },
+      {
+        "name": "name_first",
+        "type": "varchar(50)",
+        "nullable": true
+      },
+      {
+        "name": "name_last",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "name_given",
+        "type": "varchar(255)",
+        "nullable": true
+      },
+      {
+        "name": "weight",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "height",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "bats",
+        "type": "varchar(1)",
+        "nullable": true
+      },
+      {
+        "name": "throws",
+        "type": "varchar(1)",
+        "nullable": true
+      },
+      {
+        "name": "debut",
+        "type": "date",
+        "nullable": true
+      },
+      {
+        "name": "final_game",
+        "type": "date",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "pitching",
+    "rows": 13610,
+    "primaryKey": [
+      "player_id",
+      "year_id",
+      "stint"
+    ],
+    "columns": [
+      {
+        "name": "player_id",
+        "type": "varchar(9)",
+        "nullable": false
+      },
+      {
+        "name": "year_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "stint",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "team_id",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "lg_id",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "w",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "l",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "g",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "gs",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "cg",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sho",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sv",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ipouts",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "h",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "er",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "hr",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "bb",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "so",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ba_opp",
+        "type": "numeric(6, 3)",
+        "nullable": true
+      },
+      {
+        "name": "era",
+        "type": "numeric(5, 2)",
+        "nullable": true
+      },
+      {
+        "name": "ibb",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "wp",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "hbp",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "bk",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "bfp",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "gf",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "r",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sh",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sf",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "gidp",
+        "type": "smallint",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "player_id"
+        ],
+        "refTable": "people",
+        "refColumns": [
+          "player_id"
+        ]
+      },
+      {
+        "columns": [
+          "year_id",
+          "team_id"
+        ],
+        "refTable": "teams",
+        "refColumns": [
+          "year_id",
+          "team_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "salaries",
+    "rows": 5804,
+    "primaryKey": [
+      "year_id",
+      "team_id",
+      "player_id"
+    ],
+    "columns": [
+      {
+        "name": "year_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "team_id",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "lg_id",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "player_id",
+        "type": "varchar(9)",
+        "nullable": false
+      },
+      {
+        "name": "salary",
+        "type": "integer",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "player_id"
+        ],
+        "refTable": "people",
+        "refColumns": [
+          "player_id"
+        ]
+      },
+      {
+        "columns": [
+          "year_id",
+          "team_id"
+        ],
+        "refTable": "teams",
+        "refColumns": [
+          "year_id",
+          "team_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "series_post",
+    "rows": 411,
+    "primaryKey": [
+      "year_id",
+      "round"
+    ],
+    "columns": [
+      {
+        "name": "year_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "round",
+        "type": "varchar(5)",
+        "nullable": false
+      },
+      {
+        "name": "team_id_winner",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "lg_id_winner",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "team_id_loser",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "lg_id_loser",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "wins",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "losses",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ties",
+        "type": "smallint",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "year_id",
+          "team_id_winner"
+        ],
+        "refTable": "teams",
+        "refColumns": [
+          "year_id",
+          "team_id"
+        ]
+      },
+      {
+        "columns": [
+          "year_id",
+          "team_id_loser"
+        ],
+        "refTable": "teams",
+        "refColumns": [
+          "year_id",
+          "team_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "teams",
+    "rows": 3105,
+    "primaryKey": [
+      "year_id",
+      "team_id"
+    ],
+    "columns": [
+      {
+        "name": "year_id",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "lg_id",
+        "type": "varchar(2)",
+        "nullable": false
+      },
+      {
+        "name": "team_id",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "franch_id",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "div_id",
+        "type": "varchar(1)",
+        "nullable": true
+      },
+      {
+        "name": "standing",
+        "type": "smallint",
+        "nullable": false
+      },
+      {
+        "name": "g",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "g_home",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "w",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "l",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "div_win",
+        "type": "varchar(1)",
+        "nullable": true
+      },
+      {
+        "name": "wc_win",
+        "type": "varchar(1)",
+        "nullable": true
+      },
+      {
+        "name": "lg_win",
+        "type": "varchar(1)",
+        "nullable": true
+      },
+      {
+        "name": "ws_win",
+        "type": "varchar(1)",
+        "nullable": true
+      },
+      {
+        "name": "r",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ab",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "h",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "doubles",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "triples",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "hr",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "bb",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "so",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sb",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "cs",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "hbp",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sf",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ra",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "er",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "era",
+        "type": "numeric(4, 2)",
+        "nullable": true
+      },
+      {
+        "name": "cg",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sho",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "sv",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ipouts",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ha",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "hra",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "bba",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "soa",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "e",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "dp",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "fp",
+        "type": "numeric(4, 3)",
+        "nullable": true
+      },
+      {
+        "name": "name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "park",
+        "type": "varchar(80)",
+        "nullable": true
+      },
+      {
+        "name": "attendance",
+        "type": "integer",
+        "nullable": true
+      },
+      {
+        "name": "bpf",
+        "type": "smallint",
+        "nullable": true
+      },
+      {
+        "name": "ppf",
+        "type": "smallint",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "franch_id"
+        ],
+        "refTable": "teams_franchises",
+        "refColumns": [
+          "franch_id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "teams_franchises",
+    "rows": 120,
+    "primaryKey": [
+      "franch_id"
+    ],
+    "columns": [
+      {
+        "name": "franch_id",
+        "type": "varchar(3)",
+        "nullable": false
+      },
+      {
+        "name": "franch_name",
+        "type": "varchar(50)",
+        "nullable": false
+      },
+      {
+        "name": "active",
+        "type": "varchar(2)",
+        "nullable": true
+      },
+      {
+        "name": "na_assoc",
+        "type": "varchar(3)",
+        "nullable": true
+      }
+    ],
+    "foreignKeys": []
+  }
+]

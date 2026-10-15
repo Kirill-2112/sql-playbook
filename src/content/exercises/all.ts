@@ -3,8 +3,10 @@ import type { Exercise } from '../types'
 import { adventureworksExercises } from './adventureworks'
 import { airlinesExercises } from './airlines'
 import { chinookExercises } from './chinook'
+import { deliveryExercises } from './delivery'
 import { employeesExercises } from './employees'
+import { lahmanExercises } from './lahman'
 import { northwindExercises } from './northwind'
 import { sakilaExercises } from './sakila'
 
-export const ALL_EXERCISES: Exercise[] = [...sakilaExercises, ...chinookExercises, ...northwindExercises, ...employeesExercises, ...adventureworksExercises, ...airlinesExercises]
+export const ALL_EXERCISES: Exercise[] = [...sakilaExercises, ...chinookExercises, ...northwindExercises, ...employeesExercises, ...adventureworksExercises, ...airlinesExercises, ...lahmanExercises, ...deliveryExercises]

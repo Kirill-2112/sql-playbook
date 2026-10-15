@@ -1,0 +1,126 @@
+[
+  {
+    "name": "customers",
+    "rows": 50000,
+    "primaryKey": [
+      "id"
+    ],
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false
+      },
+      {
+        "name": "email",
+        "type": "text",
+        "nullable": false
+      },
+      {
+        "name": "city",
+        "type": "text",
+        "nullable": false
+      },
+      {
+        "name": "signed_up_at",
+        "type": "date",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  },
+  {
+    "name": "orders",
+    "rows": 200000,
+    "primaryKey": [
+      "id"
+    ],
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "customer_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "restaurant_id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "total",
+        "type": "numeric(8, 2)",
+        "nullable": false
+      },
+      {
+        "name": "status",
+        "type": "text",
+        "nullable": false
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": [
+      {
+        "columns": [
+          "customer_id"
+        ],
+        "refTable": "customers",
+        "refColumns": [
+          "id"
+        ]
+      },
+      {
+        "columns": [
+          "restaurant_id"
+        ],
+        "refTable": "restaurants",
+        "refColumns": [
+          "id"
+        ]
+      }
+    ]
+  },
+  {
+    "name": "restaurants",
+    "rows": 100,
+    "primaryKey": [
+      "id"
+    ],
+    "columns": [
+      {
+        "name": "id",
+        "type": "integer",
+        "nullable": false
+      },
+      {
+        "name": "name",
+        "type": "text",
+        "nullable": false
+      },
+      {
+        "name": "cuisine",
+        "type": "text",
+        "nullable": false
+      },
+      {
+        "name": "city",
+        "type": "text",
+        "nullable": false
+      }
+    ],
+    "foreignKeys": []
+  }
+]

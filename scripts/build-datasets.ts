@@ -20,8 +20,11 @@ import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
 import { loadAdventureWorksSample } from './sources/adventureworks'
 import { loadAirlinesSample } from './sources/airlines'
+import { loadDelivery } from './sources/delivery'
 import { loadEmployeesSample } from './sources/employees'
+import { loadLahman } from './sources/lahman'
 import { convertNorthwind } from './sources/northwind'
+import { SEED_SQL } from '../src/db/seed'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const MYSQL_CONTAINER = 'sql-playbook-mysql'
@@ -47,6 +50,11 @@ interface DatasetConfig {
    * A dataset with timestamptz columns is loaded with the session time zone set to UTC.
    */
   pgTypes?: Record<string, string>
+  /**
+   * The browser generates this dataset itself from this SQL, so no public/datasets/<id>.pg.sql is written;
+   * the MySQL build is compared with a PGlite run of this SQL instead.
+   */
+  browserSql?: string
 }
 
 const DATASETS: DatasetConfig[] = [
@@ -105,6 +113,32 @@ const DATASETS: DatasetConfig[] = [
       'bookings.book_date': 'timestamptz',
       'tickets.outbound': 'boolean',
       'boarding_passes.boarding_time': 'timestamptz',
+    },
+  },
+  {
+    id: 'lahman',
+    sourceSchema: 'lahman_src',
+    // SABR's official CSV release: major leagues only, player seasons from 2000 (see scripts/sources/lahman.ts).
+    customLoad: (conn) => loadLahman(conn, ROOT),
+    snakeCase: false,
+  },
+  {
+    id: 'delivery',
+    sourceSchema: 'delivery_src',
+    // Our synthetic data, generated in the browser; MySQL gets a copy of PGlite's rows (see scripts/sources/delivery.ts).
+    customLoad: (conn) => loadDelivery(conn),
+    snakeCase: false,
+    browserSql: SEED_SQL,
+    // The types src/db/seed.ts uses, shown in the schema view.
+    pgTypes: {
+      'customers.name': 'text',
+      'customers.email': 'text',
+      'customers.city': 'text',
+      'restaurants.name': 'text',
+      'restaurants.cuisine': 'text',
+      'restaurants.city': 'text',
+      'orders.status': 'text',
+      'orders.created_at': 'timestamp',
     },
   },
 ]
@@ -488,7 +522,7 @@ async function buildDataset(cfg: DatasetConfig) {
   const myPath = join(ROOT, 'datasets/build', `${cfg.id}.mysql.sql`)
   const schemaPath = join(ROOT, 'src/content/datasets', `${cfg.id}.schema.json`)
   for (const p of [pgPath, myPath, schemaPath]) mkdirSync(dirname(p), { recursive: true })
-  writeFileSync(pgPath, pgSql)
+  if (!cfg.browserSql) writeFileSync(pgPath, pgSql)
   writeFileSync(myPath, mySql)
   writeFileSync(
     schemaPath,
@@ -504,13 +538,13 @@ async function buildDataset(cfg: DatasetConfig) {
       2,
     ) + '\n',
   )
-  console.log(`wrote ${pgPath.replace(ROOT + '/', '')} (${(pgSql.length / 1024).toFixed(0)} KB)`)
+  if (!cfg.browserSql) console.log(`wrote ${pgPath.replace(ROOT + '/', '')} (${(pgSql.length / 1024).toFixed(0)} KB)`)
   console.log(`wrote ${myPath.replace(ROOT + '/', '')} (${(mySql.length / 1024).toFixed(0)} KB)`)
 
   // Load both builds and compare every table.
   await conn.query(mySql)
   const pg = createPglite()
-  await pg.exec(pgSql)
+  await pg.exec(cfg.browserSql ?? pgSql)
   let ok = true
   for (const t of tables) {
     const order = (t.primaryKey.length ? t.primaryKey : t.columns.map((c) => c.name)).join(', ')

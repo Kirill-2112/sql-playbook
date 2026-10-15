@@ -54,6 +54,8 @@ jobs:
           # Airlines: the Postgres Pro demo database (a PostgreSQL dump); the file is not versioned, so its checksum is verified.
           curl -sSfL -o datasets/raw/demo-20250901-3m.sql.gz https://edu.postgrespro.ru/demo-20250901-3m.sql.gz
           echo "083221c60f1246597b9a175a0ffa0533565cf30a02b89d97c5578cdf86295e0c  datasets/raw/demo-20250901-3m.sql.gz" | sha256sum -c
+          # Lahman: SABR publishes the CSV files in a Box folder without versions, so each file's checksum is verified.
+          sh scripts/download-lahman.sh
 
       - name: Rebuild datasets (PostgreSQL and MySQL builds must match row by row)
         run: npm run build:datasets

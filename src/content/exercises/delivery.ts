@@ -1,0 +1,936 @@
+import type { Exercise } from '../types'
+
+const PG = 'https://www.postgresql.org/docs/current/'
+const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
+
+const DELIMITER_NOTE =
+  'In the mysql command-line client, wrap the CREATE statement in DELIMITER $$ … $$ so the semicolons inside the body do not end it early.'
+
+export const deliveryExercises: Exercise[] = [
+  // ---------- Level 1 ----------
+  {
+    id: 'delivery-001',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['select-basics', 'limit'],
+    title: 'The biggest orders',
+    prompt: 'Show the 5 largest orders: id, total and created_at. Equal totals: earlier order first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ORDER BY … LIMIT',
+        postgres: `select id, total, created_at
+from orders
+order by total desc, created_at, id
+limit 5;`,
+        mysql: `select id, total, created_at
+from orders
+order by total desc, created_at, id
+limit 5;`,
+        explanation: 'Sort by the amount, break ties by time and then by id, and keep the first five rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'delivery-002',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['text-search', 'aggregates'],
+    title: 'How many customers are called Noa',
+    prompt: 'Emails look like first.last123@mail.com. Count the customers whose email starts with "noa.".',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'LIKE with a prefix',
+        postgres: `select count(*) as noas
+from customers
+where email like 'noa.%';`,
+        mysql: `select count(*) as noas
+from customers
+where email like 'noa.%';`,
+        explanation: 'The dot is an ordinary character in LIKE; only % and _ are wildcards. Without the dot, "noam…" would match too if such names existed.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'delivery-003',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['casting', 'dates-basics'],
+    title: 'Orders of one day',
+    prompt: 'created_at holds date and time. How many orders were placed on 1 March 2025?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Range on the timestamp',
+        postgres: `select count(*) as orders
+from orders
+where created_at >= '2025-03-01' and created_at < '2025-03-02';`,
+        mysql: `select count(*) as orders
+from orders
+where created_at >= '2025-03-01' and created_at < '2025-03-02';`,
+        explanation: 'Every moment of that day, compared on the column itself, so an index on created_at can be used.',
+      },
+      {
+        approach: 'Cast to date',
+        postgres: `select count(*) as orders
+from orders
+where created_at::date = '2025-03-01';`,
+        mysql: `select count(*) as orders
+from orders
+where cast(created_at as date) = '2025-03-01';`,
+        mysqlNote: 'No :: in MySQL; CAST(… AS DATE) or DATE(created_at).',
+        explanation: 'Converts each timestamp to a date and compares. Shorter, but the conversion runs on every row and a plain index on created_at cannot help.',
+      },
+    ],
+    comparison: 'Same count. The range keeps the column bare and stays index-friendly; casting reads more naturally but scans everything.',
+    docs: [
+      { label: 'PostgreSQL: Type casts', url: PG + 'sql-expressions.html#SQL-SYNTAX-TYPE-CASTS' },
+      { label: 'MySQL: CAST', url: MY + 'cast-functions.html' },
+    ],
+  },
+  {
+    id: 'delivery-004',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['conditions', 'group-by'],
+    title: 'Small, medium and large orders',
+    prompt: 'Put each order in a size band: under 60 is small, under 150 is medium, the rest large. Count the orders per band.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'CASE in GROUP BY',
+        postgres: `select case when total < 60  then 'small'
+            when total < 150 then 'medium'
+            else 'large' end as band,
+       count(*) as orders
+from orders
+group by band;`,
+        mysql: `select case when total < 60  then 'small'
+            when total < 150 then 'medium'
+            else 'large' end as band,
+       count(*) as orders
+from orders
+group by band;`,
+        explanation: 'CASE takes the first branch whose condition is true, so "< 150" only sees orders that are not already small.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CASE', url: PG + 'functions-conditional.html#FUNCTIONS-CASE' }],
+  },
+
+  // ---------- Level 2 ----------
+  {
+    id: 'delivery-005',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['numbers', 'group-by'],
+    title: 'Share of each status',
+    prompt: 'For each order status, show the number of orders and its share of all orders in percent, rounded to 1 decimal.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Window total',
+        postgres: `select status, count(*) as orders,
+       round(100.0 * count(*) / sum(count(*)) over (), 1) as pct
+from orders
+group by status;`,
+        mysql: `select status, count(*) as orders,
+       round(100.0 * count(*) / sum(count(*)) over (), 1) as pct
+from orders
+group by status;`,
+        explanation: 'sum(count(*)) over () adds the group counts of all rows of the result: the grand total, available on every row. 100.0 keeps the division from being an integer one.',
+      },
+      {
+        approach: 'Scalar subquery',
+        postgres: `select status, count(*) as orders,
+       round(100.0 * count(*) / (select count(*) from orders), 1) as pct
+from orders
+group by status;`,
+        mysql: `select status, count(*) as orders,
+       round(100.0 * count(*) / (select count(*) from orders), 1) as pct
+from orders
+group by status;`,
+        explanation: 'The total comes from a separate count of the whole table.',
+      },
+    ],
+    comparison: 'Same numbers. The window version reads the table once; the subquery version reads it twice but is easy to follow.',
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'tutorial-window.html' }],
+  },
+  {
+    id: 'delivery-006',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['joins', 'group-by'],
+    title: 'Revenue by cuisine and city',
+    prompt: 'Total delivered revenue per restaurant city and cuisine. Show city, cuisine and revenue, ordered by city and then revenue, highest first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Join and group',
+        postgres: `select r.city, r.cuisine, sum(o.total) as revenue
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered'
+group by r.city, r.cuisine
+order by r.city, revenue desc;`,
+        mysql: `select r.city, r.cuisine, sum(o.total) as revenue
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered'
+group by r.city, r.cuisine
+order by r.city, revenue desc;`,
+        explanation: 'Cancelled and refunded orders brought no money, so they are filtered out before summing.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joins', url: PG + 'tutorial-join.html' }],
+  },
+  {
+    id: 'delivery-007',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['subqueries', 'set-operations'],
+    title: 'Customers who never ordered',
+    prompt: 'How many customers have no orders at all?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'NOT EXISTS',
+        postgres: `select count(*) as never_ordered
+from customers c
+where not exists (select 1 from orders o where o.customer_id = c.id);`,
+        mysql: `select count(*) as never_ordered
+from customers c
+where not exists (select 1 from orders o where o.customer_id = c.id);`,
+        explanation: 'For each customer, look for one order. NOT EXISTS keeps the customers for whom none is found.',
+      },
+      {
+        approach: 'LEFT JOIN … IS NULL',
+        postgres: `select count(*) as never_ordered
+from customers c
+left join orders o on o.customer_id = c.id
+where o.id is null;`,
+        mysql: `select count(*) as never_ordered
+from customers c
+left join orders o on o.customer_id = c.id
+where o.id is null;`,
+        explanation: 'A LEFT JOIN keeps customers without a match, filling the order side with NULL; the WHERE keeps exactly those.',
+      },
+      {
+        approach: 'EXCEPT',
+        postgres: `select count(*) as never_ordered
+from (
+  select id from customers
+  except
+  select customer_id from orders
+) nobody;`,
+        mysql: `select count(*) as never_ordered
+from (
+  select id from customers
+  except
+  select customer_id from orders
+) nobody;`,
+        mysqlNote: 'EXCEPT exists since MySQL 8.0.31.',
+        explanation: 'All customer ids minus every id that appears in orders.',
+      },
+    ],
+    comparison:
+      'Same count, different plans. PostgreSQL runs NOT EXISTS as a hash anti-join, which only needs to know whether a match exists; the LEFT JOIN is planned as an ordinary join that pairs every customer with all his orders and filters afterwards; EXCEPT builds both id lists. NOT IN would also work here, but returns nothing at all if the subquery ever contains a NULL.',
+    docs: [
+      { label: 'PostgreSQL: EXISTS', url: PG + 'functions-subquery.html#FUNCTIONS-SUBQUERY-EXISTS' },
+      { label: 'MySQL: EXCEPT', url: MY + 'except.html' },
+    ],
+  },
+  {
+    id: 'delivery-008',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['joins', 'dates-basics'],
+    title: 'Orders before sign-up',
+    prompt:
+      'Data check: an order should never be older than its customer\'s account. Count the orders created before the customer\'s signed_up_at date, and how many customers they belong to.',
+    hint: 'This data is generated: sign-up dates and order times are drawn independently, so the check finds real problems.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Join and compare',
+        postgres: `select count(*)                       as bad_orders,
+       count(distinct o.customer_id)  as customers
+from orders o
+join customers c on c.id = o.customer_id
+where o.created_at < c.signed_up_at;`,
+        mysql: `select count(*)                       as bad_orders,
+       count(distinct o.customer_id)  as customers
+from orders o
+join customers c on c.id = o.customer_id
+where o.created_at < c.signed_up_at;`,
+        explanation:
+          'Comparing a timestamp with a date treats the date as midnight. A check like this belongs in every pipeline: in a real system these rows would point to a bug, such as accounts re-created after deletion.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Date/time comparison', url: PG + 'functions-datetime.html' }],
+  },
+
+  // ---------- Level 3 ----------
+  {
+    id: 'delivery-009',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['date-series', 'joins'],
+    title: 'Revenue every day of March 2025',
+    prompt: 'Show every day of March 2025 with its delivered revenue (0 for a day without any).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'generate_series',
+        postgres: `select d::date as day, coalesce(sum(o.total), 0) as revenue
+from generate_series(date '2025-03-01', date '2025-03-31', interval '1 day') as d
+left join orders o
+       on o.status = 'delivered'
+      and o.created_at >= d and o.created_at < d + interval '1 day'
+group by d
+order by d;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation:
+          'The calendar comes from generate_series, so a day with no orders still appears. coalesce turns the NULL sum of such a day into 0. The range join keeps created_at bare for an index.',
+      },
+      {
+        approach: 'Recursive CTE',
+        postgres: `with recursive days as (
+  select date '2025-03-01' as day
+  union all
+  select (day + 1)::date from days where day < date '2025-03-31'
+)
+select d.day, coalesce(sum(o.total), 0) as revenue
+from days d
+left join orders o
+       on o.status = 'delivered'
+      and o.created_at >= d.day and o.created_at < d.day + 1
+group by d.day
+order by d.day;`,
+        mysql: `with recursive days as (
+  select date('2025-03-01') as day
+  union all
+  select day + interval 1 day from days where day < '2025-03-31'
+)
+select d.day, coalesce(sum(o.total), 0) as revenue
+from days d
+left join orders o
+       on o.status = 'delivered'
+      and o.created_at >= d.day and o.created_at < d.day + interval 1 day
+group by d.day
+order by d.day;`,
+        explanation: 'The same calendar, built one day at a time.',
+      },
+    ],
+    comparison: 'Same rows. Every day of March has orders here, but the calendar guarantees the report would not silently skip a quiet day.',
+    docs: [
+      { label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' },
+      { label: 'MySQL: Recursive CTEs', url: MY + 'with.html#common-table-expressions-recursive' },
+    ],
+  },
+  {
+    id: 'delivery-010',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['window-frames', 'dates-advanced'],
+    title: 'A 7-day moving average',
+    prompt:
+      'For each day of March 2025, show the delivered revenue and the average daily revenue over that day and the 6 days before it (rounded to 2 decimals). Use the previous days\' dates, not "the previous 6 rows".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'RANGE with an interval',
+        postgres: `with daily as (
+  select created_at::date as day, sum(total) as revenue
+  from orders
+  where status = 'delivered' and created_at >= '2025-02-22' and created_at < '2025-04-01'
+  group by created_at::date
+)
+select day, revenue, avg_7d
+from (
+  select day, revenue,
+         round(avg(revenue) over (order by day range between interval '6 days' preceding and current row), 2) as avg_7d
+  from daily
+) w
+where day >= '2025-03-01'
+order by day;`,
+        mysql: `with daily as (
+  select date(created_at) as day, sum(total) as revenue
+  from orders
+  where status = 'delivered' and created_at >= '2025-02-22' and created_at < '2025-04-01'
+  group by date(created_at)
+)
+select day, revenue, avg_7d
+from (
+  select day, revenue,
+         round(avg(revenue) over (order by day range between interval 6 day preceding and current row), 2) as avg_7d
+  from daily
+) w
+where day >= '2025-03-01'
+order by day;`,
+        mysqlNote: 'MySQL also supports RANGE frames with an INTERVAL when ordering by a date.',
+        explanation:
+          'RANGE counts in values of the ORDER BY column: "6 days before this day". ROWS would count rows, which goes wrong as soon as a day is missing. The data starts on 22 February so that 1 March already has six days of history.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' },
+      { label: 'MySQL: Window function frames', url: MY + 'window-functions-frames.html' },
+    ],
+  },
+  {
+    id: 'delivery-011',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['ranking'],
+    title: 'Order value quartiles',
+    prompt:
+      'Split the delivered orders into 4 equal groups by total (ntile). For each quartile show the number of orders and the smallest and largest total.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'NTILE',
+        postgres: `select quartile, count(*) as orders, min(total) as lowest, max(total) as highest
+from (
+  select total, ntile(4) over (order by total, id) as quartile
+  from orders
+  where status = 'delivered'
+) q
+group by quartile
+order by quartile;`,
+        mysql: `select quartile, count(*) as orders, min(total) as lowest, max(total) as highest
+from (
+  select total, ntile(4) over (order by total, id) as quartile
+  from orders
+  where status = 'delivered'
+) q
+group by quartile
+order by quartile;`,
+        explanation:
+          'NTILE(4) deals the sorted rows into four buckets of (nearly) equal size. Adding id to the ORDER BY makes the split of equal totals at a bucket border reproducible.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'delivery-012',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['lag-lead', 'dates-advanced'],
+    title: 'The quietest stretch per restaurant',
+    prompt:
+      'For restaurants 1 to 5, find the longest gap between two consecutive orders (any status). Show the restaurant id and the gap in whole minutes.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LAG, then MAX',
+        postgres: `select restaurant_id, max(gap_minutes) as longest_gap_minutes
+from (
+  select restaurant_id,
+         floor(extract(epoch from created_at - lag(created_at) over (partition by restaurant_id order by created_at, id)) / 60)::int as gap_minutes
+  from orders
+  where restaurant_id between 1 and 5
+) g
+group by restaurant_id
+order by restaurant_id;`,
+        mysql: `select restaurant_id, max(gap_minutes) as longest_gap_minutes
+from (
+  select restaurant_id,
+         timestampdiff(minute, lag(created_at) over (partition by restaurant_id order by created_at, id), created_at) as gap_minutes
+  from orders
+  where restaurant_id between 1 and 5
+) g
+group by restaurant_id
+order by restaurant_id;`,
+        explanation:
+          'LAG gives each order the time of the restaurant\'s previous order. The first order has no previous one (NULL), which MAX ignores. Minutes, because a gap can exceed a day and the two databases print long intervals differently.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: LAG', url: PG + 'functions-window.html' },
+      { label: 'MySQL: TIMESTAMPDIFF', url: MY + 'date-and-time-functions.html#function_timestampdiff' },
+    ],
+  },
+  {
+    id: 'delivery-013',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['cte', 'dates-advanced'],
+    title: 'Did first-time customers come back?',
+    prompt:
+      'For customers whose first order was in January 2025, how many placed another order within 30 days of that first one? Show the number of such first-time customers and how many came back.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'First order per customer, then look ahead',
+        postgres: `with firsts as (
+  select customer_id, min(created_at) as first_at
+  from orders
+  group by customer_id
+)
+select count(*) as new_in_january,
+       count(*) filter (where exists (
+         select 1 from orders o
+         where o.customer_id = f.customer_id
+           and o.created_at > f.first_at
+           and o.created_at <= f.first_at + interval '30 days')) as came_back
+from firsts f
+where f.first_at >= '2025-01-01' and f.first_at < '2025-02-01';`,
+        mysql: `with firsts as (
+  select customer_id, min(created_at) as first_at
+  from orders
+  group by customer_id
+)
+select count(*) as new_in_january,
+       sum(exists (
+         select 1 from orders o
+         where o.customer_id = f.customer_id
+           and o.created_at > f.first_at
+           and o.created_at <= f.first_at + interval 30 day)) as came_back
+from firsts f
+where f.first_at >= '2025-01-01' and f.first_at < '2025-02-01';`,
+        mysqlNote: 'No FILTER; EXISTS returns 1 or 0 in MySQL, so SUM counts the customers who came back.',
+        explanation:
+          'The CTE finds each customer\'s first order. Then, per January newcomer, EXISTS looks for any later order within 30 days. A basic retention metric: of the people who tried us, how many returned.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' },
+      { label: 'MySQL: WITH', url: MY + 'with.html' },
+    ],
+  },
+
+  // ---------- Level 4 ----------
+  {
+    id: 'delivery-014',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['transactions', 'dml'],
+    title: 'A refund, all or nothing',
+    prompt:
+      'Refund order 42: create a table refunds (order_id, amount), and in one transaction set the order\'s status to \'refunded\' and record the refund. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select o.status, r.amount from orders o join refunds r on r.order_id = o.id where o.id = 42`,
+    solutions: [
+      {
+        approach: 'Two changes in one transaction',
+        postgres: `create table refunds (order_id int primary key references orders (id), amount numeric(8, 2) not null);
+
+update orders set status = 'refunded' where id = 42;
+insert into refunds (order_id, amount) select id, total from orders where id = 42;`,
+        mysql: `create table refunds (order_id int primary key, amount decimal(8, 2) not null,
+                      foreign key (order_id) references orders (id));
+
+start transaction;
+update orders set status = 'refunded' where id = 42;
+insert into refunds (order_id, amount) select id, total from orders where id = 42;
+commit;`,
+        mysqlNote:
+          'Create the table before START TRANSACTION: in MySQL, CREATE TABLE commits immediately and cannot be part of the transaction. In PostgreSQL DDL is transactional too.',
+        explanation:
+          'Either both changes happen or neither does: no refunded order without a refund record, and no refund for an order still marked delivered. If anything fails before COMMIT, ROLLBACK undoes both.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Transactions', url: PG + 'tutorial-transactions.html' },
+      { label: 'MySQL: Statements that cause an implicit commit', url: MY + 'implicit-commit.html' },
+    ],
+  },
+  {
+    id: 'delivery-015',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['merge', 'upsert'],
+    title: 'Apply a batch of corrections',
+    prompt:
+      'Support sent corrections in a table fixes(order_id, total): orders 1 and 2 get new totals, and order 999999 is a missing order that must be created for customer 1 at restaurant 1, delivered, at 2026-06-30 12:00. Create fixes, fill it, and apply it to orders in one statement.',
+    orderMatters: true,
+    checkSql: `select id, total, status from orders where id in (1, 2, 999999) order by id`,
+    solutions: [
+      {
+        approach: 'MERGE',
+        postgres: `create table fixes (order_id int primary key, total numeric(8, 2) not null);
+insert into fixes values (1, 99.90), (2, 45.00), (999999, 70.00);
+
+merge into orders o
+using fixes f on f.order_id = o.id
+when matched then
+  update set total = f.total
+when not matched then
+  insert (id, customer_id, restaurant_id, total, status, created_at)
+  values (f.order_id, 1, 1, f.total, 'delivered', timestamp '2026-06-30 12:00');`,
+        mysql: null,
+        mysqlNote: 'MySQL has no MERGE; see solution B.',
+        explanation: 'MERGE compares two tables row by row and says what to do with matches and non-matches, all in one statement.',
+      },
+      {
+        approach: 'INSERT … ON CONFLICT / ON DUPLICATE KEY',
+        postgres: `create table fixes (order_id int primary key, total numeric(8, 2) not null);
+insert into fixes values (1, 99.90), (2, 45.00), (999999, 70.00);
+
+insert into orders (id, customer_id, restaurant_id, total, status, created_at)
+select order_id, 1, 1, total, 'delivered', timestamp '2026-06-30 12:00' from fixes
+on conflict (id) do update set total = excluded.total;`,
+        mysql: `create table fixes (order_id int primary key, total decimal(8, 2) not null);
+insert into fixes values (1, 99.90), (2, 45.00), (999999, 70.00);
+
+insert into orders (id, customer_id, restaurant_id, total, status, created_at)
+select * from (
+  select order_id, 1 as customer_id, 1 as restaurant_id, total, 'delivered' as status, '2026-06-30 12:00:00' as created_at
+  from fixes
+) as new
+on duplicate key update total = new.total;`,
+        mysqlNote: 'With INSERT … SELECT, name the incoming rows by wrapping the SELECT in a derived table (as new) and refer to new.total; the older VALUES(total) form is deprecated.',
+        explanation:
+          'An upsert: try to insert every fix; where the id already exists, update the total instead. The values for a new row are given even for existing orders, but only total is changed for those.',
+      },
+    ],
+    comparison:
+      'Same result. MERGE can also delete or do different updates per condition; an upsert only does "insert, or update on conflict", but it is atomic per row under concurrency and exists in MySQL.',
+    docs: [
+      { label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' },
+      { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
+    ],
+  },
+  {
+    id: 'delivery-016',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['json'],
+    title: 'An order as JSON',
+    prompt:
+      'Build a JSON receipt for orders 1 to 3: one row per order with a JSON object holding id, restaurant (its name), total and day (the order date as YYYY-MM-DD text).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'jsonb_build_object / JSON_OBJECT',
+        postgres: `select o.id,
+       jsonb_build_object('id', o.id, 'restaurant', r.name, 'total', o.total,
+                          'day', to_char(o.created_at, 'YYYY-MM-DD')) as receipt
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.id between 1 and 3
+order by o.id;`,
+        mysql: `select o.id,
+       json_object('id', o.id, 'restaurant', r.name, 'total', o.total,
+                   'day', date_format(o.created_at, '%Y-%m-%d')) as receipt
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.id between 1 and 3
+order by o.id;`,
+        mysqlNote: 'JSON_OBJECT takes the same key/value pairs. Format the date yourself: a DATETIME inside JSON becomes "2025-03-01 12:00:00.000000".',
+        explanation:
+          'Key/value pairs in, one object out. jsonb (not json) stores keys sorted, as MySQL does, so both databases print the same object. Building API responses directly in SQL is a common use.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: JSON functions', url: PG + 'functions-json.html' },
+      { label: 'MySQL: JSON_OBJECT', url: MY + 'json-creation-functions.html#function_json-object' },
+    ],
+  },
+  {
+    id: 'delivery-017',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['generated-columns'],
+    title: 'The week of every order',
+    prompt:
+      'Reports group orders by ISO week all the time. Add a stored generated column order_week to orders holding the year and ISO week as text like "2025-W09".',
+    orderMatters: true,
+    checkSql: `select id, order_week from orders where id in (1, 2, 3) order by id`,
+    solutions: [
+      {
+        approach: 'Generated column',
+        postgres: `alter table orders
+add column order_week text
+generated always as (
+  extract(isoyear from created_at)::int || '-W' || lpad(extract(week from created_at)::int::text, 2, '0')
+) stored;`,
+        mysql: `alter table orders
+add column order_week varchar(8)
+generated always as (date_format(created_at, '%x-W%v')) stored;`,
+        mysqlNote: '%x is the ISO week-numbering year and %v the ISO week (01–53); %Y and %u would follow other rules around New Year.',
+        explanation:
+          'isoyear and week follow ISO rules: 30 December 2025 belongs to 2026-W01. The tempting to_char(created_at, \'IYYY-"W"IW\') is refused here: a generated column may only use IMMUTABLE functions, and to_char is merely STABLE because its output can depend on locale settings. The column is computed on every insert or update, so it cannot go stale.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Data type formatting', url: PG + 'functions-formatting.html' },
+      { label: 'MySQL: DATE_FORMAT', url: MY + 'date-and-time-functions.html#function_date-format' },
+    ],
+  },
+
+  // ---------- Level 5 ----------
+  {
+    id: 'delivery-018',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['indexes', 'query-plans'],
+    title: 'Foreign keys are not indexed for you',
+    prompt:
+      'select * from orders where customer_id = 42 reads all 200,000 orders in PostgreSQL (EXPLAIN shows a Seq Scan). Make it use an index.',
+    hint: 'Run EXPLAIN before and after to see the plan change.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'orders' and indexdef like '%(customer_id%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'orders' and column_name = 'customer_id' and seq_in_index = 1`,
+    solutions: [
+      {
+        approach: 'Index the foreign key',
+        postgres: `create index orders_customer_id_idx on orders (customer_id);
+
+-- explain select * from orders where customer_id = 42;
+-- before: Seq Scan on orders   after: Bitmap Heap Scan … Bitmap Index Scan on orders_customer_id_idx`,
+        mysql: `-- MySQL already has one: InnoDB creates an index for every foreign key.
+show index from orders where column_name = 'customer_id';`,
+        mysqlNote: 'InnoDB requires an index on foreign key columns and creates it automatically, so there is nothing to add.',
+        explanation:
+          'PostgreSQL checks the foreign key but does not index it. Lookups by customer, and deleting a customer (which must find his orders), then scan the whole table. With the index, PostgreSQL reads only that customer\'s few rows.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Using EXPLAIN', url: PG + 'using-explain.html' },
+      { label: 'MySQL: FOREIGN KEY constraints', url: MY + 'create-table-foreign-keys.html' },
+    ],
+  },
+  {
+    id: 'delivery-019',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['partial-covering-indexes', 'indexes'],
+    title: 'An index for the problem orders',
+    prompt:
+      'Support only ever looks at orders that were not delivered (8% of them), newest first. Create the smallest index that serves "where status <> \'delivered\' order by created_at desc".',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'orders' and indexdef like '%created_at%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'orders' and column_name = 'created_at'`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index orders_problems_idx on orders (created_at desc)
+where status <> 'delivered';`,
+        mysql: null,
+        mysqlNote: 'MySQL has no partial indexes; solution B indexes every row.',
+        explanation:
+          'Only the 16,000 problem orders go into the index, so it is about 12 times smaller than a full one and cheap to maintain. A query must repeat the same WHERE condition for the planner to use it.',
+      },
+      {
+        approach: 'Composite index',
+        postgres: `create index orders_status_created_idx on orders (status, created_at desc);`,
+        mysql: `create index orders_status_created_idx on orders (status, created_at desc);`,
+        explanation:
+          'Indexes all 200,000 rows. "status <> \'delivered\'" is not one range in it, so the database reads the cancelled and refunded parts separately and merges them, or sorts.',
+      },
+    ],
+    comparison: 'The partial index is the clear winner where it exists: smaller, and it matches the query exactly. In MySQL the composite index is the practical choice.',
+    docs: [
+      { label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' },
+      { label: 'MySQL: Multiple-column indexes', url: MY + 'multiple-column-indexes.html' },
+    ],
+  },
+  {
+    id: 'delivery-020',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['partial-covering-indexes', 'query-plans'],
+    title: 'Answer from the index alone',
+    prompt:
+      'The app shows a customer\'s order history: created_at and total for one customer_id, newest first. Create an index that lets the database answer without visiting the table (an index-only scan).',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'orders' and indexdef like '%(customer_id%' and indexdef like '%total%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'orders' and column_name = 'total'`,
+    solutions: [
+      {
+        approach: 'INCLUDE',
+        postgres: `create index orders_history_idx on orders (customer_id, created_at desc) include (total);
+
+-- explain select created_at, total from orders where customer_id = 42 order by created_at desc;
+-- after VACUUM orders: Index Only Scan using orders_history_idx`,
+        mysql: null,
+        mysqlNote: 'MySQL has no INCLUDE; put total in the key itself (solution B).',
+        explanation:
+          'The key (customer_id, created_at) finds and sorts the rows; INCLUDE stores total in the index leaves without making it part of the key. Every column the query needs is in the index, so the table need not be read. One catch: PostgreSQL can skip the table only for pages its visibility map marks as all-visible, which VACUUM maintains. On freshly loaded data, like this sandbox, the plan stays a bitmap scan plus sort until VACUUM has run.',
+      },
+      {
+        approach: 'Extra key column',
+        postgres: `create index orders_history_idx on orders (customer_id, created_at desc, total);`,
+        mysql: `create index orders_history_idx on orders (customer_id, created_at desc, total);`,
+        mysqlNote: 'In InnoDB every secondary index also carries the primary key, so "id" would be covered for free too.',
+        explanation: 'The same coverage by adding total as a third key column. It works everywhere; the index is a little larger in its inner pages.',
+      },
+    ],
+    comparison: 'Both make the query index-only. INCLUDE keeps the key narrow and is the cleaner choice in PostgreSQL; the extra key column is the portable one.',
+    docs: [
+      { label: 'PostgreSQL: Index-only scans and covering indexes', url: PG + 'indexes-index-only-scans.html' },
+      { label: 'MySQL: Covering indexes (EXPLAIN "Using index")', url: MY + 'explain-output.html#explain-extra-information' },
+    ],
+  },
+  {
+    id: 'delivery-021',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'One partition per year',
+    prompt:
+      'Create orders_by_year with the same columns as orders, partitioned by created_at into 2025 and 2026, and copy all orders into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'orders_by_year'::regclass) as partitions,
+       (select count(*) from orders_by_year) as total_rows,
+       (select count(*) from orders_by_year where created_at >= '2026-01-01') as rows_2026`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'orders_by_year') as partitions,
+       (select count(*) from orders_by_year) as total_rows,
+       (select count(*) from orders_by_year where created_at >= '2026-01-01') as rows_2026`,
+    solutions: [
+      {
+        approach: 'Range partitions',
+        postgres: `create table orders_by_year (
+  id            int           not null,
+  customer_id   int           not null,
+  restaurant_id int           not null,
+  total         numeric(8, 2) not null,
+  status        text          not null,
+  created_at    timestamp     not null,
+  primary key (id, created_at)
+) partition by range (created_at);
+
+create table orders_2025 partition of orders_by_year for values from ('2025-01-01') to ('2026-01-01');
+create table orders_2026 partition of orders_by_year for values from ('2026-01-01') to ('2027-01-01');
+
+insert into orders_by_year select * from orders;`,
+        mysql: `create table orders_by_year (
+  id            int           not null,
+  customer_id   int           not null,
+  restaurant_id int           not null,
+  total         decimal(8, 2) not null,
+  status        varchar(10)   not null,
+  created_at    datetime      not null,
+  primary key (id, created_at)
+)
+partition by range columns (created_at) (
+  partition p2025 values less than ('2026-01-01'),
+  partition p2026 values less than ('2027-01-01')
+);
+
+insert into orders_by_year select * from orders;`,
+        mysqlNote: 'RANGE COLUMNS partitions directly on a DATETIME. Partitioned InnoDB tables cannot have foreign keys.',
+        explanation:
+          'The primary key must contain the partition key, hence (id, created_at). A query limited to 2026 then reads only that partition, and dropping a whole year is instant: drop the partition instead of deleting rows.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: RANGE COLUMNS partitioning', url: MY + 'partitioning-columns-range.html' },
+    ],
+  },
+  {
+    id: 'delivery-022',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'A procedure that refuses bad cancellations',
+    prompt:
+      'Write a procedure cancel_order(p_id) that sets the order\'s status to \'cancelled\' only if it is currently \'delivered\', and otherwise leaves it unchanged. Then call it for orders 7 and 8 (make order 8 refunded first).',
+    orderMatters: true,
+    checkSql: `select id, status from orders where id in (7, 8) order by id`,
+    solutions: [
+      {
+        approach: 'IF inside a procedure',
+        postgres: `create procedure cancel_order(p_id int)
+language plpgsql
+as $$
+declare
+  v_status text;
+begin
+  select status into v_status from orders where id = p_id;
+  if v_status = 'delivered' then
+    update orders set status = 'cancelled' where id = p_id;
+  end if;
+end;
+$$;
+
+update orders set status = 'refunded' where id = 8;
+call cancel_order(7);
+call cancel_order(8);`,
+        mysql: `create procedure cancel_order(p_id int)
+begin
+  declare v_status varchar(10);
+  select status into v_status from orders where id = p_id;
+  if v_status = 'delivered' then
+    update orders set status = 'cancelled' where id = p_id;
+  end if;
+end;
+
+update orders set status = 'refunded' where id = 8;
+call cancel_order(7);
+call cancel_order(8);`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'SELECT … INTO reads one value into a variable; IF decides whether to update. A procedure (unlike a function) returns nothing and is run with CALL. In real code it would also lock the row (SELECT … FOR UPDATE) so two calls cannot race.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' },
+      { label: 'MySQL: IF statement', url: MY + 'if.html' },
+    ],
+  },
+  {
+    id: 'delivery-023',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['triggers'],
+    title: 'Log every status change',
+    prompt:
+      'Create a table order_status_log (order_id, old_status, new_status) and a trigger that writes a row there whenever an order\'s status changes.',
+    orderMatters: true,
+    checkSql: `update orders set status = 'refunded' where id = 10;
+update orders set total = total + 1 where id = 11;
+select order_id, old_status, new_status from order_status_log order by order_id`,
+    solutions: [
+      {
+        approach: 'AFTER UPDATE trigger',
+        postgres: `create table order_status_log (order_id int not null, old_status text not null, new_status text not null);
+
+create function log_status_change() returns trigger
+language plpgsql
+as $$
+begin
+  if new.status is distinct from old.status then
+    insert into order_status_log (order_id, old_status, new_status) values (new.id, old.status, new.status);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_status_log
+after update on orders
+for each row execute function log_status_change();`,
+        mysql: `create table order_status_log (order_id int not null, old_status varchar(10) not null, new_status varchar(10) not null);
+
+create trigger orders_status_log
+after update on orders
+for each row
+begin
+  if not (new.status <=> old.status) then
+    insert into order_status_log (order_id, old_status, new_status) values (new.id, old.status, new.status);
+  end if;
+end;`,
+        mysqlNote: `<=> is MySQL's NULL-safe equality, the counterpart of IS NOT DISTINCT FROM. ${DELIMITER_NOTE}`,
+        explanation:
+          'The trigger fires on every update, but only a real status change is logged: order 11\'s total change writes nothing. IS DISTINCT FROM compares safely even if a value is NULL.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' },
+      { label: 'MySQL: Using triggers', url: MY + 'trigger-syntax.html' },
+    ],
+  },
+]

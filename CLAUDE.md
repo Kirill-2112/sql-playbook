@@ -15,14 +15,15 @@ GitHub Actions (`.github/workflows/verify.yml`) runs the whole pipeline on every
 Only use datasets, libraries, fonts and tools whose license allows commercial use. Verify the license from the primary
 source (the license file or official page) before adding anything, and record it in `datasets.ts` and README.
 Audit of 2026-10-15:
-- OK: Sakila (BSD, keep Oracle notice), Chinook (MIT), Northwind + AdventureWorks (MIT, microsoft/sql-server-samples
+- OK: Sakila (BSD, keep Oracle notice), Lahman (CC BY-SA, like Employees), Delivery (own), Chinook (MIT), Northwind + AdventureWorks (MIT, microsoft/sql-server-samples
   license.txt), Airlines / Postgres Pro demo 2025 (MIT), Employees (CC BY-SA 3.0: commercial use allowed, but our sample
   must stay CC BY-SA, credited, and freely downloadable — keep it in the public repo).
 - Runtime deps: MIT/ISC, PGlite Apache-2.0 (ship its license/NOTICE with the app). Font IBM Plex: OFL.
   MySQL server (GPL) is only used locally/in CI for verification, never shipped.
 - Rejected: OpenFlights (ODbL, but the author sells separate commercial licenses; Wikipedia-derived parts may be GFDL),
   Olympics/Kaggle "120 years" (scraped from sports-reference.com; its terms forbid using the data with AI tools).
-- Unverified: Lahman (said to be CC BY-SA 3.0; re-check the readme in the official download since SABR took it over).
+- Lahman: CC BY-SA 3.0 per readme2025.txt ("Copyright Notice & Limited Use License"). Its Negro Leagues data is "licensed
+  from Seamheads" with no redistribution terms, so it is excluded (lgID not in NL/AL/AA/NA/FL/PL/UA).
 - The repo has no LICENSE file on purpose (code and exercises: all rights reserved).
 - Before launch: a Licenses/credits page in the app with every dataset's and library's notice.
 
@@ -64,11 +65,13 @@ Audit of 2026-10-15:
 
 ## Status (2026-10-15)
 
-- 6 datasets: Sakila, Chinook, Northwind (from Microsoft T-SQL), Employees (sample of datacharmer/test_db, CC BY-SA),
+- 8 datasets: Sakila, Chinook, Northwind (from Microsoft T-SQL), Employees (sample of datacharmer/test_db, CC BY-SA),
   AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
-  every 200th booking). 199 exercises, 52/53 topics (locks/isolation: theory only).
+  every 200th booking), Lahman (SABR CSVs, CC BY-SA, major leagues only, player data from 2010), Delivery (own,
+  generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
+  253 exercises, 52/53 topics (locks/isolation: theory only).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
-- Next candidates: Lahman Baseball (check license first),
-  MySQL version of the synthetic Delivery dataset; a functions reference section;
+- Next: go deep on existing datasets (topics with few exercises first), two replacement datasets with commercial licenses,
+  a functions reference section; a licenses/credits page;
   deploying the site (GitHub Pages).
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

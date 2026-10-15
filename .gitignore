@@ -3,4 +3,6 @@ dist
 .DS_Store
 # Official sources are downloaded (see README); the built files are committed.
 datasets/raw/
+# Delivery is generated in the browser; its MySQL copy (~18 MB) is rebuilt from the generator, not committed.
+datasets/build/delivery.mysql.sql
 *.tsbuildinfo

@@ -54,6 +54,26 @@ export const DATASETS: Record<DatasetId, DatasetMeta> = {
     attribution:
       'AdventureWorks OLTP sample © Microsoft Corporation, MIT license. Converted here from the official install script: 37 of 71 tables, schemas flattened, identifiers in snake_case, the hierarchyid org chart turned into manager_id, XML and binary columns left out, and every 4th sales order kept with all its lines.',
   },
+  lahman: {
+    id: 'lahman',
+    name: 'Lahman Baseball',
+    about:
+      'Major League Baseball history: every team season since 1871 with wins, runs and standings, franchises, post-season series, managers and Hall of Fame voting, plus player batting and pitching seasons, salaries (to 2016), All-Star games and awards from 2010 to 2025.',
+    license: 'CC BY-SA 3.0',
+    source: { label: 'SABR Lahman Baseball Database', url: 'https://sabr.org/lahman-database/' },
+    attribution:
+      'Lahman Baseball Database, version 2025 (1871–2025 seasons), © 1996–2025 SABR, donated by Sean Lahman; CC BY-SA 3.0. This is an adapted part of it, shared under the same license: major leagues only (the Negro Leagues data licensed from Seamheads is left out), player seasons, salaries, All-Star games and awards from 2010, columns renamed to snake_case (2B/3B as doubles/triples, Rank as standing), award_no added as a key.',
+  },
+  delivery: {
+    id: 'delivery',
+    name: 'Delivery',
+    about:
+      'A food-delivery service: 50,000 customers, 100 restaurants and 200,000 orders from January 2025 to June 2026. Generated in your browser with a fixed random seed, so everyone gets the same data; big enough for indexes and query plans to matter.',
+    license: 'Own data',
+    source: { label: 'src/db/seed.ts', url: 'https://github.com/Kirill-2112/sql-playbook/blob/main/src/db/seed.ts' },
+    attribution:
+      'Synthetic data made for SQL Playbook; names, places and orders are random and do not describe real people or businesses. PostgreSQL generates it in the browser; the MySQL copy used for verification is built from the same rows.',
+  },
   airlines: {
     id: 'airlines',
     name: 'Airlines',

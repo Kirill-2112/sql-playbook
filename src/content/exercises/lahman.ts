@@ -1456,4 +1456,32 @@ where debut >= '2025-01-01' and debut < '2026-01-01';`,
       { label: 'MySQL: JSON path syntax', url: MY + 'json.html#json-path-syntax' },
     ],
   },
+  {
+    id: 'lahman-039',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['generated-columns', 'numbers'],
+    title: 'Batting average as a column',
+    prompt: 'Add a stored generated column batting_avg to batting: h / ab rounded to 3 decimals, NULL when ab is 0.',
+    orderMatters: true,
+    checkSql: `select year_id, h, ab, batting_avg from batting where player_id = 'judgeaa01' order by year_id, stint`,
+    solutions: [
+      {
+        approach: 'Generated column with NULLIF',
+        postgres: `alter table batting
+add column batting_avg numeric(4, 3)
+generated always as (round(h::numeric / nullif(ab, 0), 3)) stored;`,
+        mysql: `alter table batting
+add column batting_avg decimal(4, 3)
+generated always as (round(h / nullif(ab, 0), 3)) stored;`,
+        mysqlNote: 'MySQL\'s / is already decimal division, so no cast.',
+        explanation:
+          'nullif(ab, 0) turns 0 at-bats into NULL, and anything divided by NULL is NULL, so pitchers who never batted get NULL instead of a division error. The ::numeric cast avoids integer division in PostgreSQL.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: NULLIF', url: PG + 'functions-conditional.html#FUNCTIONS-NULLIF' },
+      { label: 'MySQL: NULLIF', url: MY + 'flow-control-functions.html#function_nullif' },
+    ],
+  },
 ]

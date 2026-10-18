@@ -842,4 +842,112 @@ on duplicate key update track_id = new.track_id;`,
       { label: 'MySQL: INSERT IGNORE vs strict mode', url: MY + 'sql-mode.html#ignore-strict-comparison' },
     ],
   },
+  {
+    id: 'chinook-050',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['full-join', 'cte'],
+    title: 'Genre sales, 2021 against 2025',
+    prompt:
+      'Show each genre that sold anything in 2021 or 2025, with its sales (unit_price × quantity) in each of the two years; NULL where it sold nothing that year. Order by genre_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two yearly totals',
+        postgres: `with y2021 as (
+  select t.genre_id, sum(il.unit_price * il.quantity) as sales
+  from invoice_line il
+  join invoice i on i.invoice_id = il.invoice_id
+  join track t   on t.track_id = il.track_id
+  where i.invoice_date >= '2021-01-01' and i.invoice_date < '2022-01-01'
+  group by t.genre_id
+),
+y2025 as (
+  select t.genre_id, sum(il.unit_price * il.quantity) as sales
+  from invoice_line il
+  join invoice i on i.invoice_id = il.invoice_id
+  join track t   on t.track_id = il.track_id
+  where i.invoice_date >= '2025-01-01' and i.invoice_date < '2026-01-01'
+  group by t.genre_id
+)
+select coalesce(a.genre_id, b.genre_id) as genre_id, a.sales as sales_2021, b.sales as sales_2025
+from y2021 a
+full join y2025 b on b.genre_id = a.genre_id
+order by genre_id;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'Each side is one year\'s totals; FULL JOIN lines them up and keeps genres present in only one year.',
+      },
+      {
+        approach: 'Conditional sums, one pass',
+        postgres: `select t.genre_id,
+       sum(case when i.invoice_date >= '2021-01-01' and i.invoice_date < '2022-01-01' then il.unit_price * il.quantity end) as sales_2021,
+       sum(case when i.invoice_date >= '2025-01-01' and i.invoice_date < '2026-01-01' then il.unit_price * il.quantity end) as sales_2025
+from invoice_line il
+join invoice i on i.invoice_id = il.invoice_id
+join track t   on t.track_id = il.track_id
+where i.invoice_date >= '2021-01-01' and i.invoice_date < '2022-01-01'
+   or i.invoice_date >= '2025-01-01' and i.invoice_date < '2026-01-01'
+group by t.genre_id
+order by t.genre_id;`,
+        mysql: `select t.genre_id,
+       sum(case when i.invoice_date >= '2021-01-01' and i.invoice_date < '2022-01-01' then il.unit_price * il.quantity end) as sales_2021,
+       sum(case when i.invoice_date >= '2025-01-01' and i.invoice_date < '2026-01-01' then il.unit_price * il.quantity end) as sales_2025
+from invoice_line il
+join invoice i on i.invoice_id = il.invoice_id
+join track t   on t.track_id = il.track_id
+where i.invoice_date >= '2021-01-01' and i.invoice_date < '2022-01-01'
+   or i.invoice_date >= '2025-01-01' and i.invoice_date < '2026-01-01'
+group by t.genre_id
+order by t.genre_id;`,
+        explanation: 'A CASE without ELSE yields NULL, and SUM of only NULLs is NULL, so a year with no sales shows NULL just like the FULL JOIN version.',
+      },
+    ],
+    comparison: 'Same rows. FULL JOIN is natural when the two sides come from different queries; for two slices of one table, conditional sums read it once and work everywhere.',
+    docs: [
+      { label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' },
+      { label: 'MySQL: CASE', url: MY + 'flow-control-functions.html#operator_case' },
+    ],
+  },
+  {
+    id: 'chinook-051',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['triggers'],
+    title: 'Keep the invoice total in step',
+    prompt: 'invoice.total is the sum of its lines. Create a trigger that adds unit_price × quantity of every new invoice line to its invoice\'s total.',
+    orderMatters: false,
+    checkSql: `insert into invoice_line (invoice_line_id, invoice_id, track_id, unit_price, quantity) values (2241, 1, 3, 0.99, 2);
+select invoice_id, total from invoice where invoice_id = 1`,
+    solutions: [
+      {
+        approach: 'AFTER INSERT trigger',
+        postgres: `create function add_line_to_total() returns trigger
+language plpgsql
+as $$
+begin
+  update invoice set total = total + new.unit_price * new.quantity
+  where invoice_id = new.invoice_id;
+  return new;
+end;
+$$;
+
+create trigger invoice_line_add_to_total
+after insert on invoice_line
+for each row execute function add_line_to_total();`,
+        mysql: `create trigger invoice_line_add_to_total
+after insert on invoice_line
+for each row
+  update invoice set total = total + new.unit_price * new.quantity
+  where invoice_id = new.invoice_id;`,
+        mysqlNote: 'A one-statement trigger body needs no BEGIN … END.',
+        explanation:
+          'Invoice 1 had two lines totalling 1.98; after the new line it is 3.96. A complete solution would also handle UPDATE and DELETE of lines, or recompute the sum instead of adding to it.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE TRIGGER', url: PG + 'sql-createtrigger.html' },
+      { label: 'MySQL: CREATE TRIGGER', url: MY + 'create-trigger.html' },
+    ],
+  },
 ]

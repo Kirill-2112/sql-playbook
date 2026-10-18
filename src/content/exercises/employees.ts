@@ -1377,4 +1377,178 @@ end;`,
       { label: 'MySQL: WHILE statement', url: MY + 'while.html' },
     ],
   },
+  {
+    id: 'employees-036',
+    dataset: 'employees',
+    level: 4,
+    topics: ['materialized-views'],
+    title: 'Department salary statistics, stored',
+    prompt:
+      'Store, per department, the number of current employees and their average current salary (rounded to 0 decimals), for a dashboard that is refreshed nightly.',
+    hint: 'Current rows have to_date = 9999-01-01.',
+    orderMatters: true,
+    checkSql: `select dept_no, employees, avg_salary from dept_salary_stats order by dept_no`,
+    solutions: [
+      {
+        approach: 'Materialized view',
+        postgres: `create materialized view dept_salary_stats as
+select de.dept_no, count(*) as employees, round(avg(s.salary)) as avg_salary
+from dept_emp de
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+where de.to_date = '9999-01-01'
+group by de.dept_no;
+
+-- nightly: refresh materialized view dept_salary_stats;`,
+        mysql: `create table dept_salary_stats as
+select de.dept_no, count(*) as employees, round(avg(s.salary)) as avg_salary
+from dept_emp de
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+where de.to_date = '9999-01-01'
+group by de.dept_no;`,
+        mysqlNote: 'No materialized views in MySQL; a table rebuilt by a scheduled job (or an EVENT) does the same.',
+        explanation: 'The joins and averages run once at refresh time; the dashboard reads nine stored rows.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Materialized views', url: PG + 'rules-materializedviews.html' },
+      { label: 'MySQL: CREATE EVENT', url: MY + 'create-event.html' },
+    ],
+  },
+  {
+    id: 'employees-037',
+    dataset: 'employees',
+    level: 4,
+    topics: ['generated-columns', 'strings'],
+    title: 'A full name column',
+    prompt: 'Add a stored generated column full_name to employees: first name, a space, last name.',
+    orderMatters: true,
+    checkSql: `select emp_no, full_name from employees where emp_no in (10050, 10100) order by emp_no`,
+    solutions: [
+      {
+        approach: 'Generated column',
+        postgres: `alter table employees
+add column full_name text generated always as (first_name || ' ' || last_name) stored;`,
+        mysql: `alter table employees
+add column full_name varchar(31) generated always as (concat(first_name, ' ', last_name)) stored;`,
+        mysqlNote: 'concat(), because || means OR in MySQL. varchar(31) = 14 + 1 + 16, the two column lengths plus the space.',
+        explanation: 'The name is always in sync with its parts, and searches like WHERE full_name = \'…\' can use an index on it.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' },
+      { label: 'MySQL: Generated columns', url: MY + 'create-table-generated-columns.html' },
+    ],
+  },
+  {
+    id: 'employees-038',
+    dataset: 'employees',
+    level: 5,
+    topics: ['locks-isolation'],
+    title: 'Only one payroll run at a time',
+    prompt:
+      'The payroll job must never run twice at once, but it does not lock any particular row. Take an application-level lock named "payroll_run" without waiting, and return whether you got it.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Advisory lock / GET_LOCK',
+        postgres: `select pg_try_advisory_xact_lock(hashtext('payroll_run')) as got_lock;`,
+        mysql: `select get_lock('payroll_run', 0) as got_lock;`,
+        mysqlNote: 'GET_LOCK(name, timeout) takes a named lock for the session; timeout 0 means do not wait. Release it with RELEASE_LOCK(\'payroll_run\'), or it lasts until the connection closes.',
+        explanation:
+          'An advisory lock is a lock on a number that means something only to your application. A second job calling the same function gets false and can exit. The _xact_ variant is released automatically at the end of the transaction; pg_try_advisory_lock lasts for the session.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Advisory locks', url: PG + 'explicit-locking.html#ADVISORY-LOCKS' },
+      { label: 'MySQL: Locking functions', url: MY + 'locking-functions.html' },
+    ],
+  },
+  {
+    id: 'employees-039',
+    dataset: 'employees',
+    level: 4,
+    topics: ['arrays', 'text-aggregation'],
+    title: 'Career path as an array',
+    prompt:
+      'For the 5 lowest emp_no among employees who held at least three titles, show emp_no, all their titles in time order as an array, and the first title they held.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array_agg with ORDER BY, then [1]',
+        postgres: `select emp_no,
+       array_agg(title order by from_date) as titles,
+       (array_agg(title order by from_date))[1] as first_title
+from titles
+group by emp_no
+having count(*) >= 3
+order by emp_no
+limit 5;`,
+        mysql: `select emp_no,
+       cast(concat('["', group_concat(title order by from_date separator '", "'), '"]') as json) as titles,
+       substring_index(group_concat(title order by from_date), ',', 1) as first_title
+from titles
+group by emp_no
+having count(*) >= 3
+order by emp_no
+limit 5;`,
+        mysqlNote: 'No arrays: a JSON array built from GROUP_CONCAT, and the first element taken from the text before the first comma.',
+        explanation: 'PostgreSQL arrays are indexed from 1, so [1] is the first element. array_agg\'s ORDER BY fixes the element order.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Arrays', url: PG + 'arrays.html' },
+      { label: 'MySQL: GROUP_CONCAT', url: MY + 'aggregate-functions.html#function_group-concat' },
+    ],
+  },
+  {
+    id: 'employees-040',
+    dataset: 'employees',
+    level: 3,
+    topics: ['date-series'],
+    title: 'Hires every month of 1999',
+    prompt: 'Show every month of 1999 (YYYY-MM) with the number of employees hired that month, including months with none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'generate_series by month',
+        postgres: `select to_char(m, 'YYYY-MM') as month, count(e.emp_no) as hires
+from generate_series(date '1999-01-01', date '1999-12-01', interval '1 month') as m
+left join employees e on e.hire_date >= m and e.hire_date < m + interval '1 month'
+group by m
+order by m;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation: 'A month step works the same as a day step. In this sample nobody was hired in July or December 1999, and those months still appear with 0.',
+      },
+      {
+        approach: 'Recursive CTE of months',
+        postgres: `with recursive months as (
+  select date '1999-01-01' as m
+  union all
+  select (m + interval '1 month')::date from months where m < date '1999-12-01'
+)
+select to_char(m, 'YYYY-MM') as month, count(e.emp_no) as hires
+from months
+left join employees e on e.hire_date >= m and e.hire_date < m + interval '1 month'
+group by m
+order by m;`,
+        mysql: `with recursive months as (
+  select date('1999-01-01') as m
+  union all
+  select m + interval 1 month from months where m < '1999-12-01'
+)
+select date_format(m, '%Y-%m') as month, count(e.emp_no) as hires
+from months
+left join employees e on e.hire_date >= m and e.hire_date < m + interval 1 month
+group by m
+order by m;`,
+        explanation: 'Twelve first-of-month dates built by recursion, then the same LEFT JOIN.',
+      },
+    ],
+    comparison: 'Same 12 rows. Use first-of-month dates and a half-open range rather than comparing month numbers, so an index on hire_date can help.',
+    docs: [
+      { label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' },
+      { label: 'MySQL: Recursive CTEs', url: MY + 'with.html#common-table-expressions-recursive' },
+    ],
+  },
 ]

@@ -1820,4 +1820,130 @@ order by r.departure_airport;`,
       { label: 'MySQL: GROUP_CONCAT', url: MY + 'aggregate-functions.html#function_group-concat' },
     ],
   },
+  {
+    id: 'airlines-043',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['temp-tables', 'arrays'],
+    title: 'December routes, prepared once',
+    prompt:
+      'Put the December routes into a temporary table dec_routes (route_no, departure_airport, arrival_airport, airplane_code, weekly_flights) where weekly_flights is the number of weekdays the route flies.',
+    hint: 'December 2025 routes are the rows with valid_from = 2025-12-01.',
+    orderMatters: false,
+    checkSql: `select count(*) as routes, sum(weekly_flights) as weekly_flights, max(weekly_flights) as busiest from dec_routes`,
+    solutions: [
+      {
+        approach: 'Temp table with cardinality / JSON_LENGTH',
+        postgres: `create temp table dec_routes as
+select route_no, departure_airport, arrival_airport, airplane_code,
+       cardinality(days_of_week) as weekly_flights
+from routes
+where valid_from = '2025-12-01';`,
+        mysql: `create temporary table dec_routes as
+select route_no, departure_airport, arrival_airport, airplane_code,
+       json_length(days_of_week) as weekly_flights
+from routes
+where valid_from = '2025-12-01';`,
+        mysqlNote: 'JSON_LENGTH counts the elements of a JSON array.',
+        explanation: 'cardinality(array) is the number of elements. The temporary table is a small, ready-made working set for the rest of the analysis.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: cardinality', url: PG + 'functions-array.html' },
+      { label: 'MySQL: JSON_LENGTH', url: MY + 'json-attribute-functions.html#function_json-length' },
+    ],
+  },
+  {
+    id: 'airlines-044',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['query-plans', 'subqueries'],
+    title: 'Flights nobody in the sample booked',
+    prompt: 'How many November 2025 flights have no flight segment (no passenger) in this sample?',
+    hint: 'The dataset keeps every 200th booking, so many flights have no passengers here.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'NOT EXISTS',
+        postgres: `select count(*) as empty_flights
+from flights f
+where f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+  and not exists (select 1 from segments s where s.flight_id = f.flight_id);`,
+        mysql: `select count(*) as empty_flights
+from flights f
+where f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+  and not exists (select 1 from segments s where s.flight_id = f.flight_id);`,
+        explanation: 'Planned as an anti-join: for each flight, one probe into segments (by its flight_id index) is enough.',
+      },
+      {
+        approach: 'LEFT JOIN … IS NULL',
+        postgres: `select count(*) as empty_flights
+from flights f
+left join segments s on s.flight_id = f.flight_id
+where f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+  and s.flight_id is null;`,
+        mysql: `select count(*) as empty_flights
+from flights f
+left join segments s on s.flight_id = f.flight_id
+where f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+  and s.flight_id is null;`,
+        explanation: 'Joins every flight to all its segments and keeps the ones with no match.',
+      },
+      {
+        approach: 'NOT IN',
+        postgres: `select count(*) as empty_flights
+from flights f
+where f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+  and f.flight_id not in (select flight_id from segments);`,
+        mysql: `select count(*) as empty_flights
+from flights f
+where f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+  and f.flight_id not in (select flight_id from segments);`,
+        explanation:
+          'Correct here because segments.flight_id is NOT NULL. If the subquery could return a NULL, "x NOT IN (…, NULL)" is never true and the count would silently drop to 0.',
+      },
+    ],
+    comparison:
+      'Same count. Compare the timings and plans: NOT EXISTS and LEFT JOIN usually become an anti-join; PostgreSQL runs NOT IN as a hashed subplan, which is fine at this size but cannot use the anti-join optimisation and carries the NULL trap. Prefer NOT EXISTS.',
+    docs: [
+      { label: 'PostgreSQL: Subquery expressions', url: PG + 'functions-subquery.html' },
+      { label: 'MySQL: Antijoin optimization', url: MY + 'semijoins.html' },
+    ],
+  },
+  {
+    id: 'airlines-045',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for flights still to come',
+    prompt:
+      'The departures board only shows flights with status Scheduled, On Time or Delayed, ordered by scheduled_departure. Create an index for that, as small as your database allows.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'flights' and indexdef like '%status%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'flights' and column_name = 'status'`,
+    solutions: [
+      {
+        approach: 'Partial index on departure time',
+        postgres: `create index flights_upcoming_idx on flights (scheduled_departure)
+where status in ('Scheduled', 'On Time', 'Delayed');`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation:
+          'About half the flights (the past ones, mostly Arrived) never appear on the board and stay out of the index. Queries must repeat the same status condition.',
+      },
+      {
+        approach: 'Status, then time',
+        postgres: `create index flights_status_departure_idx on flights (status, scheduled_departure);`,
+        mysql: `create index flights_status_departure_idx on flights (status, scheduled_departure);`,
+        explanation: 'Covers all flights. "status IN (…)" becomes three ranges in the index, each sorted by time, which the database then merges.',
+      },
+    ],
+    comparison: 'The partial index is smaller and already in board order; the composite index works in MySQL and also serves other status filters.',
+    docs: [
+      { label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' },
+      { label: 'MySQL: Multiple-column indexes', url: MY + 'multiple-column-indexes.html' },
+    ],
+  },
 ]

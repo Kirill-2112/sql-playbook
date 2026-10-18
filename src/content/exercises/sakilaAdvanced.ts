@@ -1147,4 +1147,94 @@ order by id;`,
       { label: 'MySQL: cte_max_recursion_depth', url: MY + 'server-system-variables.html#sysvar_cte_max_recursion_depth' },
     ],
   },
+  {
+    id: 'sakila-056',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['locks-isolation', 'subqueries'],
+    title: 'Grab a free copy',
+    prompt:
+      'Two clerks at store 1 rent out ACADEMY DINOSAUR (film 1) at the same moment. Lock and return the lowest inventory_id of a copy that is in the store (no open rental), skipping copies another clerk has already locked.',
+    hint: 'A copy is out while it has a rental with return_date NULL.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FOR UPDATE SKIP LOCKED',
+        postgres: `select i.inventory_id
+from inventory i
+where i.film_id = 1 and i.store_id = 1
+  and not exists (select 1 from rental r where r.inventory_id = i.inventory_id and r.return_date is null)
+order by i.inventory_id
+limit 1
+for update skip locked;`,
+        mysql: `select i.inventory_id
+from inventory i
+where i.film_id = 1 and i.store_id = 1
+  and not exists (select 1 from rental r where r.inventory_id = i.inventory_id and r.return_date is null)
+order by i.inventory_id
+limit 1
+for update skip locked;`,
+        explanation:
+          'Both clerks run the same query. The first locks copy A; the second skips the locked A and gets copy B instead of waiting, so the same disc is never handed out twice. The lock lasts until the rental is inserted and the transaction commits.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: The locking clause', url: PG + 'sql-select.html#SQL-FOR-UPDATE-SHARE' },
+      { label: 'MySQL: SKIP LOCKED', url: MY + 'innodb-locking-reads.html#innodb-locking-reads-nowait-skip-locked' },
+    ],
+  },
+  {
+    id: 'sakila-057',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Payments, one partition per month',
+    prompt:
+      'Create payment_by_month with the columns of payment, partitioned by payment_date into one partition for each month that has payments (May–August 2005 and February 2006), and copy the payments into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'payment_by_month'::regclass) as partitions,
+       (select count(*) from payment_by_month) as total_rows,
+       (select count(*) from payment_by_month where payment_date >= '2005-07-01' and payment_date < '2005-08-01') as july`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'payment_by_month') as partitions,
+       (select count(*) from payment_by_month) as total_rows,
+       (select count(*) from payment_by_month where payment_date >= '2005-07-01' and payment_date < '2005-08-01') as july`,
+    solutions: [
+      {
+        approach: 'Monthly range partitions',
+        postgres: `create table payment_by_month (like payment, primary key (payment_id, payment_date))
+partition by range (payment_date);
+
+create table payment_2005_05 partition of payment_by_month for values from ('2005-05-01') to ('2005-06-01');
+create table payment_2005_06 partition of payment_by_month for values from ('2005-06-01') to ('2005-07-01');
+create table payment_2005_07 partition of payment_by_month for values from ('2005-07-01') to ('2005-08-01');
+create table payment_2005_08 partition of payment_by_month for values from ('2005-08-01') to ('2005-09-01');
+create table payment_2006_02 partition of payment_by_month for values from ('2006-02-01') to ('2006-03-01');
+
+insert into payment_by_month select * from payment;`,
+        mysql: `create table payment_by_month like payment;
+
+alter table payment_by_month drop primary key, add primary key (payment_id, payment_date);
+
+alter table payment_by_month
+partition by range (year(payment_date) * 100 + month(payment_date)) (
+  partition p200505 values less than (200506),
+  partition p200506 values less than (200507),
+  partition p200507 values less than (200508),
+  partition p200508 values less than (200509),
+  partition p200602 values less than (200603)
+);
+
+insert into payment_by_month select * from payment;`,
+        mysqlNote:
+          'Here the MySQL partitions are defined on an expression (year × 100 + month) instead of RANGE COLUMNS; YEAR() and MONTH() are among the functions allowed in partition expressions. The primary key is widened first because it must contain payment_date.',
+        explanation:
+          'PostgreSQL has no partitions for the empty months between, so a payment dated, say, December 2005 would be rejected until a partition (or a DEFAULT one) exists. Monthly partitions make "drop data older than a year" a matter of dropping old partitions.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: Partitioning functions', url: MY + 'partitioning-limitations-functions.html' },
+    ],
+  },
 ]

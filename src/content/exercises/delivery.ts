@@ -1189,4 +1189,37 @@ update restaurants r join cities ci on ci.name = r.city set r.city_id = ci.id;`,
       { label: 'MySQL: Online DDL operations', url: MY + 'innodb-online-ddl-operations.html' },
     ],
   },
+  {
+    id: 'delivery-031',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Search by word beginnings',
+    prompt:
+      'Make restaurant names searchable by word, then find the restaurants with a word in their name starting with "bis" or "bow" (as a search box would while the user types): id and name.',
+    orderMatters: true,
+    checkSql: `select id, name from restaurants
+where to_tsvector('simple', name) @@ to_tsquery('simple', 'bis:* | bow:*')
+order by id`,
+    checkSqlMysql: `select id, name from restaurants
+where match(name) against ('bis* bow*' in boolean mode)
+order by id`,
+    solutions: [
+      {
+        approach: 'Prefix queries',
+        postgres: `create index restaurants_name_fts on restaurants using gin (to_tsvector('simple', name));
+
+-- search: to_tsquery('simple', 'bis:* | bow:*')`,
+        mysql: `create fulltext index restaurants_name_ft on restaurants (name);
+
+-- search: match(name) against ('bis* bow*' in boolean mode)`,
+        mysqlNote: 'The trailing * marks a prefix in boolean mode. Prefixes shorter than the minimum token size (3 for InnoDB) find nothing.',
+        explanation: ':* after a word in tsquery matches every word that starts with it. Unlike LIKE \'bis%\', it also finds the word in the middle of a name ("Green Bistro").',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Prefix matching in tsquery', url: PG + 'datatype-textsearch.html#DATATYPE-TSQUERY' },
+      { label: 'MySQL: Boolean full-text searches', url: MY + 'fulltext-boolean.html' },
+    ],
+  },
 ]

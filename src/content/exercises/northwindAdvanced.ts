@@ -783,4 +783,62 @@ commit;`,
       { label: 'MySQL: How to minimize and handle deadlocks', url: MY + 'innodb-deadlocks-handling.html' },
     ],
   },
+  {
+    id: 'northwind-051',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['merge'],
+    title: 'Import a supplier price list',
+    prompt:
+      'A price list arrives as product_prices (product_name, unit_price): Chai 19.00, Chang 19.00, Kvass 12.50. Apply it in one statement: update the price of products that exist, and add products that do not (discontinued = 0).',
+    orderMatters: true,
+    checkSql: `select product_name, unit_price, discontinued from products where product_name in ('Chai', 'Chang', 'Kvass') order by product_name`,
+    solutions: [
+      {
+        approach: 'MERGE',
+        postgres: `create table product_prices (product_name varchar(40) primary key, unit_price numeric(10, 2) not null);
+insert into product_prices values ('Chai', 19.00), ('Chang', 19.00), ('Kvass', 12.50);
+
+merge into products p
+using product_prices n on n.product_name = p.product_name
+when matched and p.unit_price <> n.unit_price then
+  update set unit_price = n.unit_price
+when not matched then
+  insert (product_name, unit_price, discontinued) values (n.product_name, n.unit_price, 0);`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B. ON DUPLICATE KEY would need a unique key on product_name, which products does not have.',
+        explanation:
+          'MERGE matches on any condition, not just a unique key: here the product name. Chai changes from 18.00, Chang stays, Kvass is inserted with an id from the identity column.',
+      },
+      {
+        approach: 'UPDATE with a join, then INSERT … WHERE NOT EXISTS',
+        postgres: `create table product_prices (product_name varchar(40) primary key, unit_price numeric(10, 2) not null);
+insert into product_prices values ('Chai', 19.00), ('Chang', 19.00), ('Kvass', 12.50);
+
+update products p set unit_price = n.unit_price
+from product_prices n
+where n.product_name = p.product_name and p.unit_price <> n.unit_price;
+
+insert into products (product_name, unit_price, discontinued)
+select n.product_name, n.unit_price, 0 from product_prices n
+where not exists (select 1 from products p where p.product_name = n.product_name);`,
+        mysql: `create table product_prices (product_name varchar(40) primary key, unit_price decimal(10, 2) not null);
+insert into product_prices values ('Chai', 19.00), ('Chang', 19.00), ('Kvass', 12.50);
+
+update products p join product_prices n on n.product_name = p.product_name
+set p.unit_price = n.unit_price
+where p.unit_price <> n.unit_price;
+
+insert into products (product_name, unit_price, discontinued)
+select n.product_name, n.unit_price, 0 from product_prices n
+where not exists (select 1 from products p where p.product_name = n.product_name);`,
+        explanation: 'The two halves of the merge as separate statements; run them in one transaction so nobody sees a half-applied list.',
+      },
+    ],
+    comparison: 'Same result. MERGE does it atomically in one statement; the two-statement version works in MySQL and needs no unique key either.',
+    docs: [
+      { label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' },
+      { label: 'MySQL: INSERT … SELECT', url: MY + 'insert-select.html' },
+    ],
+  },
 ]

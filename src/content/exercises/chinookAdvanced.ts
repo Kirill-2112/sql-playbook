@@ -950,4 +950,107 @@ for each row
       { label: 'MySQL: CREATE TRIGGER', url: MY + 'create-trigger.html' },
     ],
   },
+  {
+    id: 'chinook-052',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['gaps-islands', 'dates-advanced'],
+    title: 'Customers buying month after month',
+    prompt: 'Find each customer\'s longest run of consecutive months with at least one invoice. Show the 5 longest: customer_id, first and last month (YYYY-MM) and months.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Month number minus row number',
+        postgres: `with months as (
+  select distinct customer_id,
+         extract(year from invoice_date)::int * 12 + extract(month from invoice_date)::int - 1 as m
+  from invoice
+),
+runs as (
+  select customer_id, m, m - row_number() over (partition by customer_id order by m) as grp
+  from months
+)
+select customer_id,
+       min(m) / 12 || '-' || lpad((min(m) % 12 + 1)::text, 2, '0') as first_month,
+       max(m) / 12 || '-' || lpad((max(m) % 12 + 1)::text, 2, '0') as last_month,
+       count(*) as months
+from runs
+group by customer_id, grp
+order by months desc, customer_id, first_month
+limit 5;`,
+        mysql: `with months as (
+  select distinct customer_id, year(invoice_date) * 12 + month(invoice_date) - 1 as m
+  from invoice
+),
+runs as (
+  select customer_id, m, m - row_number() over (partition by customer_id order by m) as grp
+  from months
+)
+select customer_id,
+       concat(min(m) div 12, '-', lpad(min(m) % 12 + 1, 2, '0')) as first_month,
+       concat(max(m) div 12, '-', lpad(max(m) % 12 + 1, 2, '0')) as last_month,
+       count(*) as months
+from runs
+group by customer_id, grp
+order by months desc, customer_id, first_month
+limit 5;`,
+        explanation:
+          'Chinook invoices follow a fixed rhythm, so the longest runs are only 2 months: customers buy every few months, never three months in a row. The month number year × 12 + month − 1 makes December and the next January consecutive.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'chinook-053',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['control-flow', 'functions'],
+    title: 'Label a track by length',
+    prompt: 'Write a function track_label(p_ms) that returns \'short\' under 3 minutes, \'normal\' up to 6 minutes, \'long\' up to 10 and \'epic\' above, using IF/ELSIF.',
+    orderMatters: true,
+    checkSql: `select track_label(milliseconds) as label, count(*) as tracks from track group by track_label(milliseconds) order by label`,
+    solutions: [
+      {
+        approach: 'IF … ELSIF … ELSE',
+        postgres: `create function track_label(p_ms integer)
+returns text
+language plpgsql
+immutable
+as $$
+begin
+  if p_ms < 180000 then
+    return 'short';
+  elsif p_ms <= 360000 then
+    return 'normal';
+  elsif p_ms <= 600000 then
+    return 'long';
+  else
+    return 'epic';
+  end if;
+end;
+$$;`,
+        mysql: `create function track_label(p_ms int)
+returns varchar(10)
+deterministic
+begin
+  if p_ms < 180000 then
+    return 'short';
+  elseif p_ms <= 360000 then
+    return 'normal';
+  elseif p_ms <= 600000 then
+    return 'long';
+  else
+    return 'epic';
+  end if;
+end;`,
+        mysqlNote: `MySQL spells it ELSEIF; PL/pgSQL accepts ELSIF (and ELSEIF too). ${DELIMITER_NOTE}`,
+        explanation:
+          'The branches are tested top to bottom and the first true one wins, so each later test can assume the earlier ones failed. In plain SQL a CASE expression does the same; IF/ELSIF is the statement form for procedural code.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Conditionals', url: PG + 'plpgsql-control-structures.html#PLPGSQL-CONDITIONALS' },
+      { label: 'MySQL: IF statement', url: MY + 'if.html' },
+    ],
+  },
 ]

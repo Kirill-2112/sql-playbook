@@ -1627,4 +1627,101 @@ order by a.year_id, a.lg_id, a.div_id, team_1;`,
     ],
     docs: [{ label: 'PostgreSQL: Joins', url: PG + 'tutorial-join.html' }],
   },
+  {
+    id: 'lahman-045',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['normalization', 'joins'],
+    title: 'A column you could derive',
+    prompt:
+      'salaries stores lg_id, but the league of a team in a given year is already in teams. Check this redundancy: count salary rows whose lg_id differs from the league of (year_id, team_id) in teams.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Join and compare',
+        postgres: `select count(*) as rows_checked,
+       count(*) filter (where s.lg_id <> t.lg_id) as mismatches
+from salaries s
+join teams t on t.year_id = s.year_id and t.team_id = s.team_id;`,
+        mysql: `select count(*) as rows_checked,
+       sum(s.lg_id <> t.lg_id) as mismatches
+from salaries s
+join teams t on t.year_id = s.year_id and t.team_id = s.team_id;`,
+        explanation:
+          'lg_id depends on (year_id, team_id), not on the whole key of a salary row: in normalization terms a transitive dependency, a 3NF violation. Here it is consistent, but nothing guarantees it; a stored copy can drift, a join cannot.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joins', url: PG + 'tutorial-join.html' }],
+  },
+  {
+    id: 'lahman-046',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['query-plans', 'subqueries'],
+    title: 'Season leaders, two ways',
+    prompt: 'For each season from 2010, the team with the most wins (all of them if tied): year_id, team_id and w.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Correlated MAX',
+        postgres: `select t.year_id, t.team_id, t.w
+from teams t
+where t.year_id >= 2010
+  and t.w = (select max(t2.w) from teams t2 where t2.year_id = t.year_id)
+order by t.year_id, t.team_id;`,
+        mysql: `select t.year_id, t.team_id, t.w
+from teams t
+where t.year_id >= 2010
+  and t.w = (select max(t2.w) from teams t2 where t2.year_id = t.year_id)
+order by t.year_id, t.team_id;`,
+        explanation: 'The subquery is correlated: conceptually it runs once per team row to find that season\'s best record. An index on (year_id, w) would turn each run into a single index probe.',
+      },
+      {
+        approach: 'Window MAX',
+        postgres: `select year_id, team_id, w
+from (select year_id, team_id, w, max(w) over (partition by year_id) as best
+      from teams where year_id >= 2010) t
+where w = best
+order by year_id, team_id;`,
+        mysql: `select year_id, team_id, w
+from (select year_id, team_id, w, max(w) over (partition by year_id) as best
+      from teams where year_id >= 2010) t
+where w = best
+order by year_id, team_id;`,
+        explanation: 'One pass: the window attaches each season\'s maximum to every row of that season.',
+      },
+    ],
+    comparison: 'Same rows. With 3,000 teams both are instant; check the measured timings, and remember that what is faster depends on table size and indexes.',
+    docs: [
+      { label: 'PostgreSQL: Using EXPLAIN', url: PG + 'using-explain.html' },
+      { label: 'PostgreSQL: Window functions', url: PG + 'tutorial-window.html' },
+    ],
+  },
+  {
+    id: 'lahman-047',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['views', 'aggregates'],
+    title: 'A career totals view',
+    prompt: 'Create a view career_batting (player_id, seasons, g, ab, h, hr) with each player\'s totals over the seasons in the data.',
+    orderMatters: true,
+    checkSql: `select player_id, seasons, hr from career_batting order by hr desc, player_id limit 5`,
+    solutions: [
+      {
+        approach: 'Aggregating view',
+        postgres: `create view career_batting as
+select player_id, count(distinct year_id) as seasons,
+       sum(g) as g, sum(ab) as ab, sum(h) as h, sum(hr) as hr
+from batting
+group by player_id;`,
+        mysql: `create view career_batting as
+select player_id, count(distinct year_id) as seasons,
+       sum(g) as g, sum(ab) as ab, sum(h) as h, sum(hr) as hr
+from batting
+group by player_id;`,
+        explanation: 'count(distinct year_id), not count(*): a traded player has two rows (stints) for one season. "Career" means since 2010 here, as the player tables start then.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
 ]

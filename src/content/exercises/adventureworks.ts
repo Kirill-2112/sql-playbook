@@ -1446,4 +1446,307 @@ order by e.business_entity_id;`,
     ],
     docs: [{ label: 'PostgreSQL: Self joins', url: PG + 'tutorial-join.html' }],
   },
+  {
+    id: 'adventureworks-040',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['full-join'],
+    title: 'Approved vendors and actual orders',
+    prompt:
+      'product_vendor lists the vendors approved for some product; purchase_order_header the vendors actually ordered from in 2024. Count vendors that are approved and ordered from, approved only, and ordered from only.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two vendor lists',
+        postgres: `with approved as (select distinct business_entity_id as vendor_id from product_vendor),
+     ordered  as (select distinct vendor_id from purchase_order_header
+                  where order_date >= '2024-01-01' and order_date < '2025-01-01')
+select count(*) filter (where a.vendor_id is not null and o.vendor_id is not null) as approved_and_ordered,
+       count(*) filter (where o.vendor_id is null) as approved_only,
+       count(*) filter (where a.vendor_id is null) as ordered_only
+from approved a
+full join ordered o on o.vendor_id = a.vendor_id;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: '"ordered_only" would flag purchases from vendors never approved for any product: worth an audit if it is not 0.',
+      },
+      {
+        approach: 'UNION of vendors, then two EXISTS',
+        postgres: `select sum(case when a and o then 1 else 0 end) as approved_and_ordered,
+       sum(case when a and not o then 1 else 0 end) as approved_only,
+       sum(case when o and not a then 1 else 0 end) as ordered_only
+from (
+  select v.vendor_id,
+         exists (select 1 from product_vendor pv where pv.business_entity_id = v.vendor_id) as a,
+         exists (select 1 from purchase_order_header h where h.vendor_id = v.vendor_id
+                   and h.order_date >= '2024-01-01' and h.order_date < '2025-01-01') as o
+  from (select business_entity_id as vendor_id from product_vendor
+        union select vendor_id from purchase_order_header) v
+) flags;`,
+        mysql: `select sum(a and o) as approved_and_ordered,
+       sum(a and not o) as approved_only,
+       sum(o and not a) as ordered_only
+from (
+  select v.vendor_id,
+         exists (select 1 from product_vendor pv where pv.business_entity_id = v.vendor_id) as a,
+         exists (select 1 from purchase_order_header h where h.vendor_id = v.vendor_id
+                   and h.order_date >= '2024-01-01' and h.order_date < '2025-01-01') as o
+  from (select business_entity_id as vendor_id from product_vendor
+        union select vendor_id from purchase_order_header) v
+) flags
+where a or o;`,
+        explanation: 'Build the list of all vendors from both sources, then flag each one. The outer WHERE (in MySQL) and the CASE sums ignore vendors in neither 2024 list.',
+      },
+    ],
+    comparison: 'Same counts. Note the business key differs by table (business_entity_id vs vendor_id): the same vendor, two column names.',
+    docs: [
+      { label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' },
+      { label: 'MySQL: EXISTS', url: MY + 'exists-and-not-exists-subqueries.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-041',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['materialized-views', 'dates-advanced'],
+    title: 'Monthly sales per territory group, stored',
+    prompt: 'Store monthly sales (sum of sub_total, rounded to 2 decimals) per territory group and month (first day of the month), for a sales dashboard.',
+    orderMatters: true,
+    checkSql: `select territory_group, month_start, sales from territory_monthly_sales
+where month_start >= '2025-01-01' and month_start < '2025-04-01'
+order by territory_group, month_start`,
+    solutions: [
+      {
+        approach: 'Materialized view',
+        postgres: `create materialized view territory_monthly_sales as
+select t.territory_group,
+       date_trunc('month', h.order_date)::date as month_start,
+       round(sum(h.sub_total), 2) as sales
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+group by t.territory_group, date_trunc('month', h.order_date)::date;`,
+        mysql: `create table territory_monthly_sales as
+select t.territory_group,
+       cast(date_format(h.order_date, '%Y-%m-01') as date) as month_start,
+       round(sum(h.sub_total), 2) as sales
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+group by t.territory_group, cast(date_format(h.order_date, '%Y-%m-01') as date);`,
+        mysqlNote: 'No materialized views and no date_trunc in MySQL: a table, and the month start built with DATE_FORMAT and cast back to a DATE.',
+        explanation: 'The month is stored as a real date (its first day) rather than text, so the dashboard can filter it by range and sort it naturally.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' },
+      { label: 'MySQL: CREATE TABLE … SELECT', url: MY + 'create-table-select.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-042',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['merge'],
+    title: 'Sync an inventory count',
+    prompt:
+      'A stock-take at location 1 produced counts(product_id, quantity): product 1 → 400, product 2 → 0, product 999 does not exist in inventory yet → skip it. Update inventory at location 1 with the counts, and delete rows whose count is 0.',
+    orderMatters: true,
+    checkSql: `select product_id, quantity from product_inventory where location_id = 1 and product_id in (1, 2) order by product_id`,
+    solutions: [
+      {
+        approach: 'MERGE with two WHEN MATCHED branches',
+        postgres: `create table counts (product_id integer primary key, quantity smallint not null);
+insert into counts values (1, 400), (2, 0), (999, 5);
+
+merge into product_inventory i
+using counts c on c.product_id = i.product_id and i.location_id = 1
+when matched and c.quantity = 0 then delete
+when matched then update set quantity = c.quantity;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          'Branches are tried in order: a zero count deletes the row, any other match updates it. Without a WHEN NOT MATCHED clause, product 999 is ignored.',
+      },
+      {
+        approach: 'DELETE and UPDATE with joins',
+        postgres: `create table counts (product_id integer primary key, quantity smallint not null);
+insert into counts values (1, 400), (2, 0), (999, 5);
+
+delete from product_inventory i using counts c
+where c.product_id = i.product_id and i.location_id = 1 and c.quantity = 0;
+
+update product_inventory i set quantity = c.quantity
+from counts c
+where c.product_id = i.product_id and i.location_id = 1;`,
+        mysql: `create table counts (product_id int primary key, quantity smallint not null);
+insert into counts values (1, 400), (2, 0), (999, 5);
+
+delete i from product_inventory i join counts c on c.product_id = i.product_id
+where i.location_id = 1 and c.quantity = 0;
+
+update product_inventory i join counts c on c.product_id = i.product_id
+set i.quantity = c.quantity
+where i.location_id = 1;`,
+        explanation: 'Delete the zero counts first, then update what is left; together they do what the MERGE does.',
+      },
+    ],
+    comparison: 'Same result. MERGE expresses "delete or update depending on the count" in one statement; the two-statement version needs a transaction around it.',
+    docs: [
+      { label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' },
+      { label: 'MySQL: DELETE (multiple-table syntax)', url: MY + 'delete.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-043',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Orders split by year',
+    prompt:
+      'Create orders_by_year (sales_order_id, order_date, customer_id, sub_total) range-partitioned by order_date into one partition per year 2022–2025, and copy those columns from sales_order_header.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'orders_by_year'::regclass) as partitions,
+       (select count(*) from orders_by_year) as total_rows,
+       (select count(*) from orders_by_year where order_date >= '2024-01-01' and order_date < '2025-01-01') as y2024`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'orders_by_year') as partitions,
+       (select count(*) from orders_by_year) as total_rows,
+       (select count(*) from orders_by_year where order_date >= '2024-01-01' and order_date < '2025-01-01') as y2024`,
+    solutions: [
+      {
+        approach: 'Yearly range partitions',
+        postgres: `create table orders_by_year (
+  sales_order_id integer        not null,
+  order_date     timestamp      not null,
+  customer_id    integer        not null,
+  sub_total      numeric(19, 4) not null,
+  primary key (sales_order_id, order_date)
+) partition by range (order_date);
+
+create table orders_2022 partition of orders_by_year for values from ('2022-01-01') to ('2023-01-01');
+create table orders_2023 partition of orders_by_year for values from ('2023-01-01') to ('2024-01-01');
+create table orders_2024 partition of orders_by_year for values from ('2024-01-01') to ('2025-01-01');
+create table orders_2025 partition of orders_by_year for values from ('2025-01-01') to ('2026-01-01');
+
+insert into orders_by_year select sales_order_id, order_date, customer_id, sub_total from sales_order_header;`,
+        mysql: `create table orders_by_year (
+  sales_order_id int            not null,
+  order_date     datetime       not null,
+  customer_id    int            not null,
+  sub_total      decimal(19, 4) not null,
+  primary key (sales_order_id, order_date)
+)
+partition by range (year(order_date)) (
+  partition p2022 values less than (2023),
+  partition p2023 values less than (2024),
+  partition p2024 values less than (2025),
+  partition p2025 values less than (2026)
+);
+
+insert into orders_by_year select sales_order_id, order_date, customer_id, sub_total from sales_order_header;`,
+        explanation:
+          'Yearly partitions keep "this year" small and fast, and an old year can be archived by detaching its partition. A query for 2024 reads one partition (partition pruning, visible in EXPLAIN).',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Partition pruning', url: PG + 'ddl-partitioning.html#DDL-PARTITION-PRUNING' },
+      { label: 'MySQL: Partition pruning', url: MY + 'partitioning-pruning.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-044',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['date-series'],
+    title: 'The quiet first weeks',
+    prompt: 'Show every day of June 2022 with its number of sales orders, including days with none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'generate_series',
+        postgres: `select d::date as day, count(h.sales_order_id) as orders
+from generate_series(date '2022-06-01', date '2022-06-30', interval '1 day') as d
+left join sales_order_header h on h.order_date >= d and h.order_date < d + interval '1 day'
+group by d
+order by d;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation: 'In its first weeks the sample has orders on only some days; the calendar keeps the empty ones with 0.',
+      },
+      {
+        approach: 'Recursive CTE',
+        postgres: `with recursive days as (
+  select date '2022-06-01' as day
+  union all
+  select (day + 1)::date from days where day < date '2022-06-30'
+)
+select d.day, count(h.sales_order_id) as orders
+from days d
+left join sales_order_header h on h.order_date >= d.day and h.order_date < d.day + 1
+group by d.day
+order by d.day;`,
+        mysql: `with recursive days as (
+  select date('2022-06-01') as day
+  union all
+  select day + interval 1 day from days where day < '2022-06-30'
+)
+select d.day, count(h.sales_order_id) as orders
+from days d
+left join sales_order_header h on h.order_date >= d.day and h.order_date < d.day + interval 1 day
+group by d.day
+order by d.day;`,
+        explanation: 'The same 30-day calendar, built by recursion.',
+      },
+    ],
+    comparison: 'Same rows. Without a calendar, a chart of this month would silently connect non-adjacent days.',
+    docs: [
+      { label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' },
+      { label: 'MySQL: Recursive CTEs', url: MY + 'with.html#common-table-expressions-recursive' },
+    ],
+  },
+  {
+    id: 'adventureworks-045',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'Receive stock',
+    prompt:
+      'Write a procedure receive_stock(p_product_id, p_location_id, p_qty) that adds p_qty to the inventory row, or creates the row (shelf \'N/A\', bin 0) if the product is not stocked there yet. Then receive 50 of product 1 at location 1 and 20 of product 1 at location 7.',
+    orderMatters: true,
+    checkSql: `call receive_stock(1, 1, 50);
+call receive_stock(1, 7, 20);
+select product_id, location_id, quantity from product_inventory where product_id = 1 order by location_id`,
+    solutions: [
+      {
+        approach: 'UPDATE, then INSERT if nothing was updated',
+        postgres: `create procedure receive_stock(p_product_id integer, p_location_id integer, p_qty integer)
+language plpgsql
+as $$
+begin
+  update product_inventory set quantity = quantity + p_qty
+  where product_id = p_product_id and location_id = p_location_id;
+  if not found then
+    insert into product_inventory (product_id, location_id, shelf, bin, quantity)
+    values (p_product_id, p_location_id, 'N/A', 0, p_qty);
+  end if;
+end;
+$$;`,
+        mysql: `create procedure receive_stock(p_product_id int, p_location_id smallint, p_qty int)
+begin
+  update product_inventory set quantity = quantity + p_qty
+  where product_id = p_product_id and location_id = p_location_id;
+  if row_count() = 0 then
+    insert into product_inventory (product_id, location_id, shelf, bin, quantity)
+    values (p_product_id, p_location_id, 'N/A', 0, p_qty);
+  end if;
+end;`,
+        mysqlNote: `ROW_COUNT() returns the number of rows the previous statement changed, the counterpart of PL/pgSQL's FOUND. ${DELIMITER_NOTE}`,
+        explanation:
+          'After an UPDATE, FOUND tells whether any row was affected. A single INSERT … ON CONFLICT DO UPDATE would do the same atomically; this form shows the flow control, and in a busy system needs that atomic version to avoid two sessions inserting at once.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Obtaining the result status (FOUND)', url: PG + 'plpgsql-statements.html#PLPGSQL-STATEMENTS-DIAGNOSTICS' },
+      { label: 'MySQL: ROW_COUNT()', url: MY + 'information-functions.html#function_row-count' },
+    ],
+  },
 ]

@@ -1551,4 +1551,146 @@ order by m;`,
       { label: 'MySQL: Recursive CTEs', url: MY + 'with.html#common-table-expressions-recursive' },
     ],
   },
+  {
+    id: 'employees-041',
+    dataset: 'employees',
+    level: 4,
+    topics: ['temp-tables', 'joins'],
+    title: 'A snapshot of the current staff',
+    prompt:
+      'Several reports today need "who works here now, in which department, with which title and salary". Build it once as a temporary table current_staff (emp_no, dept_no, title, salary).',
+    hint: 'Current rows have to_date = 9999-01-01.',
+    orderMatters: true,
+    checkSql: `select dept_no, count(*) as staff, max(salary) as top_salary from current_staff group by dept_no order by dept_no`,
+    solutions: [
+      {
+        approach: 'CREATE TEMP TABLE … AS',
+        postgres: `create temp table current_staff as
+select de.emp_no, de.dept_no, t.title, s.salary
+from dept_emp de
+join titles t   on t.emp_no = de.emp_no and t.to_date = '9999-01-01'
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+where de.to_date = '9999-01-01';`,
+        mysql: `create temporary table current_staff as
+select de.emp_no, de.dept_no, t.title, s.salary
+from dept_emp de
+join titles t   on t.emp_no = de.emp_no and t.to_date = '9999-01-01'
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+where de.to_date = '9999-01-01';`,
+        mysqlNote: 'CREATE TEMPORARY TABLE; it cannot be referenced twice in the same query (no self-join on it).',
+        explanation: 'Unlike a view, the temporary table holds the result: the three-way join runs once, not once per report. It is private to this session and vanishes when it ends.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' },
+      { label: 'MySQL: CREATE TEMPORARY TABLE', url: MY + 'create-temporary-table.html' },
+    ],
+  },
+  {
+    id: 'employees-042',
+    dataset: 'employees',
+    level: 5,
+    topics: ['query-plans', 'ranking'],
+    title: 'Each employee\'s latest salary, three ways',
+    prompt: 'For every employee, find their most recent salary row (largest from_date). Return the number of employees and the sum of those salaries.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Correlated subquery on max(from_date)',
+        postgres: `select count(*) as employees, sum(s.salary) as total
+from salaries s
+where s.from_date = (select max(s2.from_date) from salaries s2 where s2.emp_no = s.emp_no);`,
+        mysql: `select count(*) as employees, sum(s.salary) as total
+from salaries s
+where s.from_date = (select max(s2.from_date) from salaries s2 where s2.emp_no = s.emp_no);`,
+        explanation: 'For each salary row, look up that employee\'s latest date. The primary key (emp_no, from_date) makes each lookup an index probe.',
+      },
+      {
+        approach: 'ROW_NUMBER',
+        postgres: `select count(*) as employees, sum(salary) as total
+from (
+  select salary, row_number() over (partition by emp_no order by from_date desc) as n
+  from salaries
+) ranked
+where n = 1;`,
+        mysql: `select count(*) as employees, sum(salary) as total
+from (
+  select salary, row_number() over (partition by emp_no order by from_date desc) as n
+  from salaries
+) ranked
+where n = 1;`,
+        explanation: 'One pass over salaries sorted by employee and date, numbering the rows; keep number 1.',
+      },
+      {
+        approach: 'Join to the grouped maximum',
+        postgres: `select count(*) as employees, sum(s.salary) as total
+from salaries s
+join (select emp_no, max(from_date) as last_date from salaries group by emp_no) m
+  on m.emp_no = s.emp_no and m.last_date = s.from_date;`,
+        mysql: `select count(*) as employees, sum(s.salary) as total
+from salaries s
+join (select emp_no, max(from_date) as last_date from salaries group by emp_no) m
+  on m.emp_no = s.emp_no and m.last_date = s.from_date;`,
+        explanation: 'Compute each employee\'s latest date once, then join back to fetch the salary on that date.',
+      },
+    ],
+    comparison:
+      'Same totals. Look at the timings: the planner can turn each form into quite different work (index probes, a sort, a hash join). On this sample all are fast; on 2.8 million rows the differences grow. Measure rather than guess.',
+    docs: [
+      { label: 'PostgreSQL: Using EXPLAIN', url: PG + 'using-explain.html' },
+      { label: 'MySQL: EXPLAIN', url: MY + 'explain.html' },
+    ],
+  },
+  {
+    id: 'employees-043',
+    dataset: 'employees',
+    level: 5,
+    topics: ['triggers'],
+    title: 'Audit every new salary',
+    prompt:
+      'Create salary_audit (emp_no, salary, from_date, previous_salary) and a trigger that records every new salaries row there, with the employee\'s previous salary (NULL for the first one).',
+    orderMatters: false,
+    checkSql: `insert into salaries (emp_no, salary, from_date, to_date) values (10050, 99999, '2003-01-01', '9999-01-01');
+select emp_no, salary, from_date, previous_salary from salary_audit`,
+    solutions: [
+      {
+        approach: 'AFTER INSERT trigger with a lookup',
+        postgres: `create table salary_audit (emp_no integer, salary integer, from_date date, previous_salary integer);
+
+create function audit_salary() returns trigger
+language plpgsql
+as $$
+begin
+  insert into salary_audit (emp_no, salary, from_date, previous_salary)
+  values (new.emp_no, new.salary, new.from_date,
+          (select salary from salaries
+           where emp_no = new.emp_no and from_date < new.from_date
+           order by from_date desc limit 1));
+  return new;
+end;
+$$;
+
+create trigger salaries_audit
+after insert on salaries
+for each row execute function audit_salary();`,
+        mysql: `create table salary_audit (emp_no int, salary int, from_date date, previous_salary int);
+
+create trigger salaries_audit
+after insert on salaries
+for each row
+  insert into salary_audit (emp_no, salary, from_date, previous_salary)
+  values (new.emp_no, new.salary, new.from_date,
+          (select salary from salaries
+           where emp_no = new.emp_no and from_date < new.from_date
+           order by from_date desc limit 1));`,
+        mysqlNote: 'A trigger may read the table it is defined on, but not modify it (MySQL error 1442).',
+        explanation:
+          'The trigger sees the new row as NEW and can query other rows, here the employee\'s salary just before. Writing the history in a trigger means no application path can forget it.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' },
+      { label: 'MySQL: Restrictions on stored programs', url: MY + 'stored-program-restrictions.html' },
+    ],
+  },
 ]

@@ -2022,4 +2022,91 @@ limit 5;`,
     ],
     docs: [{ label: 'PostgreSQL: String functions', url: PG + 'functions-string.html' }],
   },
+  {
+    id: 'airlines-049',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['full-join', 'conditional-aggregates'],
+    title: 'Which connections changed in January',
+    prompt:
+      'Compare the airport pairs (departure → arrival) served in December 2025 with those in January 2026. Count the pairs served in both months, only in December and only in January.',
+    hint: 'route_no values are reassigned every month, so compare airport pairs, not route numbers. Monthly route rows have valid_from = 2025-12-01 and 2026-01-01.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of the two months',
+        postgres: `with dec as (select distinct departure_airport, arrival_airport from routes where valid_from = '2025-12-01'),
+     jan as (select distinct departure_airport, arrival_airport from routes where valid_from = '2026-01-01')
+select count(*) filter (where d.departure_airport is not null and j.departure_airport is not null) as both_months,
+       count(*) filter (where j.departure_airport is null) as only_december,
+       count(*) filter (where d.departure_airport is null) as only_january
+from dec d
+full join jan j on j.departure_airport = d.departure_airport and j.arrival_airport = d.arrival_airport;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'FULL JOIN on both airport columns lines up the pairs of the two months; a NULL side marks a pair that exists in one month only.',
+      },
+      {
+        approach: 'Flags per pair',
+        postgres: `select sum(case when in_dec = 1 and in_jan = 1 then 1 else 0 end) as both_months,
+       sum(case when in_jan = 0 then 1 else 0 end) as only_december,
+       sum(case when in_dec = 0 then 1 else 0 end) as only_january
+from (
+  select departure_airport, arrival_airport,
+         max(case when valid_from = '2025-12-01' then 1 else 0 end) as in_dec,
+         max(case when valid_from = '2026-01-01' then 1 else 0 end) as in_jan
+  from routes
+  where valid_from in ('2025-12-01', '2026-01-01')
+  group by departure_airport, arrival_airport
+) pairs;`,
+        mysql: `select sum(in_dec = 1 and in_jan = 1) as both_months,
+       sum(in_jan = 0) as only_december,
+       sum(in_dec = 0) as only_january
+from (
+  select departure_airport, arrival_airport,
+         max(valid_from = '2025-12-01') as in_dec,
+         max(valid_from = '2026-01-01') as in_jan
+  from routes
+  where valid_from in ('2025-12-01', '2026-01-01')
+  group by departure_airport, arrival_airport
+) pairs;`,
+        explanation: 'Group both months together, one row per airport pair, with a 0/1 flag per month.',
+      },
+    ],
+    comparison:
+      'Same counts. Comparing by route_no instead would claim that most routes changed, only because the numbers were reassigned: always compare by the thing that has meaning.',
+    docs: [
+      { label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' },
+      { label: 'MySQL: GROUP BY', url: MY + 'group-by-functions.html' },
+    ],
+  },
+  {
+    id: 'airlines-050',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['full-text', 'text-search'],
+    title: 'The word, not the letters',
+    prompt:
+      'LIKE \'%island%\' finds 53 airport names, including names with "Islands". Make airport names searchable by whole word and find those containing exactly the word "island": airport_code and airport_name.',
+    orderMatters: true,
+    checkSql: `select airport_code, airport_name from airports
+where to_tsvector('simple', airport_name) @@ to_tsquery('simple', 'island')
+order by airport_code`,
+    checkSqlMysql: `select airport_code, airport_name from airports
+where match(airport_name) against ('+island' in boolean mode)
+order by airport_code`,
+    solutions: [
+      {
+        approach: 'Full-text index',
+        postgres: `create index airports_name_fts on airports using gin (to_tsvector('simple', airport_name));`,
+        mysql: `create fulltext index airports_name_ft on airports (airport_name);`,
+        explanation:
+          'A text search matches words: "island" no longer matches "Islands". With the \'english\' configuration (and in MySQL with a stemming parser) both would reduce to the same stem; \'simple\' keeps words as they are, which is what this question wants.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Text search configurations', url: PG + 'textsearch-configuration.html' },
+      { label: 'MySQL: Natural language and boolean search', url: MY + 'fulltext-boolean.html' },
+    ],
+  },
 ]

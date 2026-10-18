@@ -8,7 +8,7 @@ Queries run on real PostgreSQL inside the browser; MySQL versions are verified a
 
 ## What is inside
 
-- **Exercises** — 365 exercises on eight datasets, levels 1–5, each with 1–4 solutions,
+- **Exercises** — 383 exercises on eight datasets, levels 1–5, each with 1–4 solutions,
   a MySQL 8.4 version (or an explanation of why it is impossible in MySQL) and links to the official docs.
 - **Situations** — problem-first guides ("top N per group", "rows with no match", …).
 - **Index Lab** — `EXPLAIN ANALYZE` before and after adding an index on 200,000 rows, including the cases where an index does not help.

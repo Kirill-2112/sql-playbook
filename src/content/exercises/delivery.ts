@@ -1321,4 +1321,76 @@ limit 5;`,
       { label: 'MySQL: FORMAT', url: MY + 'string-functions.html#function_format' },
     ],
   },
+  {
+    id: 'delivery-036',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['temp-tables', 'indexes'],
+    title: 'A temp table with its own index',
+    prompt:
+      'Build a temporary table customer_totals (customer_id, orders, spent) from delivered orders, give it a primary key, and use it for the check that looks up single customers.',
+    orderMatters: true,
+    checkSql: `select customer_id, orders, spent from customer_totals where customer_id in (1, 2, 3) order by customer_id`,
+    solutions: [
+      {
+        approach: 'Temp table + primary key',
+        postgres: `create temp table customer_totals as
+select customer_id, count(*) as orders, sum(total) as spent
+from orders
+where status = 'delivered'
+group by customer_id;
+
+alter table customer_totals add primary key (customer_id);
+analyze customer_totals;`,
+        mysql: `create temporary table customer_totals as
+select customer_id, count(*) as orders, sum(total) as spent
+from orders
+where status = 'delivered'
+group by customer_id;
+
+alter table customer_totals add primary key (customer_id);`,
+        mysqlNote: 'MySQL collects statistics for new tables automatically; ANALYZE TABLE also exists.',
+        explanation:
+          'A temporary table is a real table: it can have indexes and statistics. With ~49,000 rows, lookups by customer then use the key. In PostgreSQL autovacuum never analyzes temp tables, so run ANALYZE yourself before heavy queries.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: ANALYZE', url: PG + 'sql-analyze.html' },
+      { label: 'MySQL: CREATE TEMPORARY TABLE', url: MY + 'create-temporary-table.html' },
+    ],
+  },
+  {
+    id: 'delivery-037',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['views'],
+    title: 'A customer summary view',
+    prompt: 'Create a view customer_summary (id, name, city, delivered_orders, spent, last_order_at) that includes customers without orders (0 and NULLs).',
+    orderMatters: true,
+    checkSql: `select id, delivered_orders, spent from customer_summary where id in (1, 2, 3) order by id`,
+    solutions: [
+      {
+        approach: 'View with LEFT JOIN and aggregates',
+        postgres: `create view customer_summary as
+select c.id, c.name, c.city,
+       count(o.id) as delivered_orders,
+       sum(o.total) as spent,
+       max(o.created_at) as last_order_at
+from customers c
+left join orders o on o.customer_id = c.id and o.status = 'delivered'
+group by c.id, c.name, c.city;`,
+        mysql: `create view customer_summary as
+select c.id, c.name, c.city,
+       count(o.id) as delivered_orders,
+       sum(o.total) as spent,
+       max(o.created_at) as last_order_at
+from customers c
+left join orders o on o.customer_id = c.id and o.status = 'delivered'
+group by c.id, c.name, c.city;`,
+        explanation:
+          'The status filter is part of the ON clause: in WHERE it would remove the customers without delivered orders again. count(o.id) is 0 for them, sum and max are NULL.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
 ]

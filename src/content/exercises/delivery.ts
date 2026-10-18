@@ -1222,4 +1222,103 @@ order by id`,
       { label: 'MySQL: Boolean full-text searches', url: MY + 'fulltext-boolean.html' },
     ],
   },
+  {
+    id: 'delivery-032',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['distinct', 'aggregates'],
+    title: 'How many different names',
+    prompt: 'There are 50,000 customers. How many different full names do they have?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'count(DISTINCT …)',
+        postgres: `select count(distinct name) as different_names
+from customers;`,
+        mysql: `select count(distinct name) as different_names
+from customers;`,
+        explanation:
+          'Only 100: the generator combines 10 first names with 10 last names. A reminder that a name never identifies a customer; the id does.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'delivery-033',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['conditions'],
+    title: 'Orders between 100 and 101',
+    prompt: 'How many orders have a total from 100.00 up to and including 101.00?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'BETWEEN',
+        postgres: `select count(*) as orders
+from orders
+where total between 100 and 101;`,
+        mysql: `select count(*) as orders
+from orders
+where total between 100 and 101;`,
+        explanation:
+          'BETWEEN includes both ends: it means total >= 100 and total <= 101. For timestamps that is usually not what you want (it would include midnight of the next day); for amounts it is.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Comparison predicates', url: PG + 'functions-comparison.html' }],
+  },
+  {
+    id: 'delivery-034',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['self-cross-join'],
+    title: 'Competitors next door',
+    prompt: 'List pairs of restaurants in the same city with the same cuisine: city, cuisine and both ids (smaller first). Only for Haifa.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Self join',
+        postgres: `select a.city, a.cuisine, a.id as restaurant_1, b.id as restaurant_2
+from restaurants a
+join restaurants b on b.city = a.city and b.cuisine = a.cuisine and b.id > a.id
+where a.city = 'Haifa'
+order by a.cuisine, restaurant_1, restaurant_2;`,
+        mysql: `select a.city, a.cuisine, a.id as restaurant_1, b.id as restaurant_2
+from restaurants a
+join restaurants b on b.city = a.city and b.cuisine = a.cuisine and b.id > a.id
+where a.city = 'Haifa'
+order by a.cuisine, restaurant_1, restaurant_2;`,
+        explanation: 'A group of n restaurants with the same cuisine gives n × (n − 1) / 2 pairs: the self join grows quickly, which is why it is limited to one city.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Self joins', url: PG + 'tutorial-join.html' }],
+  },
+  {
+    id: 'delivery-035',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'Prices as text',
+    prompt: 'For the 5 largest orders (ties by id), show id and the total formatted as text with a shekel sign and two decimals, like "₪249.99".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Format the number',
+        postgres: `select id, '₪' || to_char(total, 'FM999990.00') as price
+from orders
+order by total desc, id
+limit 5;`,
+        mysql: `select id, concat('₪', format(total, 2)) as price
+from orders
+order by total desc, id
+limit 5;`,
+        mysqlNote: 'FORMAT(x, 2) rounds to 2 decimals and adds thousands separators (1,234.50), which these amounts are too small to need.',
+        explanation:
+          'to_char turns a number into text by a pattern: 9 is an optional digit, 0 a forced one, and FM drops the padding spaces. A plain cast (total::text) would also work here, but would not guarantee two decimals in general.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Data type formatting', url: PG + 'functions-formatting.html' },
+      { label: 'MySQL: FORMAT', url: MY + 'string-functions.html#function_format' },
+    ],
+  },
 ]

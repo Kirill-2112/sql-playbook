@@ -1946,4 +1946,80 @@ where status in ('Scheduled', 'On Time', 'Delayed');`,
       { label: 'MySQL: Multiple-column indexes', url: MY + 'multiple-column-indexes.html' },
     ],
   },
+  {
+    id: 'airlines-046',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['distinct', 'aggregates'],
+    title: 'How many time zones',
+    prompt: 'How many different time zones do the airports use in total, and how many among the airports the airline actually flies to or from?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'count(DISTINCT) twice',
+        postgres: `select count(distinct timezone) as all_airports,
+       count(distinct timezone) filter (where airport_code in (select departure_airport from routes)) as served
+from airports;`,
+        mysql: `select count(distinct timezone) as all_airports,
+       count(distinct case when airport_code in (select departure_airport from routes) then timezone end) as served
+from airports;`,
+        mysqlNote: 'No FILTER: a CASE that yields NULL for other rows works too, because count(DISTINCT …) ignores NULLs.',
+        explanation: 'Every route also returns, so "flies to or from" is the same set as "flies from". 311 zones in the data, 25 on the network.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate expressions', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'airlines-047',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['text-search'],
+    title: 'Served airports in Asia',
+    prompt: 'List the airports with December departures whose time zone is in Asia (the name starts with "Asia/"): airport_code, city and timezone, ordered by code.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LIKE on a prefix',
+        postgres: `select a.airport_code, a.city, a.timezone
+from airports a
+where a.timezone like 'Asia/%'
+  and exists (select 1 from routes r where r.departure_airport = a.airport_code and r.valid_from = '2025-12-01')
+order by a.airport_code;`,
+        mysql: `select a.airport_code, a.city, a.timezone
+from airports a
+where a.timezone like 'Asia/%'
+  and exists (select 1 from routes r where r.departure_airport = a.airport_code and r.valid_from = '2025-12-01')
+order by a.airport_code;`,
+        explanation:
+          'Time zone names follow "Area/City". Yekaterinburg and Novosibirsk are in Asia/… zones even though Russia is often filed under Europe: the time zone, not the country, decides.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'airlines-048',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['strings', 'group-by'],
+    title: 'Where passengers come from',
+    prompt: 'passenger_id starts with a two-letter country code ("RU 2714…"). Show the 5 countries with the most different passengers.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Group by a substring',
+        postgres: `select left(passenger_id, 2) as country, count(distinct passenger_id) as passengers
+from tickets
+group by left(passenger_id, 2)
+order by passengers desc, country
+limit 5;`,
+        mysql: `select left(passenger_id, 2) as country, count(distinct passenger_id) as passengers
+from tickets
+group by left(passenger_id, 2)
+order by passengers desc, country
+limit 5;`,
+        explanation: 'GROUP BY can use any expression, here the first two characters. count(distinct passenger_id) counts people, not tickets: a round trip is two tickets.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: String functions', url: PG + 'functions-string.html' }],
+  },
 ]

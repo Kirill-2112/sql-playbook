@@ -1330,4 +1330,120 @@ where table_schema = database() and table_name = 'sales_order_header' and column
       { label: 'MySQL: Optimizing with covering indexes', url: MY + 'explain-output.html#explain-extra-information' },
     ],
   },
+  {
+    id: 'adventureworks-036',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['numbers'],
+    title: 'The best margins',
+    prompt:
+      'For products with a list price, the margin is (list_price − standard_cost) / list_price. Show the 10 products with the highest margin: product_id, name and the margin in percent with 1 decimal.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Arithmetic and ROUND',
+        postgres: `select product_id, name,
+       round(100 * (list_price - standard_cost) / list_price, 1) as margin_pct
+from product
+where list_price > 0
+order by margin_pct desc, product_id
+limit 10;`,
+        mysql: `select product_id, name,
+       round(100 * (list_price - standard_cost) / list_price, 1) as margin_pct
+from product
+where list_price > 0
+order by margin_pct desc, product_id
+limit 10;`,
+        explanation: 'The WHERE keeps out components with list price 0, which would divide by zero. Both columns are numeric, so there is no integer division to worry about.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Mathematical functions', url: PG + 'functions-math.html' }],
+  },
+  {
+    id: 'adventureworks-037',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['dates-basics'],
+    title: 'Years of service',
+    prompt: 'As of 2025-06-30, show the 10 longest-serving employees: business_entity_id, job_title, hire_date and full years of service. Ties by id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'age() / TIMESTAMPDIFF',
+        postgres: `select business_entity_id, job_title, hire_date,
+       extract(year from age(date '2025-06-30', hire_date))::int as years
+from employee
+order by hire_date, business_entity_id
+limit 10;`,
+        mysql: `select business_entity_id, job_title, hire_date,
+       timestampdiff(year, hire_date, '2025-06-30') as years
+from employee
+order by hire_date, business_entity_id
+limit 10;`,
+        explanation: 'age() returns years, months and days; extract(year …) keeps the whole years, like TIMESTAMPDIFF(YEAR, …). The earliest hire is first.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: age', url: PG + 'functions-datetime.html' },
+      { label: 'MySQL: TIMESTAMPDIFF', url: MY + 'date-and-time-functions.html#function_timestampdiff' },
+    ],
+  },
+  {
+    id: 'adventureworks-038',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['text-aggregation', 'joins'],
+    title: 'Subcategories in one line',
+    prompt: 'For each product category, list its subcategories alphabetically in one text, separated by ", ".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg / GROUP_CONCAT',
+        postgres: `select c.name as category,
+       string_agg(s.name, ', ' order by s.name) as subcategories
+from product_category c
+join product_subcategory s on s.product_category_id = c.product_category_id
+group by c.name
+order by c.name;`,
+        mysql: `select c.name as category,
+       group_concat(s.name order by s.name separator ', ') as subcategories
+from product_category c
+join product_subcategory s on s.product_category_id = c.product_category_id
+group by c.name
+order by c.name;`,
+        mysqlNote: 'GROUP_CONCAT output is cut at group_concat_max_len (1,024 bytes by default); raise it for long lists.',
+        explanation: 'One row per category, with all its subcategory names glued together in the order given inside the aggregate.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' },
+      { label: 'MySQL: GROUP_CONCAT', url: MY + 'aggregate-functions.html#function_group-concat' },
+    ],
+  },
+  {
+    id: 'adventureworks-039',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['self-cross-join', 'joins'],
+    title: 'Who reports to whom',
+    prompt: 'For the employees at organization level 2, show their business_entity_id, job_title and their manager\'s job_title.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Join employee to itself',
+        postgres: `select e.business_entity_id, e.job_title, m.job_title as manager_title
+from employee e
+join employee m on m.business_entity_id = e.manager_id
+where e.organization_level = 2
+order by e.business_entity_id;`,
+        mysql: `select e.business_entity_id, e.job_title, m.job_title as manager_title
+from employee e
+join employee m on m.business_entity_id = e.manager_id
+where e.organization_level = 2
+order by e.business_entity_id;`,
+        explanation: 'manager_id points to another row of the same table. Two aliases make it one table in two roles: the employee (e) and the manager (m). Level 2 employees report to the six level-1 executives; the CEO at the top has no level (NULL) and no manager.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Self joins', url: PG + 'tutorial-join.html' }],
+  },
 ]

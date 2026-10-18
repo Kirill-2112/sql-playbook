@@ -1484,4 +1484,147 @@ generated always as (round(h / nullif(ab, 0), 3)) stored;`,
       { label: 'MySQL: NULLIF', url: MY + 'flow-control-functions.html#function_nullif' },
     ],
   },
+  {
+    id: 'lahman-040',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['select-basics', 'null'],
+    title: 'Throwing with both hands',
+    prompt: 'throws is R, L, or B for a player who throws with both hands. List those players: player_id, name_first, name_last and debut.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Simple filter',
+        postgres: `select player_id, name_first, name_last, debut
+from people
+where throws = 'B'
+order by debut;`,
+        mysql: `select player_id, name_first, name_last, debut
+from people
+where throws = 'B'
+order by debut;`,
+        explanation:
+          'Ambidextrous pitchers are rare: one from 1881 and one who debuted in 2025. A NULL throws (unknown) is not = \'B\' and not <> \'B\' either, so unknown values never sneak into such a list.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WHERE', url: PG + 'queries-table-expressions.html#QUERIES-WHERE' }],
+  },
+  {
+    id: 'lahman-041',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['limit', 'aggregates'],
+    title: 'Places 11 to 20',
+    prompt:
+      'Rank the single-season home run totals since 2010 (sum of stints) and show places 11 to 20: player_id, year_id and home runs. Ties: by year, then player_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LIMIT … OFFSET',
+        postgres: `select player_id, year_id, sum(hr) as hr
+from batting
+group by player_id, year_id
+order by hr desc, year_id, player_id
+limit 10 offset 10;`,
+        mysql: `select player_id, year_id, sum(hr) as hr
+from batting
+group by player_id, year_id
+order by hr desc, year_id, player_id
+limit 10 offset 10;`,
+        explanation: 'OFFSET 10 skips the first ten rows of the sorted result; LIMIT 10 keeps the next ten. Without a complete ORDER BY, which rows count as "the first ten" would be arbitrary.',
+      },
+      {
+        approach: 'FETCH / OFFSET (standard SQL)',
+        postgres: `select player_id, year_id, sum(hr) as hr
+from batting
+group by player_id, year_id
+order by hr desc, year_id, player_id
+offset 10 rows fetch next 10 rows only;`,
+        mysql: null,
+        mysqlNote: 'MySQL supports only LIMIT … OFFSET.',
+        explanation: 'The SQL-standard spelling of the same thing, also understood by Oracle and SQL Server.',
+      },
+    ],
+    comparison: 'Same rows. LIMIT is shorter and works in PostgreSQL, MySQL and SQLite; FETCH is the standard form.',
+    docs: [
+      { label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' },
+      { label: 'MySQL: LIMIT', url: MY + 'select.html' },
+    ],
+  },
+  {
+    id: 'lahman-042',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['text-search'],
+    title: 'Long given names',
+    prompt: 'Which players who debuted in 2024 or later have a given name (name_given) of three or more words? Show player_id and name_given.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Two spaces in the pattern',
+        postgres: `select player_id, name_given
+from people
+where debut >= '2024-01-01' and name_given like '% % %'
+order by player_id;`,
+        mysql: `select player_id, name_given
+from people
+where debut >= '2024-01-01' and name_given like '% % %'
+order by player_id;`,
+        explanation: '% matches any text, even an empty one, so \'% % %\' needs at least two spaces somewhere: three or more words.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'lahman-043',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['set-operations', 'subqueries'],
+    title: 'Two-way players',
+    prompt: 'Who both batted (at least 50 at-bats) and pitched (at least 10 games) in 2025? Show player_id.',
+    hint: 'Sum the stints of each player before applying the limits.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'INTERSECT',
+        postgres: `select player_id from batting where year_id = 2025 group by player_id having sum(ab) >= 50
+intersect
+select player_id from pitching where year_id = 2025 group by player_id having sum(g) >= 10;`,
+        mysql: `select player_id from batting where year_id = 2025 group by player_id having sum(ab) >= 50
+intersect
+select player_id from pitching where year_id = 2025 group by player_id having sum(g) >= 10;`,
+        mysqlNote: 'INTERSECT exists since MySQL 8.0.31.',
+        explanation: 'Each half is a list of qualifying players; INTERSECT keeps those on both lists. Since 2022 pitchers no longer bat in either league, so this is a short list.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: INTERSECT', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'lahman-044',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['self-cross-join'],
+    title: 'Division ties',
+    prompt: 'Since 2010, find pairs of teams in the same league and division that finished with exactly the same number of wins: year_id, the two team_ids (smaller first) and the wins.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Self join on year, league, division and wins',
+        postgres: `select a.year_id, a.team_id as team_1, b.team_id as team_2, a.w
+from teams a
+join teams b on b.year_id = a.year_id and b.lg_id = a.lg_id and b.div_id = a.div_id
+            and b.w = a.w and b.team_id > a.team_id
+where a.year_id >= 2010
+order by a.year_id, a.lg_id, a.div_id, team_1;`,
+        mysql: `select a.year_id, a.team_id as team_1, b.team_id as team_2, a.w
+from teams a
+join teams b on b.year_id = a.year_id and b.lg_id = a.lg_id and b.div_id = a.div_id
+            and b.w = a.w and b.team_id > a.team_id
+where a.year_id >= 2010
+order by a.year_id, a.lg_id, a.div_id, team_1;`,
+        explanation: 'All the matching conditions go into the join. b.team_id > a.team_id removes the pairing of a team with itself and keeps each pair once.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joins', url: PG + 'tutorial-join.html' }],
+  },
 ]

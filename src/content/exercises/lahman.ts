@@ -1128,4 +1128,70 @@ where table_schema = database() and table_name = 'batting' and column_name = 'hr
       { label: 'MySQL: Descending indexes', url: MY + 'descending-indexes.html' },
     ],
   },
+  {
+    id: 'lahman-032',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['ranking'],
+    title: 'Payroll percentiles',
+    prompt:
+      'For 2016, show each team\'s total payroll and its percentile rank among all teams (0 = lowest, 1 = highest), rounded to 2 decimals, highest payroll first.',
+    hint: 'Salaries end in 2016.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'PERCENT_RANK',
+        postgres: `select team_id, sum(salary) as payroll,
+       round(percent_rank() over (order by sum(salary))::numeric, 2) as pct_rank
+from salaries
+where year_id = 2016
+group by team_id
+order by payroll desc, team_id;`,
+        mysql: `select team_id, sum(salary) as payroll,
+       round(percent_rank() over (order by sum(salary)), 2) as pct_rank
+from salaries
+where year_id = 2016
+group by team_id
+order by payroll desc, team_id;`,
+        mysqlNote: 'PERCENT_RANK returns a DOUBLE in both; PostgreSQL\'s two-argument round() needs numeric, hence the cast there.',
+        explanation:
+          'percent_rank = (rank − 1) / (rows − 1): the lowest payroll gets 0 and the highest 1. cume_dist would instead give the share of teams at or below this one.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: percent_rank', url: PG + 'functions-window.html' },
+      { label: 'MySQL: PERCENT_RANK', url: MY + 'window-function-descriptions.html#function_percent-rank' },
+    ],
+  },
+  {
+    id: 'lahman-033',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['conditions'],
+    title: 'Good, average and bad seasons',
+    prompt:
+      'Classify the 2025 teams: "contender" with at least 90 wins, "rebuilding" with fewer than 70, otherwise "middle". Show name, w and the label, most wins first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Searched CASE',
+        postgres: `select name, w,
+       case when w >= 90 then 'contender'
+            when w < 70  then 'rebuilding'
+            else 'middle' end as label
+from teams
+where year_id = 2025
+order by w desc, name;`,
+        mysql: `select name, w,
+       case when w >= 90 then 'contender'
+            when w < 70  then 'rebuilding'
+            else 'middle' end as label
+from teams
+where year_id = 2025
+order by w desc, name;`,
+        explanation: 'CASE checks its WHEN conditions top to bottom and returns the first match; ELSE covers everything else.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CASE', url: PG + 'functions-conditional.html#FUNCTIONS-CASE' }],
+  },
 ]

@@ -1215,4 +1215,72 @@ insert into projects (dept_no, name, budget) values ('d005', 'Search', 50000);`,
       { label: 'MySQL: AUTO_INCREMENT', url: MY + 'example-auto-increment.html' },
     ],
   },
+  {
+    id: 'employees-032',
+    dataset: 'employees',
+    level: 3,
+    topics: ['lateral'],
+    title: 'The latest hires of each department',
+    prompt: 'For every department, show its 2 most recently hired current employees: dept_name, emp_no and hire_date. Same hire date: higher emp_no first.',
+    hint: 'A current department assignment has to_date = 9999-01-01.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL … LIMIT 2',
+        postgres: `select d.dept_name, latest.emp_no, latest.hire_date
+from departments d
+cross join lateral (
+  select e.emp_no, e.hire_date
+  from dept_emp de
+  join employees e on e.emp_no = de.emp_no
+  where de.dept_no = d.dept_no and de.to_date = '9999-01-01'
+  order by e.hire_date desc, e.emp_no desc
+  limit 2
+) as latest
+order by d.dept_name, latest.hire_date desc, latest.emp_no desc;`,
+        mysql: `select d.dept_name, latest.emp_no, latest.hire_date
+from departments d
+cross join lateral (
+  select e.emp_no, e.hire_date
+  from dept_emp de
+  join employees e on e.emp_no = de.emp_no
+  where de.dept_no = d.dept_no and de.to_date = '9999-01-01'
+  order by e.hire_date desc, e.emp_no desc
+  limit 2
+) as latest
+order by d.dept_name, latest.hire_date desc, latest.emp_no desc;`,
+        mysqlNote: 'LATERAL exists since MySQL 8.0.14.',
+        explanation: '"Top N per group" with LATERAL: the subquery is evaluated per department and may use d.dept_no.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'employees-033',
+    dataset: 'employees',
+    level: 3,
+    topics: ['window-frames', 'group-by'],
+    title: 'Hires per year, and the total so far',
+    prompt: 'For each hire year, show the number of employees hired that year and the cumulative number hired up to and including that year.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Running sum over grouped rows',
+        postgres: `select extract(year from hire_date)::int as hire_year,
+       count(*) as hired,
+       sum(count(*)) over (order by extract(year from hire_date) rows between unbounded preceding and current row) as hired_so_far
+from employees
+group by extract(year from hire_date)
+order by hire_year;`,
+        mysql: `select year(hire_date) as hire_year,
+       count(*) as hired,
+       sum(count(*)) over (order by year(hire_date) rows between unbounded preceding and current row) as hired_so_far
+from employees
+group by year(hire_date)
+order by hire_year;`,
+        explanation: 'GROUP BY first makes one row per year; the window then adds up the yearly counts in year order.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'tutorial-window.html' }],
+  },
 ]

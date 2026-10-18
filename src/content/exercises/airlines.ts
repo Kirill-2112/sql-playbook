@@ -1455,4 +1455,92 @@ where table_schema = database() and table_name = 'tickets'
       { label: 'MySQL: Functional key parts', url: MY + 'create-index.html#create-index-functional-key-parts' },
     ],
   },
+  {
+    id: 'airlines-035',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['self-cross-join', 'joins'],
+    title: 'Every class on every airplane',
+    prompt:
+      'Show every airplane with every travel class (Business, Comfort, Economy) and its seat count in that class, including 0 where the airplane has none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CROSS JOIN, then LEFT JOIN',
+        postgres: `select a.airplane_code, c.fare_conditions, count(s.seat_no) as seats
+from airplanes a
+cross join (values ('Business'), ('Comfort'), ('Economy')) as c (fare_conditions)
+left join seats s on s.airplane_code = a.airplane_code and s.fare_conditions = c.fare_conditions
+group by a.airplane_code, c.fare_conditions
+order by a.airplane_code, c.fare_conditions;`,
+        mysql: `select a.airplane_code, c.fare_conditions, count(s.seat_no) as seats
+from airplanes a
+cross join (select 'Business' as fare_conditions union all select 'Comfort' union all select 'Economy') as c
+left join seats s on s.airplane_code = a.airplane_code and s.fare_conditions = c.fare_conditions
+group by a.airplane_code, c.fare_conditions
+order by a.airplane_code, c.fare_conditions;`,
+        mysqlNote: 'MySQL\'s VALUES table constructor needs ROW(…) and names its columns column_0; a UNION ALL of SELECTs is simpler.',
+        explanation:
+          'CROSS JOIN builds every (airplane, class) combination, 10 × 3 = 30 rows. LEFT JOIN then attaches matching seats, and count(s.seat_no) is 0 where nothing matched. Grouping seats alone would never show the missing classes.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: VALUES lists', url: PG + 'queries-values.html' },
+      { label: 'MySQL: JOIN', url: MY + 'join.html' },
+    ],
+  },
+  {
+    id: 'airlines-036',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['text-aggregation', 'joins'],
+    title: 'Itineraries as text',
+    prompt:
+      'For the 10 lowest-numbered tickets with three or more flights, show ticket_no and the route as text like "OVB → SVO → FRA → FCO" (airports in flight order).',
+    hint: 'A route_no can change month to month, so join a flight to the route row whose valid_from ≤ scheduled_departure < valid_to.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg over ordered legs',
+        postgres: `with legs as (
+  select s.ticket_no, f.scheduled_departure, r.departure_airport, r.arrival_airport,
+         row_number() over (partition by s.ticket_no order by f.scheduled_departure desc) as from_end
+  from segments s
+  join flights f on f.flight_id = s.flight_id
+  join routes r on r.route_no = f.route_no
+               and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+)
+select ticket_no,
+       string_agg(departure_airport, ' → ' order by scheduled_departure)
+         || ' → ' || max(case when from_end = 1 then arrival_airport end) as itinerary
+from legs
+group by ticket_no
+having count(*) >= 3
+order by ticket_no
+limit 10;`,
+        mysql: `with legs as (
+  select s.ticket_no, f.scheduled_departure, r.departure_airport, r.arrival_airport,
+         row_number() over (partition by s.ticket_no order by f.scheduled_departure desc) as from_end
+  from segments s
+  join flights f on f.flight_id = s.flight_id
+  join routes r on r.route_no = f.route_no
+               and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+)
+select ticket_no,
+       concat(group_concat(departure_airport order by scheduled_departure separator ' → '),
+              ' → ', max(case when from_end = 1 then arrival_airport end)) as itinerary
+from legs
+group by ticket_no
+having count(*) >= 3
+order by ticket_no
+limit 10;`,
+        explanation:
+          'Each leg contributes its departure airport, in time order; the final destination is the arrival airport of the last leg (from_end = 1). Joining all departures plus the last arrival gives the whole path.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' },
+      { label: 'MySQL: GROUP_CONCAT', url: MY + 'aggregate-functions.html#function_group-concat' },
+    ],
+  },
 ]

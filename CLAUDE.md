@@ -58,6 +58,9 @@ Audit of 2026-10-15:
 - MySQL: no FILTER, FULL JOIN, MERGE, RETURNING, DISTINCT ON, generate_series, ::, partial indexes, bool_and;
   `||` is OR; `/` is decimal (use DIV); temp tables can't be referenced twice in one query.
 - When a learner-visible claim mentions a number (counts, percentages), check it against the data first.
+- Upstream files can change under the same URL (Postgres Pro re-published the Airlines dump on 2026-10-17, fixing
+  "Aerobus" → "Airbus"). CI then fails at the checksum step. Diff old vs new (schema + sorted rows per table), and if the
+  change is harmless, update the SHA-256 in the workflow and rebuild.
 - Airlines times: timestamptz in PG (the .pg.sql sets `timezone = 'UTC'`, otherwise PGlite uses the computer's zone),
   DATETIME holding UTC in MySQL; compareRows treats "…+00" and the bare value as equal. Local time: AT TIME ZONE vs
   CONVERT_TZ (needs MySQL tz tables, present in the official image). Express durations that may exceed a day as minutes:

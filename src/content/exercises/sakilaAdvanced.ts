@@ -649,4 +649,307 @@ group by c.name;`,
       { label: 'MySQL: CREATE TABLE … SELECT', url: MY + 'create-table-select.html' },
     ],
   },
+  {
+    id: 'sakila-045',
+    dataset: 'sakila',
+    level: 2,
+    topics: ['full-join', 'conditional-aggregates'],
+    title: 'Which store stocks which films',
+    prompt: 'Count the films stocked in both stores, only in store 1, only in store 2, and in neither, in one row.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of the two stores',
+        postgres: `with s1 as (select distinct film_id from inventory where store_id = 1),
+     s2 as (select distinct film_id from inventory where store_id = 2)
+select count(*) filter (where s1.film_id is not null and s2.film_id is not null) as both_stores,
+       count(*) filter (where s2.film_id is null)                                as only_store_1,
+       count(*) filter (where s1.film_id is null)                                as only_store_2,
+       (select count(*) from film) - count(*)                                    as neither
+from s1
+full join s2 on s2.film_id = s1.film_id;`,
+        mysql: null,
+        mysqlNote: 'MySQL has no FULL JOIN; see solution B.',
+        explanation:
+          'FULL JOIN keeps films from either side, with NULL on the side that lacks them. Films in neither store are not in either list at all, so they are the total minus everything the join returned.',
+      },
+      {
+        approach: 'One flag per store',
+        postgres: `select sum(case when s1 = 1 and s2 = 1 then 1 else 0 end) as both_stores,
+       sum(case when s1 = 1 and s2 = 0 then 1 else 0 end) as only_store_1,
+       sum(case when s1 = 0 and s2 = 1 then 1 else 0 end) as only_store_2,
+       sum(case when s1 = 0 and s2 = 0 then 1 else 0 end) as neither
+from (
+  select f.film_id,
+         case when exists (select 1 from inventory i where i.film_id = f.film_id and i.store_id = 1) then 1 else 0 end as s1,
+         case when exists (select 1 from inventory i where i.film_id = f.film_id and i.store_id = 2) then 1 else 0 end as s2
+  from film f
+) flags;`,
+        mysql: `select sum(s1 and s2)         as both_stores,
+       sum(s1 and not s2)     as only_store_1,
+       sum(s2 and not s1)     as only_store_2,
+       sum(not s1 and not s2) as neither
+from (
+  select f.film_id,
+         exists (select 1 from inventory i where i.film_id = f.film_id and i.store_id = 1) as s1,
+         exists (select 1 from inventory i where i.film_id = f.film_id and i.store_id = 2) as s2
+  from film f
+) flags;`,
+        explanation: 'Start from all films, so "neither" comes for free, and mark each film with one flag per store.',
+      },
+    ],
+    comparison:
+      'Same counts. FULL JOIN shows the idea of "present on one side, the other, or both"; starting from film with two flags also covers "neither" naturally and works in MySQL.',
+    docs: [
+      { label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' },
+      { label: 'MySQL: EXISTS', url: MY + 'exists-and-not-exists-subqueries.html' },
+    ],
+  },
+  {
+    id: 'sakila-046',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['date-series'],
+    title: 'Every day of August 2005',
+    prompt: 'Show every day of August 2005 with its number of rentals, including the days without any.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'generate_series',
+        postgres: `select d::date as day, count(r.rental_id) as rentals
+from generate_series(date '2005-08-01', date '2005-08-31', interval '1 day') as d
+left join rental r on r.rental_date >= d and r.rental_date < d + interval '1 day'
+group by d
+order by d;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation: 'Rentals happened only on 1–2 and 16–23 August. Starting from a calendar keeps the 21 empty days in the report, with 0.',
+      },
+      {
+        approach: 'Recursive CTE',
+        postgres: `with recursive days as (
+  select date '2005-08-01' as day
+  union all
+  select (day + 1)::date from days where day < date '2005-08-31'
+)
+select d.day, count(r.rental_id) as rentals
+from days d
+left join rental r on r.rental_date >= d.day and r.rental_date < d.day + 1
+group by d.day
+order by d.day;`,
+        mysql: `with recursive days as (
+  select date('2005-08-01') as day
+  union all
+  select day + interval 1 day from days where day < '2005-08-31'
+)
+select d.day, count(r.rental_id) as rentals
+from days d
+left join rental r on r.rental_date >= d.day and r.rental_date < d.day + interval 1 day
+group by d.day
+order by d.day;`,
+        explanation: 'The calendar built row by row: a start day, then "the previous day plus one" until the 31st.',
+      },
+    ],
+    comparison: 'Same 31 rows. A plain GROUP BY on rental dates would return only the 10 days that have rentals.',
+    docs: [
+      { label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' },
+      { label: 'MySQL: Recursive CTEs', url: MY + 'with.html#common-table-expressions-recursive' },
+    ],
+  },
+  {
+    id: 'sakila-047',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['gaps-islands'],
+    title: 'When was the shop busy',
+    prompt: 'Rentals come in bursts. Find each run of consecutive days with at least one rental: first day, last day, number of days and rentals.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Date minus row number',
+        postgres: `with days as (
+  select rental_date::date as day, count(*) as rentals
+  from rental
+  group by rental_date::date
+),
+runs as (
+  select day, rentals, day - (row_number() over (order by day))::int as grp
+  from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days, sum(rentals) as rentals
+from runs
+group by grp
+order by first_day;`,
+        mysql: `with days as (
+  select date(rental_date) as day, count(*) as rentals
+  from rental
+  group by date(rental_date)
+),
+runs as (
+  select day, rentals, day - interval (row_number() over (order by day)) day as grp
+  from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days, sum(rentals) as rentals
+from runs
+group by grp
+order by first_day;`,
+        mysqlNote: 'date − integer is not date arithmetic in MySQL (it turns the date into a number); subtract an INTERVAL instead.',
+        explanation:
+          'Number the active days 1, 2, 3, … Inside a run of consecutive days, the date and the number grow together, so date − number is constant; after a gap it jumps. That constant identifies each run.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Date/time operators', url: PG + 'functions-datetime.html' }],
+  },
+  {
+    id: 'sakila-048',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['pivot', 'conditional-aggregates'],
+    title: 'Category rentals by month',
+    prompt: 'For each film category, show its rentals in June, July and August 2005 as three columns, ordered by category name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts',
+        postgres: `select c.name as category,
+       count(*) filter (where r.rental_date >= '2005-06-01' and r.rental_date < '2005-07-01') as june,
+       count(*) filter (where r.rental_date >= '2005-07-01' and r.rental_date < '2005-08-01') as july,
+       count(*) filter (where r.rental_date >= '2005-08-01' and r.rental_date < '2005-09-01') as august
+from rental r
+join inventory i      on i.inventory_id = r.inventory_id
+join film_category fc on fc.film_id = i.film_id
+join category c       on c.category_id = fc.category_id
+group by c.name
+order by c.name;`,
+        mysql: `select c.name as category,
+       sum(r.rental_date >= '2005-06-01' and r.rental_date < '2005-07-01') as june,
+       sum(r.rental_date >= '2005-07-01' and r.rental_date < '2005-08-01') as july,
+       sum(r.rental_date >= '2005-08-01' and r.rental_date < '2005-09-01') as august
+from rental r
+join inventory i      on i.inventory_id = r.inventory_id
+join film_category fc on fc.film_id = i.film_id
+join category c       on c.category_id = fc.category_id
+group by c.name
+order by c.name;`,
+        mysqlNote: 'No FILTER; a true comparison is 1 in MySQL, so SUM counts the matching rows.',
+        explanation: 'A pivot turns values of one column (the month) into separate columns: one conditional count per month. The month list is fixed in the query; SQL cannot create columns from data on its own.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'sakila-049',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['lateral'],
+    title: 'Each customer\'s latest rental',
+    prompt: 'For customers 1 to 10, show customer_id, the title of the film they rented last and when.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL … LIMIT 1',
+        postgres: `select c.customer_id, last.title, last.rental_date
+from customer c
+cross join lateral (
+  select f.title, r.rental_date
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f      on f.film_id = i.film_id
+  where r.customer_id = c.customer_id
+  order by r.rental_date desc, r.rental_id desc
+  limit 1
+) as last
+where c.customer_id between 1 and 10
+order by c.customer_id;`,
+        mysql: `select c.customer_id, last.title, last.rental_date
+from customer c
+cross join lateral (
+  select f.title, r.rental_date
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f      on f.film_id = i.film_id
+  where r.customer_id = c.customer_id
+  order by r.rental_date desc, r.rental_id desc
+  limit 1
+) as last
+where c.customer_id between 1 and 10
+order by c.customer_id;`,
+        mysqlNote: 'LATERAL exists since MySQL 8.0.14.',
+        explanation: 'The subquery runs per customer and can return several columns at once, which a scalar subquery in SELECT cannot.',
+      },
+      {
+        approach: 'ROW_NUMBER',
+        postgres: `select customer_id, title, rental_date
+from (
+  select r.customer_id, f.title, r.rental_date,
+         row_number() over (partition by r.customer_id order by r.rental_date desc, r.rental_id desc) as n
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f      on f.film_id = i.film_id
+  where r.customer_id between 1 and 10
+) ranked
+where n = 1
+order by customer_id;`,
+        mysql: `select customer_id, title, rental_date
+from (
+  select r.customer_id, f.title, r.rental_date,
+         row_number() over (partition by r.customer_id order by r.rental_date desc, r.rental_id desc) as n
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f      on f.film_id = i.film_id
+  where r.customer_id between 1 and 10
+) ranked
+where n = 1
+order by customer_id;`,
+        explanation: 'Number each customer\'s rentals from the newest and keep number 1.',
+      },
+    ],
+    comparison: 'Same rows. With an index on rental (customer_id, rental_date), LATERAL reads one row per customer; ROW_NUMBER reads all of their rentals first.',
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'sakila-050',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['window-frames'],
+    title: 'Revenue so far, and its share',
+    prompt:
+      'For each day with payments in July 2005, show the day\'s payments total, the running total since 1 July, and the running total as a percentage of the whole month (1 decimal).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Two windows over daily totals',
+        postgres: `with daily as (
+  select payment_date::date as day, sum(amount) as amount
+  from payment
+  where payment_date >= '2005-07-01' and payment_date < '2005-08-01'
+  group by payment_date::date
+)
+select day, amount,
+       sum(amount) over (order by day rows between unbounded preceding and current row) as running,
+       round(100 * sum(amount) over (order by day rows between unbounded preceding and current row)
+                 / sum(amount) over (), 1) as pct_of_month
+from daily
+order by day;`,
+        mysql: `with daily as (
+  select date(payment_date) as day, sum(amount) as amount
+  from payment
+  where payment_date >= '2005-07-01' and payment_date < '2005-08-01'
+  group by date(payment_date)
+)
+select day, amount,
+       sum(amount) over (order by day rows between unbounded preceding and current row) as running,
+       round(100 * sum(amount) over (order by day rows between unbounded preceding and current row)
+                 / sum(amount) over (), 1) as pct_of_month
+from daily
+order by day;`,
+        explanation:
+          'The frame "unbounded preceding … current row" sums everything up to this day. An empty OVER () is the whole result: the month total. Writing the frame out is clearer than relying on the default, which is RANGE and would merge rows with equal days.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' },
+      { label: 'MySQL: Window function frames', url: MY + 'window-functions-frames.html' },
+    ],
+  },
 ]

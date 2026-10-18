@@ -76,10 +76,10 @@ create table tickets (
   primary key (ticket_no)
 );
 insert into airplanes (airplane_code, model, range_km, speed_kmh) values
-('32N', 'Aerobus A320neo', 6500, 830),
-('339', 'Aerobus A330-900neo', 13300, 870),
-('351', 'Aerobus A350-1000', 16700, 913),
-('35X', 'Aerobus A350F', 8700, 903),
+('32N', 'Airbus A320neo', 6500, 830),
+('339', 'Airbus A330-900neo', 13300, 870),
+('351', 'Airbus A350-1000', 16700, 913),
+('35X', 'Airbus A350F', 8700, 903),
 ('76F', 'Boeing 767-300F', 6000, 850),
 ('77W', 'Boeing 777-300ER', 14600, 905),
 ('789', 'Boeing 787-9 Dreamliner', 14000, 913),

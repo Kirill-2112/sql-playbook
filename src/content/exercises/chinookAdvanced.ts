@@ -479,4 +479,145 @@ insert into invoice_by_region select * from invoice;`,
       { label: 'MySQL: LIST COLUMNS partitioning', url: MY + 'partitioning-columns-list.html' },
     ],
   },
+  {
+    id: 'chinook-041',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Sales by genre and media type, every way',
+    prompt:
+      'For the genres Rock and Jazz, total the invoice lines (unit_price × quantity) by genre and media type, with subtotals per genre, per media type, and a grand total. Label rolled-up values "All".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CUBE',
+        postgres: `select coalesce(g.name, 'All') as genre,
+       coalesce(m.name, 'All') as media_type,
+       sum(il.unit_price * il.quantity) as sales
+from invoice_line il
+join track t      on t.track_id = il.track_id
+join genre g      on g.genre_id = t.genre_id
+join media_type m on m.media_type_id = t.media_type_id
+where g.name in ('Rock', 'Jazz')
+group by cube (g.name, m.name)
+order by grouping(g.name), g.name, grouping(m.name), m.name;`,
+        mysql: null,
+        mysqlNote: 'MySQL has only WITH ROLLUP, no CUBE; see solution B.',
+        explanation:
+          'CUBE (a, b) produces every combination of groupings: (a, b), (a), (b) and (). ROLLUP would skip the "per media type, all genres" rows.',
+      },
+      {
+        approach: 'ROLLUP plus the missing level',
+        postgres: `select genre, media_type, sales
+from (
+  select coalesce(g.name, 'All') as genre, coalesce(m.name, 'All') as media_type,
+         sum(il.unit_price * il.quantity) as sales,
+         grouping(g.name) as g1, grouping(m.name) as g2
+  from invoice_line il
+  join track t on t.track_id = il.track_id
+  join genre g on g.genre_id = t.genre_id
+  join media_type m on m.media_type_id = t.media_type_id
+  where g.name in ('Rock', 'Jazz')
+  group by rollup (g.name, m.name)
+  union all
+  select 'All', m.name, sum(il.unit_price * il.quantity), 1, 0
+  from invoice_line il
+  join track t on t.track_id = il.track_id
+  join genre g on g.genre_id = t.genre_id
+  join media_type m on m.media_type_id = t.media_type_id
+  where g.name in ('Rock', 'Jazz')
+  group by m.name
+) cube_rows
+order by g1, genre, g2, media_type;`,
+        mysql: `select genre, media_type, sales
+from (
+  select coalesce(g.name, 'All') as genre, coalesce(m.name, 'All') as media_type,
+         sum(il.unit_price * il.quantity) as sales,
+         grouping(g.name) as g1, grouping(m.name) as g2
+  from invoice_line il
+  join track t on t.track_id = il.track_id
+  join genre g on g.genre_id = t.genre_id
+  join media_type m on m.media_type_id = t.media_type_id
+  where g.name in ('Rock', 'Jazz')
+  group by g.name, m.name with rollup
+  union all
+  select 'All', m.name, sum(il.unit_price * il.quantity), 1, 0
+  from invoice_line il
+  join track t on t.track_id = il.track_id
+  join genre g on g.genre_id = t.genre_id
+  join media_type m on m.media_type_id = t.media_type_id
+  where g.name in ('Rock', 'Jazz')
+  group by m.name
+) cube_rows
+order by g1, genre, g2, media_type;`,
+        mysqlNote: 'WITH ROLLUP after the GROUP BY list instead of ROLLUP (…).',
+        explanation: 'ROLLUP gives (genre, media), (genre) and the total; the second query adds the (media) level that ROLLUP leaves out.',
+      },
+    ],
+    comparison: 'Same rows, but the CUBE version states the intent in one line and scans the data once; the emulation needs a second pass.',
+    docs: [
+      { label: 'PostgreSQL: GROUPING SETS, CUBE, ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' },
+      { label: 'MySQL: WITH ROLLUP', url: MY + 'group-by-modifiers.html' },
+    ],
+  },
+  {
+    id: 'chinook-042',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['self-cross-join'],
+    title: 'Customers in the same city',
+    prompt: 'List pairs of different customers who live in the same city: city, and the two customer_ids with the smaller one first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Self join with a < condition',
+        postgres: `select a.city, a.customer_id as customer_1, b.customer_id as customer_2
+from customer a
+join customer b on b.city = a.city and b.customer_id > a.customer_id
+order by a.city, customer_1, customer_2;`,
+        mysql: `select a.city, a.customer_id as customer_1, b.customer_id as customer_2
+from customer a
+join customer b on b.city = a.city and b.customer_id > a.customer_id
+order by a.city, customer_1, customer_2;`,
+        explanation:
+          'Joining the table to itself on city pairs every customer with every neighbour, including himself and each pair twice (A–B and B–A). Requiring b.customer_id > a.customer_id keeps each pair once.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Self joins', url: PG + 'tutorial-join.html' }],
+  },
+  {
+    id: 'chinook-043',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['casting', 'dates-basics'],
+    title: 'Album running time',
+    prompt: 'Show the 5 longest albums: title and total running time as hh:mm:ss (rounded down to whole seconds).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Milliseconds to an interval',
+        postgres: `select a.title,
+       make_interval(secs => sum(t.milliseconds) / 1000) as running_time
+from album a
+join track t on t.album_id = a.album_id
+group by a.album_id, a.title
+order by sum(t.milliseconds) desc, a.album_id
+limit 5;`,
+        mysql: `select a.title,
+       sec_to_time(sum(t.milliseconds) div 1000) as running_time
+from album a
+join track t on t.album_id = a.album_id
+group by a.album_id, a.title
+order by sum(t.milliseconds) desc, a.album_id
+limit 5;`,
+        mysqlNote: 'SEC_TO_TIME turns a number of seconds into a TIME, which can exceed 24 hours.',
+        explanation:
+          'sum(milliseconds) / 1000 is integer division in PostgreSQL, dropping the fraction of a second; make_interval(secs => …) turns the seconds into an interval. Under 24 hours it prints as hh:mm:ss in both databases.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: make_interval', url: PG + 'functions-datetime.html' },
+      { label: 'MySQL: SEC_TO_TIME', url: MY + 'date-and-time-functions.html#function_sec-to-time' },
+    ],
+  },
 ]

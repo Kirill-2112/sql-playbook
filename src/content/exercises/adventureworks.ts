@@ -1111,4 +1111,109 @@ end;`,
       { label: 'MySQL: SIGNAL', url: MY + 'signal.html' },
     ],
   },
+  {
+    id: 'adventureworks-030',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['conditions'],
+    title: 'Product lines in words',
+    prompt:
+      'product_line is a code: R road, M mountain, T touring, S standard; it may be empty. Count the products per line with the line written out ("road", …, "none").',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Simple CASE',
+        postgres: `select case product_line
+         when 'R' then 'road' when 'M' then 'mountain'
+         when 'T' then 'touring' when 'S' then 'standard'
+         else 'none' end as line,
+       count(*) as products
+from product
+group by line;`,
+        mysql: `select case product_line
+         when 'R' then 'road' when 'M' then 'mountain'
+         when 'T' then 'touring' when 'S' then 'standard'
+         else 'none' end as line,
+       count(*) as products
+from product
+group by line;`,
+        explanation: 'A NULL product_line matches no WHEN (NULL = \'R\' is not true) and falls to ELSE.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CASE', url: PG + 'functions-conditional.html#FUNCTIONS-CASE' }],
+  },
+  {
+    id: 'adventureworks-031',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['window-frames', 'dates-advanced'],
+    title: 'Year-to-date sales',
+    prompt:
+      'For every month, show the month (YYYY-MM), its sales (sum of sub_total, rounded to 2 decimals) and the year-to-date total that restarts every January.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Window partitioned by year',
+        postgres: `with monthly as (
+  select date_trunc('month', order_date) as month_start, sum(sub_total) as sales
+  from sales_order_header
+  group by date_trunc('month', order_date)
+)
+select to_char(month_start, 'YYYY-MM') as month,
+       round(sales, 2) as sales,
+       round(sum(sales) over (partition by extract(year from month_start) order by month_start), 2) as year_to_date
+from monthly
+order by month_start;`,
+        mysql: `with monthly as (
+  select date_format(order_date, '%Y-%m-01') as month_start, sum(sub_total) as sales
+  from sales_order_header
+  group by date_format(order_date, '%Y-%m-01')
+)
+select left(month_start, 7) as month,
+       round(sales, 2) as sales,
+       round(sum(sales) over (partition by left(month_start, 4) order by month_start), 2) as year_to_date
+from monthly
+order by month_start;`,
+        mysqlNote: 'No date_trunc in MySQL: DATE_FORMAT(…, \'%Y-%m-01\') gives the first day of the month as text, which sorts correctly.',
+        explanation:
+          'PARTITION BY year restarts the running sum each January; within a year the default frame adds every earlier month. The jump in mid-2024 is when online orders start flowing in large numbers.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: date_trunc', url: PG + 'functions-datetime.html#FUNCTIONS-DATETIME-TRUNC' },
+      { label: 'MySQL: DATE_FORMAT', url: MY + 'date-and-time-functions.html#function_date-format' },
+    ],
+  },
+  {
+    id: 'adventureworks-032',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['pivot', 'joins'],
+    title: 'Sales by territory group and year',
+    prompt: 'Show the order count per territory group (North America, Europe, Pacific) as rows and the years 2023, 2024 and 2025 as columns.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts',
+        postgres: `select t.territory_group,
+       count(*) filter (where extract(year from h.order_date) = 2023) as y2023,
+       count(*) filter (where extract(year from h.order_date) = 2024) as y2024,
+       count(*) filter (where extract(year from h.order_date) = 2025) as y2025
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+group by t.territory_group
+order by t.territory_group;`,
+        mysql: `select t.territory_group,
+       sum(year(h.order_date) = 2023) as y2023,
+       sum(year(h.order_date) = 2024) as y2024,
+       sum(year(h.order_date) = 2025) as y2025
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+group by t.territory_group
+order by t.territory_group;`,
+        explanation: 'One conditional count per year column. Note the sample keeps every 4th order, so these are a quarter of the real counts.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
 ]

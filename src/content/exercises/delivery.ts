@@ -1119,4 +1119,74 @@ limit 20;`,
       { label: 'MySQL: LIMIT query optimization', url: MY + 'limit-optimization.html' },
     ],
   },
+  {
+    id: 'delivery-029',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['normalization', 'ddl'],
+    title: 'Cities as their own table',
+    prompt:
+      'City names are repeated as text in customers and restaurants. Create cities (id, name), add city_id to both tables pointing to it, and fill it in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from cities) as cities,
+       (select count(*) from customers where city_id is null) as customers_unlinked,
+       (select count(*) from restaurants where city_id is null) as restaurants_unlinked`,
+    solutions: [
+      {
+        approach: 'Lookup table + foreign keys',
+        postgres: `create table cities (id integer generated always as identity primary key, name text not null unique);
+
+insert into cities (name)
+select city from customers union select city from restaurants;
+
+alter table customers   add column city_id integer references cities (id);
+alter table restaurants add column city_id integer references cities (id);
+
+update customers c   set city_id = ci.id from cities ci where ci.name = c.city;
+update restaurants r set city_id = ci.id from cities ci where ci.name = r.city;`,
+        mysql: `create table cities (id int auto_increment primary key, name varchar(20) not null unique);
+
+insert into cities (name)
+select city from customers union select city from restaurants;
+
+alter table customers   add column city_id int, add foreign key (city_id) references cities (id);
+alter table restaurants add column city_id int, add foreign key (city_id) references cities (id);
+
+update customers c   join cities ci on ci.name = c.city set c.city_id = ci.id;
+update restaurants r join cities ci on ci.name = r.city set r.city_id = ci.id;`,
+        explanation:
+          'Each city name is stored once; renaming "Tel Aviv" to "Tel Aviv-Yafo" becomes a one-row update, and a typo cannot create a sixth city. The old text columns can be dropped once nothing reads them.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Foreign keys', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-FK' },
+      { label: 'MySQL: UPDATE with a join', url: MY + 'update.html' },
+    ],
+  },
+  {
+    id: 'delivery-030',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['ddl'],
+    title: 'A new column on 200,000 rows',
+    prompt:
+      'Add a column tip to orders: numeric with 2 decimals, never NULL, 0 by default. Existing orders must get 0.',
+    orderMatters: false,
+    checkSql: `select count(*) as orders, sum(tip) as tips, count(*) filter (where tip is null) as missing from orders`,
+    checkSqlMysql: `select count(*) as orders, sum(tip) as tips, sum(tip is null) as missing from orders`,
+    solutions: [
+      {
+        approach: 'ADD COLUMN … NOT NULL DEFAULT',
+        postgres: `alter table orders add column tip numeric(8, 2) not null default 0;`,
+        mysql: `alter table orders add column tip decimal(8, 2) not null default 0;`,
+        mysqlNote: 'MySQL also adds a column instantly (ALGORITHM=INSTANT, only metadata changes): at the end of the table since 8.0.12, at any position since 8.0.29.',
+        explanation:
+          'With a constant default, PostgreSQL (11+) does not rewrite the table: it stores the default once and returns it for old rows, so the command is instant even on a huge table. A volatile default such as random() would force a full rewrite.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: ALTER TABLE … ADD COLUMN', url: PG + 'sql-altertable.html' },
+      { label: 'MySQL: Online DDL operations', url: MY + 'innodb-online-ddl-operations.html' },
+    ],
+  },
 ]

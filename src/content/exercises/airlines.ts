@@ -1720,4 +1720,104 @@ limit 12;`,
       { label: 'MySQL: REGEXP_SUBSTR', url: MY + 'regexp.html#function_regexp-substr' },
     ],
   },
+  {
+    id: 'airlines-041',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['triggers', 'control-flow'],
+    title: 'Only real seats on boarding passes',
+    prompt:
+      'Nothing checks that a boarding pass names a seat that exists on the airplane of its flight. Create a trigger that rejects such inserts. Then issue a valid pass: ticket 0005432000395 already has one for flight 77; issue seat 40A on that ticket\'s next flight instead.',
+    hint: 'The airplane of a flight is on the route row valid at the scheduled departure (valid_from ≤ departure < valid_to).',
+    orderMatters: false,
+    checkSql: `insert into boarding_passes (ticket_no, flight_id, seat_no)
+select s.ticket_no, s.flight_id, '40A' from segments s
+where s.ticket_no = '0005432000395'
+  and not exists (select 1 from boarding_passes b where b.ticket_no = s.ticket_no and b.flight_id = s.flight_id)
+order by s.flight_id limit 1;
+select count(*) as passes from boarding_passes where ticket_no = '0005432000395'`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger that raises an error',
+        postgres: `create function check_seat() returns trigger
+language plpgsql
+as $$
+begin
+  if not exists (
+    select 1
+    from flights f
+    join routes r on r.route_no = f.route_no
+                 and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+    join seats s on s.airplane_code = r.airplane_code and s.seat_no = new.seat_no
+    where f.flight_id = new.flight_id
+  ) then
+    raise exception 'seat % does not exist on flight %', new.seat_no, new.flight_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger boarding_passes_check_seat
+before insert or update of seat_no on boarding_passes
+for each row execute function check_seat();`,
+        mysql: `create trigger boarding_passes_check_seat
+before insert on boarding_passes
+for each row
+begin
+  if not exists (
+    select 1
+    from flights f
+    join routes r on r.route_no = f.route_no
+                 and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+    join seats s on s.airplane_code = r.airplane_code and s.seat_no = new.seat_no
+    where f.flight_id = new.flight_id
+  ) then
+    signal sqlstate '45000' set message_text = 'seat does not exist on this flight';
+  end if;
+end;`,
+        mysqlNote: `SIGNAL raises an error (SQLSTATE 45000 is "user-defined"). A MySQL trigger handles one event, so updates need a second, BEFORE UPDATE trigger. ${DELIMITER_NOTE}`,
+        explanation:
+          'A CHECK constraint cannot look at other tables, so a rule that spans flights, routes and seats needs a trigger. RAISE EXCEPTION aborts the insert with a message; the valid pass in the check goes through.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Errors and messages (RAISE)', url: PG + 'plpgsql-errors-and-messages.html' },
+      { label: 'MySQL: SIGNAL', url: MY + 'signal.html' },
+    ],
+  },
+  {
+    id: 'airlines-042',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['arrays', 'text-aggregation'],
+    title: 'Destinations as an array',
+    prompt: 'For each departure airport in Germany, list its distinct December destinations in alphabetical order, as one array.',
+    hint: 'December 2025 routes are the rows with valid_from = 2025-12-01.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array_agg(DISTINCT … ORDER BY …)',
+        postgres: `select r.departure_airport,
+       array_agg(distinct r.arrival_airport order by r.arrival_airport) as destinations
+from routes r
+join airports a on a.airport_code = r.departure_airport
+where a.country = 'Germany' and r.valid_from = '2025-12-01'
+group by r.departure_airport
+order by r.departure_airport;`,
+        mysql: `select r.departure_airport,
+       cast(concat('["', group_concat(distinct r.arrival_airport order by r.arrival_airport separator '", "'), '"]') as json) as destinations
+from routes r
+join airports a on a.airport_code = r.departure_airport
+where a.country = 'Germany' and r.valid_from = '2025-12-01'
+group by r.departure_airport
+order by r.departure_airport;`,
+        mysqlNote: 'No arrays in MySQL: build a JSON array. JSON_ARRAYAGG cannot sort or remove duplicates, so GROUP_CONCAT(DISTINCT … ORDER BY …) builds the text and CAST makes it JSON.',
+        explanation: 'array_agg accepts DISTINCT and ORDER BY inside the call, so the array is de-duplicated and sorted as it is built.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: array_agg', url: PG + 'functions-aggregate.html' },
+      { label: 'MySQL: GROUP_CONCAT', url: MY + 'aggregate-functions.html#function_group-concat' },
+    ],
+  },
 ]

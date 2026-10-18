@@ -814,4 +814,32 @@ commit;`,
       { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
     ],
   },
+  {
+    id: 'chinook-049',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['upsert'],
+    title: 'Add tracks, skip duplicates',
+    prompt: 'Add tracks 1 to 5 to playlist 1. Some are already in it: add only the missing ones, without an error.',
+    orderMatters: false,
+    checkSql: `select count(*) as tracks_in_playlist from playlist_track where playlist_id = 1`,
+    solutions: [
+      {
+        approach: 'ON CONFLICT DO NOTHING',
+        postgres: `insert into playlist_track (playlist_id, track_id)
+values (1, 1), (1, 2), (1, 3), (1, 4), (1, 5)
+on conflict do nothing;`,
+        mysql: `insert into playlist_track (playlist_id, track_id)
+values (1, 1), (1, 2), (1, 3), (1, 4), (1, 5) as new
+on duplicate key update track_id = new.track_id;`,
+        mysqlNote:
+          'INSERT IGNORE also skips duplicates, but it turns other errors into warnings too (a bad foreign key, a value too long), so data can silently go wrong. The no-op ON DUPLICATE KEY UPDATE skips only key clashes.',
+        explanation: 'Rows that would violate a unique constraint are skipped; the others are inserted. Without the clause, the first duplicate aborts the whole statement.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' },
+      { label: 'MySQL: INSERT IGNORE vs strict mode', url: MY + 'sql-mode.html#ignore-strict-comparison' },
+    ],
+  },
 ]

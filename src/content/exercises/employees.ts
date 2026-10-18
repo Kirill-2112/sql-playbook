@@ -1320,4 +1320,61 @@ commit;`,
       { label: 'MySQL: START TRANSACTION', url: MY + 'commit.html' },
     ],
   },
+  {
+    id: 'employees-035',
+    dataset: 'employees',
+    level: 5,
+    topics: ['control-flow', 'functions'],
+    title: 'Counting working days with a loop',
+    prompt:
+      'Write a function working_days(p_from, p_to) that counts the days from p_from up to but not including p_to that are Monday to Friday, by walking through the days one at a time.',
+    orderMatters: false,
+    checkSql: `select working_days('2002-07-01', '2002-08-01') as july_2002,
+       working_days('2002-08-03', '2002-08-05') as weekend_only,
+       working_days('2002-08-01', '2002-08-01') as empty_range`,
+    solutions: [
+      {
+        approach: 'WHILE loop',
+        postgres: `create function working_days(p_from date, p_to date)
+returns integer
+language plpgsql
+immutable
+as $$
+declare
+  d date := p_from;
+  n integer := 0;
+begin
+  while d < p_to loop
+    if extract(isodow from d) < 6 then
+      n := n + 1;
+    end if;
+    d := d + 1;
+  end loop;
+  return n;
+end;
+$$;`,
+        mysql: `create function working_days(p_from date, p_to date)
+returns int
+deterministic
+begin
+  declare d date default p_from;
+  declare n int default 0;
+  while d < p_to do
+    if weekday(d) < 5 then
+      set n = n + 1;
+    end if;
+    set d = d + interval 1 day;
+  end while;
+  return n;
+end;`,
+        mysqlNote: `WHILE … DO … END WHILE, SET for assignment, and WEEKDAY() counting Monday = 0. ${DELIMITER_NOTE}`,
+        explanation:
+          'A loop that visits every day is the clearest way to show WHILE, IF and variables. For real use a set-based version is better: count(*) over generate_series(p_from, p_to - 1, interval \'1 day\') with the same weekday filter. Public holidays would need a table of their own.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Control structures', url: PG + 'plpgsql-control-structures.html' },
+      { label: 'MySQL: WHILE statement', url: MY + 'while.html' },
+    ],
+  },
 ]

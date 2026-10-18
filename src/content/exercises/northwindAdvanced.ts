@@ -627,4 +627,160 @@ generated always as (round(unit_price * quantity * (1 - discount), 2)) stored;`,
       { label: 'MySQL: Generated columns', url: MY + 'create-table-generated-columns.html' },
     ],
   },
+  {
+    id: 'northwind-047',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Who speaks French or German',
+    prompt:
+      'Using full-text search on employees.notes, find the employees whose notes mention French or German (either word). Show employee_id, first_name and last_name.',
+    orderMatters: true,
+    checkSql: `select employee_id, first_name, last_name from employees
+where to_tsvector('simple', notes) @@ to_tsquery('simple', 'french | german')
+order by employee_id`,
+    checkSqlMysql: `select employee_id, first_name, last_name from employees
+where match(notes) against ('french german' in boolean mode)
+order by employee_id`,
+    solutions: [
+      {
+        approach: 'OR in a text query',
+        postgres: `create index employees_notes_fts on employees using gin (to_tsvector('simple', notes));
+
+-- search: where to_tsvector('simple', notes) @@ to_tsquery('simple', 'french | german')`,
+        mysql: `create fulltext index employees_notes_ft on employees (notes);
+
+-- search: where match(notes) against ('french german' in boolean mode)`,
+        mysqlNote:
+          'In boolean mode, words without + or - are optional: \'french german\' matches either. Natural-language mode would ignore words found in more than half of the rows, which in a 9-row table hits easily; boolean mode has no such rule.',
+        explanation: 'In tsquery the operators are & (and), | (or) and ! (not). MySQL boolean mode marks required words with + and excluded ones with -.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: to_tsquery', url: PG + 'textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES' },
+      { label: 'MySQL: Boolean full-text searches', url: MY + 'fulltext-boolean.html' },
+    ],
+  },
+  {
+    id: 'northwind-048',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for open orders only',
+    prompt:
+      'The warehouse screen lists orders that have not shipped yet (shipped_date is NULL), by required_date. Create an index that holds only those orders.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'orders' and indexdef like '%required_date%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'orders' and column_name = 'required_date'`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index orders_open_idx on orders (required_date)
+where shipped_date is null;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; index (shipped_date, required_date) instead (solution B).',
+        explanation:
+          'Only the 21 open orders out of 830 are in the index, and it stays small as history grows. The query must include "shipped_date is null" for the planner to use it.',
+      },
+      {
+        approach: 'Composite index with the NULL test first',
+        postgres: `create index orders_shipped_required_idx on orders (shipped_date, required_date);`,
+        mysql: `create index orders_shipped_required_idx on orders (shipped_date, required_date);`,
+        explanation: 'B-tree indexes store NULLs too, so "shipped_date is null" is an ordinary range at one end of the index, already sorted by required_date.',
+      },
+    ],
+    comparison: 'Both serve the screen. The partial index is tiny and only for this query; the composite one indexes all 830 rows but works in MySQL.',
+    docs: [
+      { label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' },
+      { label: 'MySQL: IS NULL optimization', url: MY + 'is-null-optimization.html' },
+    ],
+  },
+  {
+    id: 'northwind-049',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['gaps-islands', 'dates-advanced'],
+    title: 'Months in a row',
+    prompt:
+      'For each customer, find the longest run of consecutive calendar months with at least one order. Show the 5 longest runs: customer_id, first month, last month (YYYY-MM) and number of months.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Month number minus row number',
+        postgres: `with months as (
+  select distinct customer_id,
+         extract(year from order_date)::int * 12 + extract(month from order_date)::int - 1 as m
+  from orders
+),
+runs as (
+  select customer_id, m, m - row_number() over (partition by customer_id order by m) as grp
+  from months
+)
+select customer_id,
+       min(m) / 12 || '-' || lpad((min(m) % 12 + 1)::text, 2, '0') as first_month,
+       max(m) / 12 || '-' || lpad((max(m) % 12 + 1)::text, 2, '0') as last_month,
+       count(*) as months
+from runs
+group by customer_id, grp
+order by months desc, customer_id, first_month
+limit 5;`,
+        mysql: `with months as (
+  select distinct customer_id, year(order_date) * 12 + month(order_date) - 1 as m
+  from orders
+),
+runs as (
+  select customer_id, m, m - row_number() over (partition by customer_id order by m) as grp
+  from months
+)
+select customer_id,
+       concat(min(m) div 12, '-', lpad(min(m) % 12 + 1, 2, '0')) as first_month,
+       concat(max(m) div 12, '-', lpad(max(m) % 12 + 1, 2, '0')) as last_month,
+       count(*) as months
+from runs
+group by customer_id, grp
+order by months desc, customer_id, first_month
+limit 5;`,
+        mysqlNote: 'DIV for integer division, concat() instead of ||.',
+        explanation:
+          'Number every month with one integer, year × 12 + (month − 1), so consecutive months differ by exactly 1, also from December to January. Within a run the month number minus the row number stays constant; that constant groups the run. Dividing by 12 and taking the remainder + 1 turns the numbers back into year and month.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'northwind-050',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Lock in a fixed order',
+    prompt:
+      'Move 5 units of stock from product 2 to product 1. Two such transfers running in opposite directions at the same time could deadlock. Lock both rows in a fixed order first, then update. In PostgreSQL you are already inside a transaction.',
+    orderMatters: true,
+    checkSql: `select product_id, units_in_stock from products where product_id in (1, 2) order by product_id`,
+    solutions: [
+      {
+        approach: 'FOR UPDATE … ORDER BY',
+        postgres: `select product_id from products where product_id in (1, 2) order by product_id for update;
+
+update products set units_in_stock = units_in_stock - 5 where product_id = 2;
+update products set units_in_stock = units_in_stock + 5 where product_id = 1;`,
+        mysql: `start transaction;
+
+select product_id from products where product_id in (1, 2) order by product_id for update;
+
+update products set units_in_stock = units_in_stock - 5 where product_id = 2;
+update products set units_in_stock = units_in_stock + 5 where product_id = 1;
+
+commit;`,
+        explanation:
+          'A deadlock needs two transactions each holding a lock the other wants: A locks 2 then waits for 1, while B locks 1 then waits for 2. If every transfer locks the lower id first, whatever its direction, the second one simply waits for the first instead. The database would detect a deadlock and abort one transaction, but avoiding it is cheaper.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Deadlocks', url: PG + 'explicit-locking.html#LOCKING-DEADLOCKS' },
+      { label: 'MySQL: How to minimize and handle deadlocks', url: MY + 'innodb-deadlocks-handling.html' },
+    ],
+  },
 ]

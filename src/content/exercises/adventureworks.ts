@@ -1296,4 +1296,38 @@ left join product_category c    on c.product_category_id = s.product_category_id
       { label: 'MySQL: CREATE VIEW', url: MY + 'create-view.html' },
     ],
   },
+  {
+    id: 'adventureworks-035',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['partial-covering-indexes', 'indexes'],
+    title: 'Order history from the index',
+    prompt:
+      'The customer portal shows a customer\'s orders: order_date and total_due, newest first. Create an index on sales_order_header that answers this without reading the table.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'sales_order_header' and indexdef like '%(customer_id%' and indexdef like '%total_due%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'sales_order_header' and column_name = 'total_due'`,
+    solutions: [
+      {
+        approach: 'Key + INCLUDE',
+        postgres: `create index soh_customer_history_idx on sales_order_header (customer_id, order_date desc) include (total_due);`,
+        mysql: null,
+        mysqlNote: 'No INCLUDE in MySQL; add total_due to the key (solution B).',
+        explanation: 'customer_id finds the customer, order_date gives the order, and total_due rides along in the leaf pages: an index-only scan once the table is vacuumed.',
+      },
+      {
+        approach: 'Three-column key',
+        postgres: `create index soh_customer_history_idx on sales_order_header (customer_id, order_date desc, total_due);`,
+        mysql: `create index soh_customer_history_idx on sales_order_header (customer_id, order_date desc, total_due);`,
+        explanation: 'The portable way to cover the query: every needed column is part of the key.',
+      },
+    ],
+    comparison: 'Both cover the query. INCLUDE keeps total_due out of the sort order and the inner pages; the extra key column works everywhere.',
+    docs: [
+      { label: 'PostgreSQL: Index-only scans', url: PG + 'indexes-index-only-scans.html' },
+      { label: 'MySQL: Optimizing with covering indexes', url: MY + 'explain-output.html#explain-extra-information' },
+    ],
+  },
 ]

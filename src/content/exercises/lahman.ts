@@ -1368,4 +1368,92 @@ on duplicate key update hr = new.hr;`,
       { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
     ],
   },
+  {
+    id: 'lahman-037',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['procedures'],
+    title: 'A procedure with output parameters',
+    prompt:
+      'Write a procedure team_record(p_team_id, p_year, wins, losses) that returns a team\'s wins and losses for a season through output parameters, and call it for the 2025 Yankees (NYA).',
+    orderMatters: false,
+    checkSql: `call team_record('NYA', 2025, null, null)`,
+    checkSqlMysql: `call team_record('NYA', 2025, @w, @l);
+select @w as wins, @l as losses`,
+    solutions: [
+      {
+        approach: 'INOUT / OUT parameters',
+        postgres: `create procedure team_record(p_team_id text, p_year int, inout wins int, inout losses int)
+language plpgsql
+as $$
+begin
+  select t.w, t.l into wins, losses
+  from teams t
+  where t.team_id = p_team_id and t.year_id = p_year;
+end;
+$$;`,
+        mysql: `create procedure team_record(in p_team_id char(3), in p_year int, out wins int, out losses int)
+begin
+  select w, l into wins, losses
+  from teams
+  where team_id = p_team_id and year_id = p_year;
+end;`,
+        mysqlNote:
+          'MySQL passes session variables for OUT parameters (CALL team_record(\'NYA\', 2025, @w, @l)) and reads them with a separate SELECT @w, @l. In the mysql client, wrap the CREATE in DELIMITER $$ … $$.',
+        explanation:
+          'A procedure has no return value, but it can hand values back through parameters. In PostgreSQL CALL returns the output parameters as one result row; you pass NULL as a placeholder for each of them.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CALL', url: PG + 'sql-call.html' },
+      { label: 'MySQL: CREATE PROCEDURE (IN, OUT, INOUT)', url: MY + 'create-procedure.html' },
+    ],
+  },
+  {
+    id: 'lahman-038',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['json', 'ddl'],
+    title: 'Query JSON documents',
+    prompt:
+      'Store each player who debuted in 2025 as a JSON document in player_docs (player_id, doc), where doc looks like {"name": "First Last", "birth": {"year": 2001, "country": "Japan"}}. Then the check reads the Japanese-born players out of the documents.',
+    orderMatters: true,
+    checkSql: `select player_id, doc->>'name' as name, (doc->'birth'->>'year')::int as born
+from player_docs
+where doc->'birth'->>'country' = 'Japan'
+order by player_id`,
+    checkSqlMysql: `select player_id, doc->>'$.name' as name, cast(doc->>'$.birth.year' as unsigned) as born
+from player_docs
+where doc->>'$.birth.country' = 'Japan'
+order by player_id`,
+    solutions: [
+      {
+        approach: 'jsonb column / JSON column',
+        postgres: `create table player_docs (player_id varchar(9) primary key, doc jsonb not null);
+
+insert into player_docs
+select player_id,
+       jsonb_build_object('name', name_first || ' ' || name_last,
+                          'birth', jsonb_build_object('year', birth_year, 'country', birth_country))
+from people
+where debut >= '2025-01-01' and debut < '2026-01-01';`,
+        mysql: `create table player_docs (player_id varchar(9) primary key, doc json not null);
+
+insert into player_docs
+select player_id,
+       json_object('name', concat(name_first, ' ', name_last),
+                   'birth', json_object('year', birth_year, 'country', birth_country))
+from people
+where debut >= '2025-01-01' and debut < '2026-01-01';`,
+        mysqlNote:
+          'MySQL reads JSON with a path string: doc->>\'$.birth.country\' ($ is the document root). PostgreSQL chains operators instead: doc->\'birth\'->>\'country\'.',
+        explanation:
+          '-> returns JSON (to keep walking into it); ->> returns text at the last step. Values come out as text, so a number needs a cast. jsonb stores a parsed binary form: faster to query and indexable with GIN.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: JSON operators', url: PG + 'functions-json.html' },
+      { label: 'MySQL: JSON path syntax', url: MY + 'json.html#json-path-syntax' },
+    ],
+  },
 ]

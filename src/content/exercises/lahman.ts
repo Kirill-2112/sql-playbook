@@ -1251,4 +1251,121 @@ order by games desc, first_year, player_id;`,
     ],
     docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
   },
+  {
+    id: 'lahman-035',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Batting split by era',
+    prompt:
+      'Create batting_by_era with the same columns and primary key as batting, range-partitioned by year_id into 2010–2014, 2015–2019 and 2020 onwards, and copy all batting rows into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'batting_by_era'::regclass) as partitions,
+       (select count(*) from batting_by_era) as total_rows,
+       (select count(*) from batting_by_era where year_id >= 2020) as since_2020`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'batting_by_era') as partitions,
+       (select count(*) from batting_by_era) as total_rows,
+       (select count(*) from batting_by_era where year_id >= 2020) as since_2020`,
+    solutions: [
+      {
+        approach: 'Range partitions on an integer',
+        postgres: `create table batting_by_era (like batting, primary key (player_id, year_id, stint))
+partition by range (year_id);
+
+create table batting_2010s_early partition of batting_by_era for values from (2010) to (2015);
+create table batting_2010s_late  partition of batting_by_era for values from (2015) to (2020);
+create table batting_2020s       partition of batting_by_era for values from (2020) to (maxvalue);
+
+insert into batting_by_era select * from batting;`,
+        mysql: `create table batting_by_era like batting;
+
+alter table batting_by_era
+partition by range (year_id) (
+  partition p2010 values less than (2015),
+  partition p2015 values less than (2020),
+  partition p2020 values less than maxvalue
+);
+
+insert into batting_by_era select * from batting;`,
+        mysqlNote: 'CREATE TABLE … LIKE copies the columns and indexes (not foreign keys, which partitioned InnoDB tables cannot have anyway); ALTER TABLE then adds the partitions.',
+        explanation:
+          'FROM is inclusive and TO exclusive, so 2015 lands in the second partition. LIKE copies the column definitions; the primary key is restated because it must include the partition key, which year_id is.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: RANGE partitioning', url: MY + 'partitioning-range.html' },
+    ],
+  },
+  {
+    id: 'lahman-036',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['merge'],
+    title: 'Refresh a leaderboard in one statement',
+    prompt:
+      'Create hr_leaders (player_id, hr) and fill it with the 2024 top 10 home run hitters (ties by player_id). Then turn it into the 2025 top 10: update players still in it, add newcomers, remove those who dropped out.',
+    hint: 'Sum the stints: a traded player has one batting row per team.',
+    orderMatters: true,
+    checkSql: `select player_id, hr from hr_leaders order by hr desc, player_id`,
+    solutions: [
+      {
+        approach: 'MERGE … WHEN NOT MATCHED BY SOURCE',
+        postgres: `create table hr_leaders (player_id varchar(9) primary key, hr smallint not null);
+
+insert into hr_leaders
+select player_id, sum(hr) from batting where year_id = 2024
+group by player_id order by sum(hr) desc, player_id limit 10;
+
+merge into hr_leaders l
+using (select player_id, sum(hr) as hr from batting where year_id = 2025
+       group by player_id order by sum(hr) desc, player_id limit 10) s
+on s.player_id = l.player_id
+when matched then update set hr = s.hr
+when not matched then insert (player_id, hr) values (s.player_id, s.hr)
+when not matched by source then delete;`,
+        mysql: null,
+        mysqlNote: 'MySQL has no MERGE; see solution B.',
+        explanation:
+          'One statement handles all three cases. WHEN NOT MATCHED BY SOURCE (PostgreSQL 17+) catches target rows that the new list no longer contains, so the table ends up exactly equal to the new top 10.',
+      },
+      {
+        approach: 'DELETE, then upsert',
+        postgres: `create table hr_leaders (player_id varchar(9) primary key, hr smallint not null);
+
+insert into hr_leaders
+select player_id, sum(hr) from batting where year_id = 2024
+group by player_id order by sum(hr) desc, player_id limit 10;
+
+create temp table new_top as
+select player_id, sum(hr) as hr from batting where year_id = 2025
+group by player_id order by sum(hr) desc, player_id limit 10;
+
+delete from hr_leaders where player_id not in (select player_id from new_top);
+insert into hr_leaders select * from new_top
+on conflict (player_id) do update set hr = excluded.hr;`,
+        mysql: `create table hr_leaders (player_id varchar(9) primary key, hr smallint not null);
+
+insert into hr_leaders
+select player_id, sum(hr) from batting where year_id = 2024
+group by player_id order by sum(hr) desc, player_id limit 10;
+
+create temporary table new_top as
+select player_id, sum(hr) as hr from batting where year_id = 2025
+group by player_id order by sum(hr) desc, player_id limit 10;
+
+delete from hr_leaders where player_id not in (select player_id from new_top);
+insert into hr_leaders select * from (select player_id, hr from new_top) as new
+on duplicate key update hr = new.hr;`,
+        explanation: 'Remove those who dropped out, then insert or update the rest. Two statements, so wrap them in a transaction in real code.',
+      },
+    ],
+    comparison:
+      'Same final table. MERGE keeps the whole sync in one atomic statement; the two-step version works everywhere and is easy to reason about.',
+    docs: [
+      { label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' },
+      { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
+    ],
+  },
 ]

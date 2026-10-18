@@ -669,4 +669,149 @@ where t.unit_price <> p.unit_price;`,
       { label: 'MySQL: UPDATE', url: MY + 'update.html' },
     ],
   },
+  {
+    id: 'chinook-045',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['temp-tables', 'joins'],
+    title: 'Customer spend as a working table',
+    prompt: 'Put every customer\'s total spend into a temporary table customer_spend (customer_id, spend), to reuse it in later queries.',
+    orderMatters: true,
+    checkSql: `select customer_id, spend from customer_spend order by spend desc, customer_id limit 5`,
+    solutions: [
+      {
+        approach: 'CREATE TEMP TABLE … AS',
+        postgres: `create temp table customer_spend as
+select customer_id, sum(total) as spend
+from invoice
+group by customer_id;`,
+        mysql: `create temporary table customer_spend as
+select customer_id, sum(total) as spend
+from invoice
+group by customer_id;`,
+        mysqlNote: 'CREATE TEMPORARY TABLE; remember a MySQL temporary table cannot appear twice in one query.',
+        explanation: 'The totals are computed once. Later queries (top customers, averages, buckets) read 59 rows instead of re-summing 412 invoices each time.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' },
+      { label: 'MySQL: CREATE TEMPORARY TABLE', url: MY + 'create-temporary-table.html' },
+    ],
+  },
+  {
+    id: 'chinook-046',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['views', 'dml'],
+    title: 'A view that guards its rows',
+    prompt:
+      'Create a view usa_customers (customer_id, first_name, last_name, email, country) of the customers in the USA that refuses inserts and updates which would put a row outside the view. Then add customer 60, Pat Lee, pat@example.com, through the view.',
+    orderMatters: false,
+    checkSql: `select customer_id, first_name, last_name, country from customer where customer_id = 60`,
+    solutions: [
+      {
+        approach: 'Updatable view WITH CHECK OPTION',
+        postgres: `create view usa_customers as
+select customer_id, first_name, last_name, email, country
+from customer
+where country = 'USA'
+with check option;
+
+insert into usa_customers (customer_id, first_name, last_name, email, country)
+values (60, 'Pat', 'Lee', 'pat@example.com', 'USA');`,
+        mysql: `create view usa_customers as
+select customer_id, first_name, last_name, email, country
+from customer
+where country = 'USA'
+with check option;
+
+insert into usa_customers (customer_id, first_name, last_name, email, country)
+values (60, 'Pat', 'Lee', 'pat@example.com', 'USA');`,
+        explanation:
+          'A simple view over one table is updatable: inserts and updates go to customer. WITH CHECK OPTION rejects a change that the view itself could not show, so inserting a customer from France through usa_customers fails instead of silently disappearing from the view.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Updatable views', url: PG + 'sql-createview.html#SQL-CREATEVIEW-UPDATABLE-VIEWS' },
+      { label: 'MySQL: WITH CHECK OPTION', url: MY + 'view-check-option.html' },
+    ],
+  },
+  {
+    id: 'chinook-047',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['materialized-views', 'indexes'],
+    title: 'Refresh without blocking readers',
+    prompt:
+      'Store sales per genre (genre_id, name, sales = unit_price × quantity summed) so it can be refreshed while dashboards keep reading it.',
+    orderMatters: true,
+    checkSql: `select genre_id, name, sales from genre_sales order by sales desc, genre_id limit 3`,
+    solutions: [
+      {
+        approach: 'Materialized view + unique index',
+        postgres: `create materialized view genre_sales as
+select g.genre_id, g.name, sum(il.unit_price * il.quantity) as sales
+from invoice_line il
+join track t on t.track_id = il.track_id
+join genre g on g.genre_id = t.genre_id
+group by g.genre_id, g.name;
+
+create unique index genre_sales_genre_id on genre_sales (genre_id);
+
+refresh materialized view concurrently genre_sales;`,
+        mysql: `create table genre_sales (genre_id int primary key, name varchar(120), sales decimal(12, 2));
+
+replace into genre_sales
+select g.genre_id, g.name, sum(il.unit_price * il.quantity)
+from invoice_line il
+join track t on t.track_id = il.track_id
+join genre g on g.genre_id = t.genre_id
+group by g.genre_id, g.name;`,
+        mysqlNote: 'No materialized views: a table refreshed with REPLACE INTO (delete-and-insert per key) keeps the old rows readable during the reload. Genres that stop selling would need a separate DELETE.',
+        explanation:
+          'A plain REFRESH locks the view against reads until it finishes. REFRESH … CONCURRENTLY builds the new result on the side and applies only the differences, which requires a unique index to match rows.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: REFRESH MATERIALIZED VIEW', url: PG + 'sql-refreshmaterializedview.html' },
+      { label: 'MySQL: REPLACE', url: MY + 'replace.html' },
+    ],
+  },
+  {
+    id: 'chinook-048',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Copy the address while it cannot change',
+    prompt:
+      'Create invoice 413 for customer 5, dated 2025-12-31 with total 0, copying the customer\'s address, city and country into the billing fields. Make sure nobody can change the customer\'s row between reading it and writing the invoice. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select invoice_id, customer_id, billing_city, billing_country from invoice where invoice_id = 413`,
+    solutions: [
+      {
+        approach: 'SELECT … FOR SHARE',
+        postgres: `select address, city, country from customer where customer_id = 5 for share;
+
+insert into invoice (invoice_id, customer_id, invoice_date, billing_address, billing_city, billing_country, total)
+select 413, customer_id, '2025-12-31', address, city, country, 0
+from customer where customer_id = 5;`,
+        mysql: `start transaction;
+
+select address, city, country from customer where customer_id = 5 for share;
+
+insert into invoice (invoice_id, customer_id, invoice_date, billing_address, billing_city, billing_country, total)
+select 413, customer_id, '2025-12-31', address, city, country, 0
+from customer where customer_id = 5;
+
+commit;`,
+        mysqlNote: 'FOR SHARE is the MySQL 8.0 spelling of the older LOCK IN SHARE MODE.',
+        explanation:
+          'FOR SHARE lets other sessions read the row and take their own share locks, but blocks UPDATE and DELETE on it until this transaction ends. FOR UPDATE would also block other share-lockers, which is more than needed here. (The foreign key check alone only guarantees the customer exists, not that the address stays the same.)',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Row-level lock modes', url: PG + 'explicit-locking.html#LOCKING-ROWS' },
+      { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
+    ],
+  },
 ]

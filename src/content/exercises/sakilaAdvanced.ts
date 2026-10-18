@@ -1102,4 +1102,49 @@ where date(rental_date) = '2005-07-31';`,
       { label: 'MySQL: Range optimization', url: MY + 'range-optimization.html' },
     ],
   },
+  {
+    id: 'sakila-055',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'Missing rental numbers',
+    prompt: 'rental_id runs from 1 to 16049, but there are only 16044 rentals. Find the gaps: the first and last missing id of each gap.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Compare each id with the next',
+        postgres: `select rental_id + 1 as gap_start, next_id - 1 as gap_end
+from (
+  select rental_id, lead(rental_id) over (order by rental_id) as next_id
+  from rental
+) r
+where next_id > rental_id + 1
+order by gap_start;`,
+        mysql: `select rental_id + 1 as gap_start, next_id - 1 as gap_end
+from (
+  select rental_id, lead(rental_id) over (order by rental_id) as next_id
+  from rental
+) r
+where next_id > rental_id + 1
+order by gap_start;`,
+        explanation: 'If the next existing id is more than one higher, everything between them is missing.',
+      },
+      {
+        approach: 'All ids minus existing ones',
+        postgres: `select id as gap_start, id as gap_end
+from generate_series(1, (select max(rental_id) from rental)) as id
+where not exists (select 1 from rental r where r.rental_id = id)
+order by id;`,
+        mysql: null,
+        mysqlNote: 'Without generate_series, MySQL would need a recursive CTE counting to 16,049, which hits the default recursion limit of 1,000 (cte_max_recursion_depth). Use solution A.',
+        explanation: 'Generate every possible id and keep those with no rental. Each missing id is its own row; here no gap is longer than one id, so the result matches.',
+      },
+    ],
+    comparison:
+      'Same rows here. LEAD returns one row per gap however long it is; the generate_series version lists every missing id and only matches because each gap is a single id. Missing ids are normal: deleted rows and rolled-back inserts leave holes, and ids should never be reused.',
+    docs: [
+      { label: 'PostgreSQL: LEAD', url: PG + 'functions-window.html' },
+      { label: 'MySQL: cte_max_recursion_depth', url: MY + 'server-system-variables.html#sysvar_cte_max_recursion_depth' },
+    ],
+  },
 ]

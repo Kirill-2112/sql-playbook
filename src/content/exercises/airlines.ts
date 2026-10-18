@@ -1626,4 +1626,98 @@ on duplicate key update seat_no = new.seat_no;`,
       { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
     ],
   },
+  {
+    id: 'airlines-039',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Spread bookings evenly',
+    prompt:
+      'Bookings have no natural ranges to split by. Create bookings_hashed (book_ref, book_date, total_amount) hash-partitioned by book_ref into 4 partitions, and copy the bookings into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'bookings_hashed'::regclass) as partitions,
+       (select count(*) from bookings_hashed) as total_rows`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'bookings_hashed') as partitions,
+       (select count(*) from bookings_hashed) as total_rows`,
+    solutions: [
+      {
+        approach: 'HASH / KEY partitioning',
+        postgres: `create table bookings_hashed (
+  book_ref     varchar(6)     primary key,
+  book_date    timestamptz    not null,
+  total_amount numeric(10, 2) not null
+) partition by hash (book_ref);
+
+create table bookings_hashed_0 partition of bookings_hashed for values with (modulus 4, remainder 0);
+create table bookings_hashed_1 partition of bookings_hashed for values with (modulus 4, remainder 1);
+create table bookings_hashed_2 partition of bookings_hashed for values with (modulus 4, remainder 2);
+create table bookings_hashed_3 partition of bookings_hashed for values with (modulus 4, remainder 3);
+
+insert into bookings_hashed select * from bookings;`,
+        mysql: `create table bookings_hashed (
+  book_ref     char(6)        primary key,
+  book_date    datetime       not null,
+  total_amount decimal(10, 2) not null
+)
+partition by key (book_ref) partitions 4;
+
+insert into bookings_hashed select * from bookings;`,
+        mysqlNote: 'PARTITION BY HASH in MySQL needs an integer expression; KEY partitioning hashes any column type with MySQL\'s own function. The partitions are created by the PARTITIONS 4 clause.',
+        explanation:
+          'A hash of the key decides the partition, so rows spread evenly and a lookup by book_ref touches one partition. What hashing cannot do is prune ranges: "bookings of November" still reads all four.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Partitioning methods', url: PG + 'ddl-partitioning.html#DDL-PARTITIONING-DECLARATIVE' },
+      { label: 'MySQL: KEY partitioning', url: MY + 'partitioning-key.html' },
+    ],
+  },
+  {
+    id: 'airlines-040',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'Seats in cabin order',
+    prompt:
+      'Seat numbers look like 2A or 10C. List the first 12 seats of airplane CR7 in cabin order: by row number as a number, then by letter. Show seat_no and fare_conditions.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Extract and cast the row number',
+        postgres: `select seat_no, fare_conditions
+from seats
+where airplane_code = 'CR7'
+order by substring(seat_no from '^[0-9]+')::int, right(seat_no, 1)
+limit 12;`,
+        mysql: `select seat_no, fare_conditions
+from seats
+where airplane_code = 'CR7'
+order by cast(regexp_substr(seat_no, '^[0-9]+') as unsigned), right(seat_no, 1)
+limit 12;`,
+        mysqlNote: 'REGEXP_SUBSTR returns the matching text; CAST(… AS UNSIGNED) makes it a number.',
+        explanation:
+          'Sorted as text, "10A" comes before "2A" because "1" < "2": the comparison goes character by character. Cast the digits to an integer and row 2 comes before row 10.',
+      },
+      {
+        approach: 'Length first',
+        postgres: `select seat_no, fare_conditions
+from seats
+where airplane_code = 'CR7'
+order by length(seat_no), seat_no
+limit 12;`,
+        mysql: `select seat_no, fare_conditions
+from seats
+where airplane_code = 'CR7'
+order by length(seat_no), seat_no
+limit 12;`,
+        explanation: 'A shorter seat number has a smaller row (the letter is always one character), so sorting by length and then text gives the same order without casting.',
+      },
+    ],
+    comparison: 'Same order here. The cast states the meaning; the length trick is shorter but silently breaks if a seat ever had a two-letter suffix.',
+    docs: [
+      { label: 'PostgreSQL: substring with a regular expression', url: PG + 'functions-matching.html#FUNCTIONS-POSIX-REGEXP' },
+      { label: 'MySQL: REGEXP_SUBSTR', url: MY + 'regexp.html#function_regexp-substr' },
+    ],
+  },
 ]

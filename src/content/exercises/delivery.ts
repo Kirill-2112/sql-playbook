@@ -1074,4 +1074,49 @@ end;`,
       { label: 'MySQL: DECLARE … HANDLER', url: MY + 'declare-handler.html' },
     ],
   },
+  {
+    id: 'delivery-028',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['query-plans', 'limit'],
+    title: 'Page 5,001 without reading 100,000 rows',
+    prompt:
+      'An admin screen lists orders by id, 20 per page. The previous page ended at id 100000. Show the next page: id, customer_id, total.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'OFFSET',
+        postgres: `select id, customer_id, total
+from orders
+order by id
+limit 20 offset 100000;`,
+        mysql: `select id, customer_id, total
+from orders
+order by id
+limit 20 offset 100000;`,
+        explanation: 'Simple, but the database still walks through the first 100,000 rows to throw them away, and every later page gets slower.',
+      },
+      {
+        approach: 'Keyset (seek) pagination',
+        postgres: `select id, customer_id, total
+from orders
+where id > 100000
+order by id
+limit 20;`,
+        mysql: `select id, customer_id, total
+from orders
+where id > 100000
+order by id
+limit 20;`,
+        explanation:
+          'Remember where the last page ended and start right after it: the primary key index jumps straight to id 100001 and reads 20 entries. Page 5,001 costs the same as page 1.',
+      },
+    ],
+    comparison:
+      'Same 20 rows here because the ids have no gaps. Keyset pagination is far faster on deep pages (see the timings) and stays correct when rows are inserted meanwhile; it cannot jump to an arbitrary page number, which OFFSET can.',
+    docs: [
+      { label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' },
+      { label: 'MySQL: LIMIT query optimization', url: MY + 'limit-optimization.html' },
+    ],
+  },
 ]

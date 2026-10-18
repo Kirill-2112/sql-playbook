@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-10-18T09:19:49.295Z",
+  "generatedAt": "2026-10-18T10:09:22.996Z",
   "postgres": "18.6",
   "mysql": "8.4.11",
   "exercises": {
@@ -17,12 +17,12 @@
       "rows": 10,
       "solutions": [
         {
-          "pgMs": 1.05,
+          "pgMs": 0.69,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.83,
+          "pgMs": 0.68,
           "usesIndex": false,
           "mysql": "unsupported"
         }
@@ -32,7 +32,7 @@
       "rows": 5,
       "solutions": [
         {
-          "pgMs": 0.58,
+          "pgMs": 0.6,
           "usesIndex": false,
           "mysql": "verified"
         },
@@ -62,7 +62,7 @@
           "mysql": "verified"
         },
         {
-          "pgMs": 0.13,
+          "pgMs": 0.11,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -107,12 +107,12 @@
       "rows": 8,
       "solutions": [
         {
-          "pgMs": 0.02,
+          "pgMs": 0.06,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 1.41,
+          "pgMs": 1.4,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -127,7 +127,7 @@
           "mysql": "verified"
         },
         {
-          "pgMs": 0.17,
+          "pgMs": 0.18,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -137,22 +137,22 @@
       "rows": 42,
       "solutions": [
         {
-          "pgMs": 2.31,
+          "pgMs": 2.26,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 2.19,
+          "pgMs": 2.28,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 1.96,
+          "pgMs": 2.06,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 4.24,
+          "pgMs": 4.54,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -192,17 +192,17 @@
       "rows": 5,
       "solutions": [
         {
-          "pgMs": 0.65,
+          "pgMs": 0.71,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 0.67,
+          "pgMs": 0.68,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.61,
+          "pgMs": 0.66,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -232,12 +232,12 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 0.73,
+          "pgMs": 0.8,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.99,
+          "pgMs": 1.04,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -247,17 +247,17 @@
       "rows": 5,
       "solutions": [
         {
-          "pgMs": 2.49,
+          "pgMs": 2.58,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 5.92,
+          "pgMs": 5.98,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.21,
+          "pgMs": 0.22,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -277,7 +277,7 @@
       "rows": 72,
       "solutions": [
         {
-          "pgMs": 0.45,
+          "pgMs": 0.49,
           "usesIndex": false,
           "mysql": "verified"
         },
@@ -292,12 +292,12 @@
       "rows": 48,
       "solutions": [
         {
-          "pgMs": 23.27,
+          "pgMs": 23.88,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 28.67,
+          "pgMs": 29.17,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -307,12 +307,12 @@
       "rows": 5,
       "solutions": [
         {
-          "pgMs": 16.65,
+          "pgMs": 16.33,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 16.42,
+          "pgMs": 16.6,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -327,7 +327,7 @@
           "mysql": "verified"
         },
         {
-          "pgMs": 0.42,
+          "pgMs": 0.46,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -337,12 +337,12 @@
       "rows": 10,
       "solutions": [
         {
-          "pgMs": 11.05,
+          "pgMs": 11.43,
           "usesIndex": true,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 10.99,
+          "pgMs": 10.92,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -352,12 +352,12 @@
       "rows": 10,
       "solutions": [
         {
-          "pgMs": 8.73,
+          "pgMs": 8.74,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 8.56,
+          "pgMs": 8.7,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -397,12 +397,12 @@
       "rows": 13,
       "solutions": [
         {
-          "pgMs": 21.43,
+          "pgMs": 21.24,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 36.32,
+          "pgMs": 37.13,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -582,12 +582,12 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 3.86,
+          "pgMs": 4.13,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 10.46,
+          "pgMs": 10.27,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -597,12 +597,12 @@
       "rows": 31,
       "solutions": [
         {
-          "pgMs": 4.48,
+          "pgMs": 4.51,
           "usesIndex": true,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 4.24,
+          "pgMs": 4.08,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -632,12 +632,12 @@
       "rows": 10,
       "solutions": [
         {
-          "pgMs": 0.63,
+          "pgMs": 0.68,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 2.41,
+          "pgMs": 2.45,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -687,14 +687,29 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 0.26,
+          "pgMs": 0.29,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 1.47,
+          "pgMs": 1.48,
           "usesIndex": false,
           "mysql": "verified"
+        }
+      ]
+    },
+    "sakila-055": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": 19.93,
+          "usesIndex": true,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 12.46,
+          "usesIndex": true,
+          "mysql": "unsupported"
         }
       ]
     },
@@ -742,12 +757,12 @@
       "rows": 114,
       "solutions": [
         {
-          "pgMs": 2.47,
+          "pgMs": 2.4,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 1.77,
+          "pgMs": 1.62,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -772,7 +787,7 @@
           "mysql": "verified"
         },
         {
-          "pgMs": 0.03,
+          "pgMs": 0.04,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -792,12 +807,12 @@
       "rows": 7,
       "solutions": [
         {
-          "pgMs": 0.06,
+          "pgMs": 0.05,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.13,
+          "pgMs": 0.11,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -817,17 +832,17 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 0.49,
+          "pgMs": 0.46,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.29,
+          "pgMs": 0.28,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.27,
+          "pgMs": 0.25,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -897,12 +912,12 @@
       "rows": 25,
       "solutions": [
         {
-          "pgMs": 1.92,
+          "pgMs": 1.96,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 1.78,
+          "pgMs": 1.86,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -927,17 +942,17 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 2.64,
+          "pgMs": 2.61,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 2.75,
+          "pgMs": 2.71,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 2.64,
+          "pgMs": 2.86,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -947,7 +962,7 @@
       "rows": 10,
       "solutions": [
         {
-          "pgMs": 0.02,
+          "pgMs": 0.01,
           "usesIndex": true,
           "mysql": "unsupported"
         },
@@ -962,12 +977,12 @@
       "rows": 24,
       "solutions": [
         {
-          "pgMs": 6.49,
+          "pgMs": 6.18,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 5.82,
+          "pgMs": 5.6,
           "usesIndex": false,
           "mysql": "unsupported"
         }
@@ -1007,12 +1022,12 @@
       "rows": 19,
       "solutions": [
         {
-          "pgMs": 0.33,
+          "pgMs": 0.32,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.48,
+          "pgMs": 0.46,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1022,12 +1037,12 @@
       "rows": 5,
       "solutions": [
         {
-          "pgMs": 0.38,
+          "pgMs": 0.41,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.32,
+          "pgMs": 0.38,
           "usesIndex": false,
           "mysql": "unsupported"
         }
@@ -1062,12 +1077,12 @@
       "rows": 49,
       "solutions": [
         {
-          "pgMs": 4.83,
+          "pgMs": 4.8,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 2.22,
+          "pgMs": 2.35,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -1162,12 +1177,12 @@
       "rows": 2,
       "solutions": [
         {
-          "pgMs": 7.29,
+          "pgMs": 12.06,
           "usesIndex": true,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 0.11,
+          "pgMs": 0.16,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -1197,12 +1212,12 @@
       "rows": 10,
       "solutions": [
         {
-          "pgMs": 4.09,
+          "pgMs": 7.57,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 8.13,
+          "pgMs": 7.14,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1236,6 +1251,46 @@
           "usesIndex": false,
           "mysql": "unsupported"
         },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-045": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-046": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-047": {
+      "rows": 3,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "chinook-048": {
+      "rows": 1,
+      "solutions": [
         {
           "pgMs": null,
           "usesIndex": false,
@@ -1277,12 +1332,12 @@
       "rows": 48,
       "solutions": [
         {
-          "pgMs": 0.09,
+          "pgMs": 0.08,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.27,
+          "pgMs": 0.25,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1377,17 +1432,17 @@
       "rows": 25,
       "solutions": [
         {
-          "pgMs": 0.14,
+          "pgMs": 0.13,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 0.3,
+          "pgMs": 0.33,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.15,
+          "pgMs": 0.14,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1397,12 +1452,12 @@
       "rows": 2,
       "solutions": [
         {
-          "pgMs": 0.17,
+          "pgMs": 0.16,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.49,
+          "pgMs": 0.43,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1422,12 +1477,12 @@
       "rows": 9,
       "solutions": [
         {
-          "pgMs": 0.46,
+          "pgMs": 0.47,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 0.47,
+          "pgMs": 0.45,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1532,12 +1587,12 @@
       "rows": 10,
       "solutions": [
         {
-          "pgMs": 3.22,
+          "pgMs": 3.29,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 2.96,
+          "pgMs": 3.14,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1597,7 +1652,7 @@
       "rows": 9,
       "solutions": [
         {
-          "pgMs": 0.46,
+          "pgMs": 0.5,
           "usesIndex": true,
           "mysql": "verified"
         },
@@ -1733,6 +1788,41 @@
         }
       ]
     },
+    "northwind-044": {
+      "rows": 25,
+      "solutions": [
+        {
+          "pgMs": 0.13,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        },
+        {
+          "pgMs": 0.24,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "northwind-045": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "northwind-046": {
+      "rows": 3,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
     "employees-001": {
       "rows": 9,
       "solutions": [
@@ -1817,12 +1907,12 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 8.54,
+          "pgMs": 8.8,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 23.91,
+          "pgMs": 23.39,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1832,12 +1922,12 @@
       "rows": 9,
       "solutions": [
         {
-          "pgMs": 6.44,
+          "pgMs": 6.56,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 6.7,
+          "pgMs": 7.05,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1867,12 +1957,12 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 3.52,
+          "pgMs": 3.63,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 3.96,
+          "pgMs": 4.35,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -1922,12 +2012,12 @@
       "rows": 9,
       "solutions": [
         {
-          "pgMs": 1.8,
+          "pgMs": 1.96,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 1.88,
+          "pgMs": 1.93,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1937,12 +2027,12 @@
       "rows": 17,
       "solutions": [
         {
-          "pgMs": 54.65,
+          "pgMs": 55.13,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 51.49,
+          "pgMs": 51.86,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -1972,12 +2062,12 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 62.52,
+          "pgMs": 62.58,
           "usesIndex": true,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 62.61,
+          "pgMs": 63,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -2127,12 +2217,12 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 0.21,
+          "pgMs": 0.17,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.2,
+          "pgMs": 0.16,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -2192,12 +2282,12 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 2.63,
+          "pgMs": 2.75,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 11.62,
+          "pgMs": 11.13,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -2217,12 +2307,12 @@
       "rows": 4,
       "solutions": [
         {
-          "pgMs": 4.36,
+          "pgMs": 4.49,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 4.5,
+          "pgMs": 4.98,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -2327,12 +2417,12 @@
       "rows": 4,
       "solutions": [
         {
-          "pgMs": 29.2,
+          "pgMs": 28.87,
           "usesIndex": true,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 13.3,
+          "pgMs": 13.06,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -2372,7 +2462,7 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 1.97,
+          "pgMs": 1.99,
           "usesIndex": true,
           "mysql": "unsupported"
         },
@@ -2463,6 +2553,26 @@
         }
       ]
     },
+    "adventureworks-033": {
+      "rows": 4,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "adventureworks-034": {
+      "rows": 5,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
     "airlines-001": {
       "rows": 4,
       "solutions": [
@@ -2507,12 +2617,12 @@
       "rows": 23,
       "solutions": [
         {
-          "pgMs": 3.31,
+          "pgMs": 3.1,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 2.37,
+          "pgMs": 2.42,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -2582,12 +2692,12 @@
       "rows": 4,
       "solutions": [
         {
-          "pgMs": 15.18,
+          "pgMs": 15.63,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 15.12,
+          "pgMs": 15.27,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -2597,12 +2707,12 @@
       "rows": 2,
       "solutions": [
         {
-          "pgMs": 0.51,
+          "pgMs": 0.46,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 5.88,
+          "pgMs": 5.91,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -2632,12 +2742,12 @@
       "rows": 8,
       "solutions": [
         {
-          "pgMs": 10.55,
+          "pgMs": 9.97,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 14.45,
+          "pgMs": 13.6,
           "usesIndex": true,
           "mysql": "unsupported"
         }
@@ -2667,12 +2777,12 @@
       "rows": 10,
       "solutions": [
         {
-          "pgMs": 0.53,
+          "pgMs": 0.52,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 3.39,
+          "pgMs": 3.38,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -2727,12 +2837,12 @@
       "rows": 16,
       "solutions": [
         {
-          "pgMs": 0.37,
+          "pgMs": 0.47,
           "usesIndex": true,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.59,
+          "pgMs": 0.72,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -2757,7 +2867,7 @@
           "mysql": "verified"
         },
         {
-          "pgMs": 0.03,
+          "pgMs": 0.04,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -2872,12 +2982,12 @@
       "rows": 24,
       "solutions": [
         {
-          "pgMs": 7.71,
+          "pgMs": 9.09,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 9.37,
+          "pgMs": 8.28,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -2889,6 +2999,31 @@
         {
           "pgMs": null,
           "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "airlines-039": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "airlines-040": {
+      "rows": 12,
+      "solutions": [
+        {
+          "pgMs": 0.14,
+          "usesIndex": true,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.06,
+          "usesIndex": true,
           "mysql": "verified"
         }
       ]
@@ -2997,12 +3132,12 @@
       "rows": 8,
       "solutions": [
         {
-          "pgMs": 0.64,
+          "pgMs": 0.5,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 0.54,
+          "pgMs": 0.42,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -3042,12 +3177,12 @@
       "rows": 8,
       "solutions": [
         {
-          "pgMs": 0.44,
+          "pgMs": 0.42,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 0.46,
+          "pgMs": 0.43,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -3062,7 +3197,7 @@
           "mysql": "unsupported"
         },
         {
-          "pgMs": 1.46,
+          "pgMs": 1.44,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -3122,12 +3257,12 @@
       "rows": 30,
       "solutions": [
         {
-          "pgMs": 0.67,
+          "pgMs": 0.58,
           "usesIndex": true,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 2.31,
+          "pgMs": 2.18,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -3147,12 +3282,12 @@
       "rows": 30,
       "solutions": [
         {
-          "pgMs": 1,
+          "pgMs": 1.03,
           "usesIndex": true,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 1.01,
+          "pgMs": 1.04,
           "usesIndex": true,
           "mysql": "verified"
         }
@@ -3258,6 +3393,31 @@
         }
       ]
     },
+    "lahman-035": {
+      "rows": 1,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "lahman-036": {
+      "rows": 10,
+      "solutions": [
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "unsupported"
+        },
+        {
+          "pgMs": null,
+          "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
     "delivery-001": {
       "rows": 5,
       "solutions": [
@@ -3282,12 +3442,12 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 17.33,
+          "pgMs": 17.49,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 17.36,
+          "pgMs": 17.92,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -3307,12 +3467,12 @@
       "rows": 3,
       "solutions": [
         {
-          "pgMs": 74.98,
+          "pgMs": 74.49,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 133.24,
+          "pgMs": 126.97,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -3332,17 +3492,17 @@
       "rows": 1,
       "solutions": [
         {
-          "pgMs": 88.31,
+          "pgMs": 87.09,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 91.16,
+          "pgMs": 91.61,
           "usesIndex": false,
           "mysql": "verified"
         },
         {
-          "pgMs": 94.86,
+          "pgMs": 96.74,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -3362,12 +3522,12 @@
       "rows": 31,
       "solutions": [
         {
-          "pgMs": 2765.64,
+          "pgMs": 2711.52,
           "usesIndex": false,
           "mysql": "unsupported"
         },
         {
-          "pgMs": 2064.37,
+          "pgMs": 1951.9,
           "usesIndex": false,
           "mysql": "verified"
         }
@@ -3564,6 +3724,21 @@
         {
           "pgMs": null,
           "usesIndex": false,
+          "mysql": "verified"
+        }
+      ]
+    },
+    "delivery-028": {
+      "rows": 20,
+      "solutions": [
+        {
+          "pgMs": 34.61,
+          "usesIndex": true,
+          "mysql": "verified"
+        },
+        {
+          "pgMs": 0.03,
+          "usesIndex": true,
           "mysql": "verified"
         }
       ]

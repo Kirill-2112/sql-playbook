@@ -1216,4 +1216,84 @@ order by t.territory_group;`,
     ],
     docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
   },
+  {
+    id: 'adventureworks-033',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['json', 'group-by'],
+    title: 'Catalog sizes as JSON',
+    prompt:
+      'For each product category, return one JSON object mapping each of its subcategory names to the number of products in it, like {"Gloves": 6, "Caps": 1, …}.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'jsonb_object_agg / JSON_OBJECTAGG',
+        postgres: `select c.name as category,
+       jsonb_object_agg(s.name, n) as products_per_subcategory
+from (
+  select product_subcategory_id, count(*) as n
+  from product
+  where product_subcategory_id is not null
+  group by product_subcategory_id
+) p
+join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+join product_category c    on c.product_category_id = s.product_category_id
+group by c.name
+order by c.name;`,
+        mysql: `select c.name as category,
+       json_objectagg(s.name, n) as products_per_subcategory
+from (
+  select product_subcategory_id, count(*) as n
+  from product
+  where product_subcategory_id is not null
+  group by product_subcategory_id
+) p
+join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+join product_category c    on c.product_category_id = s.product_category_id
+group by c.name
+order by c.name;`,
+        explanation:
+          'The object aggregate takes a key and a value per row and builds one object per group. Count first, then aggregate: an aggregate cannot be nested directly inside another.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: jsonb_object_agg', url: PG + 'functions-aggregate.html' },
+      { label: 'MySQL: JSON_OBJECTAGG', url: MY + 'aggregate-functions.html#function_json-objectagg' },
+    ],
+  },
+  {
+    id: 'adventureworks-034',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['views', 'joins'],
+    title: 'A catalog view',
+    prompt:
+      'Create a view product_catalog (product_id, product, subcategory, category, list_price) that includes products without a subcategory too.',
+    orderMatters: true,
+    checkSql: `select coalesce(category, '(none)') as category, count(*) as products
+from product_catalog
+group by coalesce(category, '(none)')
+order by category`,
+    solutions: [
+      {
+        approach: 'View over LEFT JOINs',
+        postgres: `create view product_catalog as
+select p.product_id, p.name as product, s.name as subcategory, c.name as category, p.list_price
+from product p
+left join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+left join product_category c    on c.product_category_id = s.product_category_id;`,
+        mysql: `create view product_catalog as
+select p.product_id, p.name as product, s.name as subcategory, c.name as category, p.list_price
+from product p
+left join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+left join product_category c    on c.product_category_id = s.product_category_id;`,
+        explanation:
+          'With inner joins the 209 products without a subcategory (parts and components) would vanish from the view, and every report built on it would undercount without any error.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' },
+      { label: 'MySQL: CREATE VIEW', url: MY + 'create-view.html' },
+    ],
+  },
 ]

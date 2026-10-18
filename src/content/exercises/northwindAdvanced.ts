@@ -515,4 +515,116 @@ end;`,
       { label: 'MySQL: Cursors', url: MY + 'cursors.html' },
     ],
   },
+  {
+    id: 'northwind-044',
+    dataset: 'northwind',
+    level: 2,
+    topics: ['full-join'],
+    title: 'Countries of suppliers and customers',
+    prompt:
+      'List every country that has suppliers, customers or both, with two yes/no columns has_suppliers and has_customers, ordered by country.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FULL JOIN',
+        postgres: `select coalesce(s.country, c.country) as country,
+       s.country is not null as has_suppliers,
+       c.country is not null as has_customers
+from (select distinct country from suppliers) s
+full join (select distinct country from customers) c on c.country = s.country
+order by country;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'FULL JOIN keeps unmatched rows from both sides; whichever side is NULL tells which list the country is missing from.',
+      },
+      {
+        approach: 'UNION of all countries, then look up',
+        postgres: `select country,
+       exists (select 1 from suppliers s where s.country = a.country) as has_suppliers,
+       exists (select 1 from customers c where c.country = a.country) as has_customers
+from (select country from suppliers union select country from customers) a
+order by country;`,
+        mysql: `select country,
+       exists (select 1 from suppliers s where s.country = a.country) as has_suppliers,
+       exists (select 1 from customers c where c.country = a.country) as has_customers
+from (select country from suppliers union select country from customers) a
+order by country;`,
+        explanation: 'UNION (without ALL) builds the list of all countries once each; two EXISTS checks fill in the flags.',
+      },
+    ],
+    comparison: 'Same rows. 12 countries have both, 4 only suppliers, 9 only customers. The UNION version is the usual portable replacement for FULL JOIN.',
+    docs: [
+      { label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' },
+      { label: 'MySQL: UNION', url: MY + 'union.html' },
+    ],
+  },
+  {
+    id: 'northwind-045',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['procedures', 'dml'],
+    title: 'A procedure to discontinue a product',
+    prompt:
+      'Write a procedure discontinue_product(p_id) that marks the product discontinued and removes it from orders that have not shipped yet. Then discontinue product 11.',
+    orderMatters: false,
+    checkSql: `call discontinue_product(11);
+select (select discontinued from products where product_id = 11) as discontinued,
+       (select count(*) from order_details od join orders o on o.order_id = od.order_id
+        where od.product_id = 11 and o.shipped_date is null) as open_lines,
+       (select count(*) from order_details where product_id = 11) as all_lines`,
+    solutions: [
+      {
+        approach: 'Two statements in a procedure',
+        postgres: `create procedure discontinue_product(p_id integer)
+language sql
+as $$
+  update products set discontinued = 1 where product_id = p_id;
+  delete from order_details
+  where product_id = p_id
+    and order_id in (select order_id from orders where shipped_date is null);
+$$;`,
+        mysql: `create procedure discontinue_product(p_id int)
+begin
+  update products set discontinued = 1 where product_id = p_id;
+  delete from order_details
+  where product_id = p_id
+    and order_id in (select order_id from orders where shipped_date is null);
+end;`,
+        mysqlNote: 'In the mysql client, wrap it in DELIMITER $$ … $$.',
+        explanation:
+          'A procedure bundles a business rule so every caller applies it the same way. A LANGUAGE sql procedure is just a list of statements; it needs plpgsql only for variables, IF or loops. Shipped orders keep their lines: history is not rewritten.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' },
+      { label: 'MySQL: CREATE PROCEDURE', url: MY + 'create-procedure.html' },
+    ],
+  },
+  {
+    id: 'northwind-046',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['generated-columns'],
+    title: 'Line totals the database maintains',
+    prompt: 'Add a stored generated column line_total to order_details: unit_price × quantity × (1 − discount), rounded to 2 decimals.',
+    orderMatters: true,
+    checkSql: `select order_id, product_id, line_total from order_details where order_id = 10248 order by product_id`,
+    solutions: [
+      {
+        approach: 'GENERATED ALWAYS AS … STORED',
+        postgres: `alter table order_details
+add column line_total numeric(12, 2)
+generated always as (round(unit_price * quantity * (1 - discount), 2)) stored;`,
+        mysql: `alter table order_details
+add column line_total decimal(12, 2)
+generated always as (round(unit_price * quantity * (1 - discount), 2)) stored;`,
+        explanation:
+          'STORED computes the value on write and keeps it on disk, so reads cost nothing and it can be indexed. MySQL also offers VIRTUAL (computed on read); PostgreSQL 18 added virtual generated columns too, and makes them the default.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' },
+      { label: 'MySQL: Generated columns', url: MY + 'create-table-generated-columns.html' },
+    ],
+  },
 ]

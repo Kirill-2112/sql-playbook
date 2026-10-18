@@ -1145,4 +1145,74 @@ update dept_emp set to_date = '2002-08-01' where emp_no = 10100 and to_date = '9
       { label: 'MySQL: UPDATE (multiple-table)', url: MY + 'update.html' },
     ],
   },
+  {
+    id: 'employees-030',
+    dataset: 'employees',
+    level: 4,
+    topics: ['constraints'],
+    title: 'A period cannot end before it starts',
+    prompt:
+      'Add CHECK constraints so that in salaries and in titles, to_date is never earlier than from_date. (Try the stricter "later than" first and see what happens.)',
+    orderMatters: false,
+    checkSql: `select count(*) as check_constraints
+from pg_constraint
+where conrelid in ('salaries'::regclass, 'titles'::regclass) and contype = 'c'`,
+    checkSqlMysql: `select count(*) as check_constraints
+from information_schema.table_constraints
+where table_schema = database() and table_name in ('salaries', 'titles') and constraint_type = 'CHECK'`,
+    solutions: [
+      {
+        approach: 'CHECK on two columns',
+        postgres: `alter table salaries add constraint salaries_period_check check (to_date >= from_date);
+alter table titles   add constraint titles_period_check   check (to_date >= from_date);`,
+        mysql: `alter table salaries add constraint salaries_period_check check (to_date >= from_date);
+alter table titles   add constraint titles_period_check   check (to_date >= from_date);`,
+        explanation:
+          'A CHECK may compare columns of the same row, and adding it validates every existing row first. "to_date > from_date" fails here: three rows (employees 260100 and 426600) have a period that starts and ends on the same day. Either allow that, as here, or clean those rows first. PostgreSQL can also add a constraint NOT VALID, which checks only new rows until VALIDATE CONSTRAINT runs; MySQL has no such option.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Check constraints', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS' }],
+  },
+  {
+    id: 'employees-031',
+    dataset: 'employees',
+    level: 4,
+    topics: ['ddl', 'constraints'],
+    title: 'A projects table',
+    prompt:
+      'Create projects: an id the database generates, dept_no referencing departments, a required name, and a budget that defaults to 0. Then add two projects for department d005 without giving ids.',
+    orderMatters: true,
+    checkSql: `select id, dept_no, name, budget from projects order by id`,
+    solutions: [
+      {
+        approach: 'Identity column',
+        postgres: `create table projects (
+  id      integer generated always as identity primary key,
+  dept_no varchar(4)    not null references departments (dept_no),
+  name    varchar(100)  not null,
+  budget  numeric(12, 2) not null default 0
+);
+
+insert into projects (dept_no, name) values ('d005', 'Payroll rewrite');
+insert into projects (dept_no, name, budget) values ('d005', 'Search', 50000);`,
+        mysql: `create table projects (
+  id      int auto_increment primary key,
+  dept_no char(4)        not null,
+  name    varchar(100)   not null,
+  budget  decimal(12, 2) not null default 0,
+  foreign key (dept_no) references departments (dept_no)
+);
+
+insert into projects (dept_no, name) values ('d005', 'Payroll rewrite');
+insert into projects (dept_no, name, budget) values ('d005', 'Search', 50000);`,
+        mysqlNote: 'AUTO_INCREMENT instead of an identity column. Write the foreign key as a separate clause: MySQL 8.4 parses a REFERENCES written inside a column definition but silently ignores it (it is enforced only from MySQL 9.0).',
+        explanation:
+          'GENERATED ALWAYS AS IDENTITY is the standard way to number rows; "always" refuses a hand-written id unless you insist with OVERRIDING SYSTEM VALUE. A column left out of the INSERT gets its DEFAULT.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Identity columns', url: PG + 'ddl-identity-columns.html' },
+      { label: 'MySQL: AUTO_INCREMENT', url: MY + 'example-auto-increment.html' },
+    ],
+  },
 ]

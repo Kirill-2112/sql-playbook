@@ -305,4 +305,178 @@ where composer is not null;`,
       { label: 'MySQL: SUBSTRING_INDEX()', url: MY + 'string-functions.html#function_substring-index' },
     ],
   },
+  {
+    id: 'chinook-037',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['full-text', 'indexes'],
+    title: 'Search track names by word',
+    prompt:
+      'Make track names searchable by whole word with a full-text index. Then the search for the word "symphony" should return track_id and name of the matching tracks.',
+    orderMatters: true,
+    checkSql: `select track_id, name from track
+where to_tsvector('simple', name) @@ to_tsquery('simple', 'symphony')
+order by track_id`,
+    checkSqlMysql: `select track_id, name from track
+where match(name) against ('symphony' in boolean mode)
+order by track_id`,
+    solutions: [
+      {
+        approach: 'GIN index / FULLTEXT index',
+        postgres: `create index track_name_fts on track using gin (to_tsvector('simple', name));
+
+-- search: where to_tsvector('simple', name) @@ to_tsquery('simple', 'symphony')`,
+        mysql: `create fulltext index track_name_ft on track (name);
+
+-- search: where match(name) against ('symphony' in boolean mode)`,
+        mysqlNote:
+          'MATCH … AGAINST only works on columns with a FULLTEXT index. InnoDB ignores words shorter than 3 characters and a list of stopwords by default.',
+        explanation:
+          'Full-text search splits text into words (tokens) and finds rows containing a word, which LIKE \'%symphony%\' cannot do efficiently. In PostgreSQL the index is on the expression to_tsvector(…), and the query must use the same expression. The \'simple\' configuration only lower-cases words; \'english\' would also reduce "symphonies" to "symphoni" so both match.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Full text search', url: PG + 'textsearch-intro.html' },
+      { label: 'MySQL: Full-text search functions', url: MY + 'fulltext-search.html' },
+    ],
+  },
+  {
+    id: 'chinook-038',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['arrays', 'group-by'],
+    title: 'Playlists with the whole first album',
+    prompt: 'Which playlists contain every track of album 1? Show playlist_id and name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Array containment',
+        postgres: `select p.playlist_id, p.name
+from playlist p
+join playlist_track pt on pt.playlist_id = p.playlist_id
+group by p.playlist_id, p.name
+having array_agg(pt.track_id) @> (select array_agg(track_id) from track where album_id = 1)
+order by p.playlist_id;`,
+        mysql: null,
+        mysqlNote: 'MySQL has no arrays; see solution B.',
+        explanation: 'Collect each playlist\'s tracks into an array and ask whether it contains (@>) the array of album 1\'s tracks.',
+      },
+      {
+        approach: 'Count the matches',
+        postgres: `select p.playlist_id, p.name
+from playlist p
+join playlist_track pt on pt.playlist_id = p.playlist_id
+join track t on t.track_id = pt.track_id
+where t.album_id = 1
+group by p.playlist_id, p.name
+having count(*) = (select count(*) from track where album_id = 1)
+order by p.playlist_id;`,
+        mysql: `select p.playlist_id, p.name
+from playlist p
+join playlist_track pt on pt.playlist_id = p.playlist_id
+join track t on t.track_id = pt.track_id
+where t.album_id = 1
+group by p.playlist_id, p.name
+having count(*) = (select count(*) from track where album_id = 1)
+order by p.playlist_id;`,
+        explanation:
+          'Keep only the album\'s tracks in each playlist and compare their number with the album size. It works because a track appears at most once per playlist (the primary key is playlist_id, track_id).',
+      },
+    ],
+    comparison: 'Same playlists. This is "relational division"; the array version states it directly, the counting version works everywhere.',
+    docs: [
+      { label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' },
+      { label: 'PostgreSQL: array_agg', url: PG + 'functions-aggregate.html' },
+    ],
+  },
+  {
+    id: 'chinook-039',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['generated-columns', 'strings'],
+    title: 'Track length as m:ss',
+    prompt: 'Add a stored generated column length_text to track that shows milliseconds as minutes and seconds, like "5:43".',
+    orderMatters: true,
+    checkSql: `select track_id, milliseconds, length_text from track where track_id in (1, 2, 3) order by track_id`,
+    solutions: [
+      {
+        approach: 'Integer arithmetic in a generated column',
+        postgres: `alter table track
+add column length_text text
+generated always as (
+  (milliseconds / 60000)::text || ':' || lpad(((milliseconds / 1000) % 60)::text, 2, '0')
+) stored;`,
+        mysql: `alter table track
+add column length_text varchar(10)
+generated always as (
+  concat(milliseconds div 60000, ':', lpad((milliseconds div 1000) % 60, 2, '0'))
+) stored;`,
+        mysqlNote: 'DIV is integer division in MySQL; concat() converts the numbers to text by itself.',
+        explanation:
+          'Whole minutes, then the seconds left over, padded to two digits with lpad (which needs text, hence the ::text cast). A generated column accepts only IMMUTABLE expressions; integer arithmetic, casts to text, || and lpad all are.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' },
+      { label: 'MySQL: Generated columns', url: MY + 'create-table-generated-columns.html' },
+    ],
+  },
+  {
+    id: 'chinook-040',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Invoices split by region',
+    prompt:
+      'Create invoice_by_region with the same columns as invoice, list-partitioned by billing_country into North America (USA, Canada), South America (Brazil, Argentina, Chile) and everything else, then copy all invoices into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'invoice_by_region'::regclass) as partitions,
+       (select count(*) from invoice_by_region) as total_rows,
+       (select count(*) from invoice_by_region where billing_country in ('USA', 'Canada')) as north_america`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'invoice_by_region') as partitions,
+       (select count(*) from invoice_by_region) as total_rows,
+       (select count(*) from invoice_by_region where billing_country in ('USA', 'Canada')) as north_america`,
+    solutions: [
+      {
+        approach: 'LIST partitions',
+        postgres: `create table invoice_by_region (like invoice) partition by list (billing_country);
+
+create table invoice_north_america partition of invoice_by_region for values in ('USA', 'Canada');
+create table invoice_south_america partition of invoice_by_region for values in ('Brazil', 'Argentina', 'Chile');
+create table invoice_rest_of_world partition of invoice_by_region default;
+
+insert into invoice_by_region select * from invoice;`,
+        mysql: `create table invoice_by_region (
+  invoice_id          int            not null,
+  customer_id         int            not null,
+  invoice_date        datetime       not null,
+  billing_address     varchar(70),
+  billing_city        varchar(40),
+  billing_state       varchar(40),
+  billing_country     varchar(40)    not null,
+  billing_postal_code varchar(10),
+  total               decimal(10, 2) not null,
+  primary key (invoice_id, billing_country)
+)
+partition by list columns (billing_country) (
+  partition north_america values in ('USA', 'Canada'),
+  partition south_america values in ('Brazil', 'Argentina', 'Chile'),
+  partition rest_of_world values in ('Australia', 'Austria', 'Belgium', 'Czech Republic', 'Denmark', 'Finland',
+    'France', 'Germany', 'Hungary', 'India', 'Ireland', 'Italy', 'Netherlands', 'Norway', 'Poland', 'Portugal',
+    'Spain', 'Sweden', 'United Kingdom')
+);
+
+insert into invoice_by_region select * from invoice;`,
+        mysqlNote:
+          'MySQL list partitions have no DEFAULT: every value must be listed, and an insert with a new country fails until a partition is added. The partitioning column must be in the primary key.',
+        explanation:
+          'Each country goes to one partition; the DEFAULT partition catches any country not listed. CREATE TABLE … (LIKE invoice) copies the columns. A query filtered on billing_country reads only the partitions it needs.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: LIST COLUMNS partitioning', url: MY + 'partitioning-columns-list.html' },
+    ],
+  },
 ]

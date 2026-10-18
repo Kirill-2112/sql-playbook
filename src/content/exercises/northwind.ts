@@ -1,4 +1,5 @@
 import type { Exercise } from '../types'
+import { northwindAdvanced } from './northwindAdvanced'
 
 const PG = 'https://www.postgresql.org/docs/current/'
 const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
@@ -6,7 +7,7 @@ const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
 // Revenue of an order line in Northwind: unit_price × quantity × (1 − discount).
 const REVENUE_NOTE = 'Revenue of an order line is unit_price × quantity × (1 − discount).'
 
-export const northwindExercises: Exercise[] = [
+const basics: Exercise[] = [
   // ---------- Level 1 ----------
   {
     id: 'northwind-001',
@@ -1247,3 +1248,5 @@ order by customer_id, order_date desc, order_id desc;`,
     ],
   },
 ]
+
+export const northwindExercises: Exercise[] = [...basics, ...northwindAdvanced]

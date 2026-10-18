@@ -7,6 +7,120 @@ const DELIMITER_NOTE =
   'In the mysql command-line client, wrap the CREATE statement in DELIMITER $$ … $$ so the semicolons inside the body do not end it early.'
 
 export const adventureworksExercises: Exercise[] = [
+  // ---------- Level 1 ----------
+  {
+    id: 'adventureworks-026',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['select-basics', 'limit'],
+    title: 'The most expensive products',
+    prompt: 'Show the 10 products with the highest list price: product_id, name and list_price. Equal prices by product_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ORDER BY … LIMIT',
+        postgres: `select product_id, name, list_price
+from product
+order by list_price desc, product_id
+limit 10;`,
+        mysql: `select product_id, name, list_price
+from product
+order by list_price desc, product_id
+limit 10;`,
+        explanation: 'list_price keeps four decimals (numeric(19,4), Microsoft\'s money type converted), so prices print as 3578.2700.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'adventureworks-027',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['null', 'aggregates'],
+    title: 'Products without a colour',
+    prompt: 'How many products have no colour, and how many have one?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'count(*) vs count(column)',
+        postgres: `select count(*) - count(color) as without_colour,
+       count(color)            as with_colour
+from product;`,
+        mysql: `select count(*) - count(color) as without_colour,
+       count(color)            as with_colour
+from product;`,
+        explanation: 'count(*) counts rows; count(color) counts only rows where color is not NULL. The difference is the NULLs.',
+      },
+      {
+        approach: 'IS NULL in a condition',
+        postgres: `select sum(case when color is null then 1 else 0 end)     as without_colour,
+       sum(case when color is not null then 1 else 0 end) as with_colour
+from product;`,
+        mysql: `select sum(color is null)     as without_colour,
+       sum(color is not null) as with_colour
+from product;`,
+        explanation: 'Each row adds 1 to exactly one of the two sums. "color = NULL" would never be true, which is why IS NULL exists.',
+      },
+    ],
+    comparison: 'Same numbers. The count(*) − count(column) trick is short; the CASE version is explicit and easy to extend.',
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'adventureworks-028',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['distinct', 'conditions'],
+    title: 'The colour range',
+    prompt: 'List the different product colours once each, leaving out products with no colour.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'DISTINCT',
+        postgres: `select distinct color
+from product
+where color is not null;`,
+        mysql: `select distinct color
+from product
+where color is not null;`,
+        explanation: 'DISTINCT removes repeated values. Without the WHERE, NULL would appear once as its own "colour".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SELECT DISTINCT', url: PG + 'sql-select.html#SQL-DISTINCT' }],
+  },
+  {
+    id: 'adventureworks-029',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['strings'],
+    title: 'User names from login ids',
+    prompt:
+      'login_id looks like adventure-works\\ken0. For the 5 employees with the lowest business_entity_id, show business_entity_id and the user name after the backslash.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Split at the backslash',
+        postgres: `select business_entity_id,
+       split_part(login_id, '\\', 2) as user_name
+from employee
+order by business_entity_id
+limit 5;`,
+        mysql: `select business_entity_id,
+       substring_index(login_id, '\\\\', -1) as user_name
+from employee
+order by business_entity_id
+limit 5;`,
+        mysqlNote:
+          'In a MySQL string a backslash starts an escape sequence, so one backslash is written \'\\\\\'. substring_index(text, delimiter, -1) returns the part after the last delimiter.',
+        explanation:
+          'In standard SQL, and in PostgreSQL since 9.1, a backslash inside \'…\' is an ordinary character, so \'\\\' is one backslash. The same query text therefore means different things in the two databases.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: String constants', url: PG + 'sql-syntax-lexical.html#SQL-SYNTAX-STRINGS' },
+      { label: 'MySQL: String literals', url: MY + 'string-literals.html' },
+    ],
+  },
+
   // ---------- Level 2 ----------
   {
     id: 'adventureworks-001',

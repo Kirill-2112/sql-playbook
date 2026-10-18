@@ -933,4 +933,39 @@ end;`,
       { label: 'MySQL: Using triggers', url: MY + 'trigger-syntax.html' },
     ],
   },
+  {
+    id: 'delivery-024',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'A work queue with SKIP LOCKED',
+    prompt:
+      'Several support workers process refunded orders in parallel. Write the query one worker runs to claim the 3 oldest refunded orders (id, created_at) so that other workers running the same query at the same moment get different orders.',
+    hint: 'The claim is meant to run inside a transaction; the rows stay locked until it ends.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FOR UPDATE SKIP LOCKED',
+        postgres: `select id, created_at
+from orders
+where status = 'refunded'
+order by created_at, id
+limit 3
+for update skip locked;`,
+        mysql: `select id, created_at
+from orders
+where status = 'refunded'
+order by created_at, id
+limit 3
+for update skip locked;`,
+        mysqlNote: 'Same syntax since MySQL 8.0. InnoDB locks the index records it reads, so an index on (status, created_at) keeps it from locking far more rows than the three it returns.',
+        explanation:
+          'FOR UPDATE locks the returned rows until the transaction ends. A second worker would normally wait for those locks; SKIP LOCKED makes it skip them and take the next free rows instead, so workers never block each other or process the same order twice. Alone in a session (as here) it simply returns the three oldest.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: The locking clause', url: PG + 'sql-select.html#SQL-FOR-UPDATE-SHARE' },
+      { label: 'MySQL: Locking read concurrency with NOWAIT and SKIP LOCKED', url: MY + 'innodb-locking-reads.html' },
+    ],
+  },
 ]

@@ -620,4 +620,53 @@ limit 5;`,
       { label: 'MySQL: SEC_TO_TIME', url: MY + 'date-and-time-functions.html#function_sec-to-time' },
     ],
   },
+  {
+    id: 'chinook-044',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'Apply a price list',
+    prompt:
+      'Create price_updates (track_id, unit_price) with new prices: track 1 → 1.29, track 2 → 0.99 (unchanged), track 3 → 1.49. Apply it to track, changing only the prices that really differ.',
+    orderMatters: true,
+    checkSql: `select track_id, unit_price from track where track_id in (1, 2, 3) order by track_id`,
+    solutions: [
+      {
+        approach: 'MERGE with a condition',
+        postgres: `create table price_updates (track_id integer primary key, unit_price numeric(10, 2) not null);
+insert into price_updates values (1, 1.29), (2, 0.99), (3, 1.49);
+
+merge into track t
+using price_updates p on p.track_id = t.track_id
+when matched and t.unit_price <> p.unit_price then
+  update set unit_price = p.unit_price;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation: 'WHEN MATCHED AND … adds a condition to the action, so unchanged rows are not rewritten (no needless row versions or trigger calls).',
+      },
+      {
+        approach: 'UPDATE with a join',
+        postgres: `create table price_updates (track_id integer primary key, unit_price numeric(10, 2) not null);
+insert into price_updates values (1, 1.29), (2, 0.99), (3, 1.49);
+
+update track t
+set unit_price = p.unit_price
+from price_updates p
+where p.track_id = t.track_id and t.unit_price <> p.unit_price;`,
+        mysql: `create table price_updates (track_id int primary key, unit_price decimal(10, 2) not null);
+insert into price_updates values (1, 1.29), (2, 0.99), (3, 1.49);
+
+update track t
+join price_updates p on p.track_id = t.track_id
+set t.unit_price = p.unit_price
+where t.unit_price <> p.unit_price;`,
+        explanation: 'When only updates are needed, a joined UPDATE does the same job in every database.',
+      },
+    ],
+    comparison: 'Same result. MERGE is worth it when one statement must also insert or delete; for updates alone the joined UPDATE is simpler.',
+    docs: [
+      { label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' },
+      { label: 'MySQL: UPDATE', url: MY + 'update.html' },
+    ],
+  },
 ]

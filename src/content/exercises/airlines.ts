@@ -1543,4 +1543,87 @@ limit 10;`,
       { label: 'MySQL: GROUP_CONCAT', url: MY + 'aggregate-functions.html#function_group-concat' },
     ],
   },
+  {
+    id: 'airlines-037',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['date-series', 'dates-advanced'],
+    title: 'Departures by hour of day',
+    prompt:
+      'For November 2025, count flights by the UTC hour of their scheduled departure, showing all 24 hours (0–23) even if an hour has none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'generate_series of numbers',
+        postgres: `select h as hour, count(f.flight_id) as departures
+from generate_series(0, 23) as h
+left join flights f
+       on extract(hour from f.scheduled_departure) = h
+      and f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+group by h
+order by h;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation: 'generate_series also counts integers. The filter on November sits in the ON clause: in WHERE it would drop the empty hours again.',
+      },
+      {
+        approach: 'Recursive CTE of hours',
+        postgres: `with recursive hours (h) as (
+  select 0 union all select h + 1 from hours where h < 23
+)
+select h as hour, count(f.flight_id) as departures
+from hours
+left join flights f
+       on extract(hour from f.scheduled_departure) = h
+      and f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+group by h
+order by h;`,
+        mysql: `with recursive hours (h) as (
+  select 0 union all select h + 1 from hours where h < 23
+)
+select h as hour, count(f.flight_id) as departures
+from hours
+left join flights f
+       on hour(f.scheduled_departure) = h
+      and f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+group by h
+order by h;`,
+        explanation: 'The 24 hours built by recursion; HOUR() is MySQL\'s extract(hour …).',
+      },
+    ],
+    comparison: 'Same rows. Hours are in UTC; for local airport time you would convert each departure first (AT TIME ZONE / CONVERT_TZ).',
+    docs: [
+      { label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' },
+      { label: 'MySQL: HOUR', url: MY + 'date-and-time-functions.html#function_hour' },
+    ],
+  },
+  {
+    id: 'airlines-038',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['upsert'],
+    title: 'Issue or change a boarding pass',
+    prompt:
+      'Passenger on ticket 0005432000395 asks for seat 40A on flight 77. Write one statement that issues the boarding pass if there is none, or changes the seat of the existing one.',
+    orderMatters: false,
+    checkSql: `select ticket_no, flight_id, seat_no from boarding_passes where ticket_no = '0005432000395' and flight_id = 77`,
+    solutions: [
+      {
+        approach: 'ON CONFLICT on the primary key',
+        postgres: `insert into boarding_passes (ticket_no, flight_id, seat_no)
+values ('0005432000395', 77, '40A')
+on conflict (ticket_no, flight_id) do update set seat_no = excluded.seat_no;`,
+        mysql: `insert into boarding_passes (ticket_no, flight_id, seat_no)
+values ('0005432000395', 77, '40A') as new
+on duplicate key update seat_no = new.seat_no;`,
+        mysqlNote:
+          'ON DUPLICATE KEY reacts to a clash on any unique key. boarding_passes also has unique (flight_id, seat_no): if 40A were taken by someone else, MySQL would update that other row instead of failing. PostgreSQL\'s ON CONFLICT (ticket_no, flight_id) names the key it handles and still raises an error for the seat clash.',
+        explanation: 'The pass already exists (seat 43J), so the statement turns into an update of the seat. On a ticket without a pass it would insert one.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' },
+      { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
+    ],
+  },
 ]

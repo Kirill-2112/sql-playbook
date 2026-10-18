@@ -968,4 +968,110 @@ for update skip locked;`,
       { label: 'MySQL: Locking read concurrency with NOWAIT and SKIP LOCKED', url: MY + 'innodb-locking-reads.html' },
     ],
   },
+  {
+    id: 'delivery-025',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['locks-isolation'],
+    title: 'Lock it now or give up',
+    prompt: 'A support tool must lock order 5 for editing, but must not hang if someone else is editing it. Lock the row and return its id and status.',
+    hint: 'Run it inside a transaction; the lock lasts until the transaction ends.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FOR UPDATE NOWAIT',
+        postgres: `select id, status
+from orders
+where id = 5
+for update nowait;`,
+        mysql: `select id, status
+from orders
+where id = 5
+for update nowait;`,
+        mysqlNote: 'Same syntax since MySQL 8.0; the error then is ER_LOCK_NOWAIT (3572).',
+        explanation:
+          'Without NOWAIT, a second session asking for the same lock waits until the first one commits (or a timeout hits). With NOWAIT it fails immediately with "could not obtain lock", and the tool can say "someone else is editing this order".',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Row-level locks', url: PG + 'explicit-locking.html#LOCKING-ROWS' },
+      { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
+    ],
+  },
+  {
+    id: 'delivery-026',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'A report that sees one moment',
+    prompt:
+      'A report runs two queries: the number of delivered orders, then their total revenue. Orders keep changing meanwhile. Make both queries see the same snapshot of the data; the result is the revenue.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'REPEATABLE READ',
+        postgres: `set transaction isolation level repeatable read;
+
+select count(*) as delivered_orders from orders where status = 'delivered';
+select sum(total) as delivered_revenue from orders where status = 'delivered';`,
+        mysql: `set transaction isolation level repeatable read;
+start transaction read only;
+
+select count(*) as delivered_orders from orders where status = 'delivered';
+select sum(total) as delivered_revenue from orders where status = 'delivered';
+
+commit;`,
+        mysqlNote:
+          'REPEATABLE READ is already the InnoDB default; SET TRANSACTION applies to the next transaction, hence before START TRANSACTION. The snapshot is taken at the first read.',
+        explanation:
+          'PostgreSQL defaults to READ COMMITTED, where every statement sees the latest committed data, so an order delivered between the two queries would be in the revenue but not in the count. Under REPEATABLE READ the whole transaction reads one snapshot. SET TRANSACTION must be the first statement of the transaction.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Transaction isolation', url: PG + 'transaction-iso.html' },
+      { label: 'MySQL: Transaction isolation levels', url: MY + 'innodb-transaction-isolation-levels.html' },
+    ],
+  },
+  {
+    id: 'delivery-027',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['control-flow', 'functions'],
+    title: 'Division that never fails',
+    prompt: 'Write a function safe_ratio(a, b) that returns a / b rounded to 2 decimals, and NULL instead of an error when b is 0.',
+    orderMatters: false,
+    checkSql: `select safe_ratio(10, 4) as ok, safe_ratio(1, 0) as by_zero`,
+    solutions: [
+      {
+        approach: 'Catch the exception',
+        postgres: `create function safe_ratio(a numeric, b numeric)
+returns numeric
+language plpgsql
+immutable
+as $$
+begin
+  return round(a / b, 2);
+exception
+  when division_by_zero then
+    return null;
+end;
+$$;`,
+        mysql: `create function safe_ratio(a decimal(12, 2), b decimal(12, 2))
+returns decimal(12, 2)
+deterministic
+begin
+  declare exit handler for sqlstate '22012' return null;  -- 22012: division by zero
+  return round(a / b, 2);
+end;`,
+        mysqlNote:
+          'A plain SELECT 1 / 0 returns NULL with a warning in MySQL, but inside a stored function strict mode turns it into the error "Division by 0". MySQL catches errors with DECLARE … HANDLER for an SQLSTATE (22012 here) instead of an EXCEPTION block; an EXIT handler in a function may RETURN a value.',
+        explanation:
+          'In PostgreSQL, division by zero is an error that aborts the statement. A PL/pgSQL block with an EXCEPTION section catches it and returns NULL instead. The simpler portable form is round(a / nullif(b, 0), 2); the exception block is the tool for errors you cannot test for beforehand.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Trapping errors', url: PG + 'plpgsql-control-structures.html#PLPGSQL-ERROR-TRAPPING' },
+      { label: 'MySQL: DECLARE … HANDLER', url: MY + 'declare-handler.html' },
+    ],
+  },
 ]

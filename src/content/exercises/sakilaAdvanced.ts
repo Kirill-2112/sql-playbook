@@ -952,4 +952,154 @@ order by day;`,
       { label: 'MySQL: Window function frames', url: MY + 'window-functions-frames.html' },
     ],
   },
+  {
+    id: 'sakila-051',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['arrays', 'normalization'],
+    title: 'Counting special features',
+    prompt:
+      'special_features holds a comma-separated list such as "Trailers,Commentaries". Count how many films have each feature.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Split into an array and unnest',
+        postgres: `select feature, count(*) as films
+from film
+cross join unnest(string_to_array(special_features, ',')) as feature
+group by feature
+order by films desc, feature;`,
+        mysql: `select f.feature, count(*) as films
+from film
+join (select 'Trailers' as feature union all select 'Commentaries'
+      union all select 'Deleted Scenes' union all select 'Behind the Scenes') as f
+  on find_in_set(f.feature, film.special_features) > 0
+group by f.feature
+order by films desc, f.feature;`,
+        mysqlNote:
+          'In MySQL the column is a SET, a built-in "list of allowed values" type. FIND_IN_SET looks a value up in it, but there is no general way to turn it into rows, so the four allowed values are listed by hand.',
+        explanation:
+          'string_to_array turns the text into an array and unnest makes one row per element, so each film appears once per feature. This column breaks first normal form (one value per field): the next exercise fixes that.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: string_to_array, unnest', url: PG + 'functions-array.html' },
+      { label: 'MySQL: FIND_IN_SET', url: MY + 'string-functions.html#function_find-in-set' },
+    ],
+  },
+  {
+    id: 'sakila-052',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['normalization', 'ddl'],
+    title: 'One feature per row',
+    prompt:
+      'Normalize special_features: create film_feature (film_id, feature) with one row per film and feature, primary key on both columns and a foreign key to film, and fill it.',
+    orderMatters: true,
+    checkSql: `select feature, count(*) as films from film_feature group by feature order by feature`,
+    solutions: [
+      {
+        approach: 'New table from the list',
+        postgres: `create table film_feature (
+  film_id integer     not null references film (film_id),
+  feature varchar(20) not null,
+  primary key (film_id, feature)
+);
+
+insert into film_feature (film_id, feature)
+select film_id, unnest(string_to_array(special_features, ','))
+from film
+where special_features is not null;`,
+        mysql: `create table film_feature (
+  film_id smallint unsigned not null,
+  feature varchar(20)       not null,
+  primary key (film_id, feature),
+  foreign key (film_id) references film (film_id)
+);
+
+insert into film_feature (film_id, feature)
+select film.film_id, f.feature
+from film
+join (select 'Trailers' as feature union all select 'Commentaries'
+      union all select 'Deleted Scenes' union all select 'Behind the Scenes') as f
+  on find_in_set(f.feature, film.special_features) > 0;`,
+        mysqlNote: 'film.film_id is SMALLINT UNSIGNED in Sakila\'s MySQL schema, and a foreign key column must have exactly the same type.',
+        explanation:
+          'Now "films with trailers" is a plain WHERE feature = \'Trailers\' that an index can serve, a new feature is a new row rather than an edited string, and a typo cannot hide inside a list.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Constraints', url: PG + 'ddl-constraints.html' },
+      { label: 'MySQL: The SET type', url: MY + 'set.html' },
+    ],
+  },
+  {
+    id: 'sakila-053',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Films with a crocodile and a shark',
+    prompt:
+      'Make film descriptions searchable with a full-text index. Then find the films whose description contains both the word "crocodile" and the word "shark": film_id and title.',
+    orderMatters: true,
+    checkSql: `select film_id, title from film
+where to_tsvector('simple', description) @@ to_tsquery('simple', 'crocodile & shark')
+order by film_id`,
+    checkSqlMysql: `select film_id, title from film
+where match(description) against ('+crocodile +shark' in boolean mode)
+order by film_id`,
+    solutions: [
+      {
+        approach: 'GIN index / FULLTEXT index',
+        postgres: `create index film_description_fts on film using gin (to_tsvector('simple', description));`,
+        mysql: `create fulltext index film_description_ft on film (description);`,
+        mysqlNote: 'In boolean mode, + marks a word that must be present: \'+crocodile +shark\'. Without the + signs, either word would match.',
+        explanation:
+          'In tsquery, & means "both words" (| is "either", ! is "not"). Unlike LIKE \'%shark%\', a word search does not match "sharkskin", and the index finds the rows without reading every description.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Text search operators', url: PG + 'functions-textsearch.html' },
+      { label: 'MySQL: Boolean full-text searches', url: MY + 'fulltext-boolean.html' },
+    ],
+  },
+  {
+    id: 'sakila-054',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'Let the index work',
+    prompt: 'Count the rentals made on 31 July 2005. rental_date is indexed: write the query so that the index can be used.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Range on the bare column',
+        postgres: `select count(*) as rentals
+from rental
+where rental_date >= '2005-07-31' and rental_date < '2005-08-01';`,
+        mysql: `select count(*) as rentals
+from rental
+where rental_date >= '2005-07-31' and rental_date < '2005-08-01';`,
+        explanation:
+          'The condition compares the indexed column itself with two constants, so the planner can jump to 31 July in the index and read just that day (EXPLAIN: Index Only Scan or Bitmap Index Scan).',
+      },
+      {
+        approach: 'Function on the column',
+        postgres: `select count(*) as rentals
+from rental
+where rental_date::date = '2005-07-31';`,
+        mysql: `select count(*) as rentals
+from rental
+where date(rental_date) = '2005-07-31';`,
+        explanation:
+          'Correct, but the index is ordered by rental_date, not by rental_date::date. The database must compute the cast for all 16,000 rentals and check each one (EXPLAIN: Seq Scan).',
+      },
+    ],
+    comparison:
+      'Same count. Keeping the column "bare" (sargable) is what lets an index help; see the index column in the comparison. An index on the expression (rental_date::date) would also work, at the cost of one more index.',
+    docs: [
+      { label: 'PostgreSQL: Using EXPLAIN', url: PG + 'using-explain.html' },
+      { label: 'MySQL: Range optimization', url: MY + 'range-optimization.html' },
+    ],
+  },
 ]

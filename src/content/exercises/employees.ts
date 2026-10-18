@@ -1283,4 +1283,41 @@ order by hire_year;`,
     ],
     docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'tutorial-window.html' }],
   },
+  {
+    id: 'employees-034',
+    dataset: 'employees',
+    level: 4,
+    topics: ['transactions', 'dml'],
+    title: 'Move an employee to another department',
+    prompt:
+      'Employee 10050 moves from d007 to d005 on 2002-08-01. Close the current assignment and open the new one in one transaction. In PostgreSQL you are already inside a transaction.',
+    hint: 'The current assignment has to_date = 9999-01-01; the new one gets that end date.',
+    orderMatters: true,
+    checkSql: `select dept_no, from_date, to_date from dept_emp where emp_no = 10050 order by from_date`,
+    solutions: [
+      {
+        approach: 'Close and open',
+        postgres: `update dept_emp set to_date = '2002-08-01'
+where emp_no = 10050 and to_date = '9999-01-01';
+
+insert into dept_emp (emp_no, dept_no, from_date, to_date)
+values (10050, 'd005', '2002-08-01', '9999-01-01');`,
+        mysql: `start transaction;
+
+update dept_emp set to_date = '2002-08-01'
+where emp_no = 10050 and to_date = '9999-01-01';
+
+insert into dept_emp (emp_no, dept_no, from_date, to_date)
+values (10050, 'd005', '2002-08-01', '9999-01-01');
+
+commit;`,
+        explanation:
+          'Between the two statements the employee belongs to no department. Inside one transaction nobody else can see that moment, and if the insert failed the update would be rolled back with it.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Transactions', url: PG + 'tutorial-transactions.html' },
+      { label: 'MySQL: START TRANSACTION', url: MY + 'commit.html' },
+    ],
+  },
 ]

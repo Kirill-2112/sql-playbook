@@ -1194,4 +1194,61 @@ order by w desc, name;`,
     ],
     docs: [{ label: 'PostgreSQL: CASE', url: PG + 'functions-conditional.html#FUNCTIONS-CASE' }],
   },
+  {
+    id: 'lahman-034',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['gaps-islands', 'cte'],
+    title: 'All-Star streaks',
+    prompt:
+      'Find players selected for at least 5 All-Star Games in a row (2010 on). There was no game in 2020, so 2019 and 2021 count as consecutive games. Show player_id, first and last year and the number of games.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Number the games, then the player\'s games',
+        postgres: `with games as (
+  select year_id, row_number() over (order by year_id) as game_no
+  from (select distinct year_id from allstar_full) y
+),
+picks as (
+  select distinct a.player_id, a.year_id, g.game_no
+  from allstar_full a
+  join games g on g.year_id = a.year_id
+),
+runs as (
+  select player_id, year_id,
+         game_no - row_number() over (partition by player_id order by game_no) as grp
+  from picks
+)
+select player_id, min(year_id) as first_year, max(year_id) as last_year, count(*) as games
+from runs
+group by player_id, grp
+having count(*) >= 5
+order by games desc, first_year, player_id;`,
+        mysql: `with games as (
+  select year_id, row_number() over (order by year_id) as game_no
+  from (select distinct year_id from allstar_full) y
+),
+picks as (
+  select distinct a.player_id, a.year_id, g.game_no
+  from allstar_full a
+  join games g on g.year_id = a.year_id
+),
+runs as (
+  select player_id, year_id,
+         game_no - row_number() over (partition by player_id order by game_no) as grp
+  from picks
+)
+select player_id, min(year_id) as first_year, max(year_id) as last_year, count(*) as games
+from runs
+group by player_id, grp
+having count(*) >= 5
+order by games desc, first_year, player_id;`,
+        mysqlNote: 'Both numbers are unsigned in MySQL; game_no is never smaller than the player\'s own row number, so the subtraction cannot go below zero.',
+        explanation:
+          'The classic islands trick, applied to game numbers instead of years: numbering the games that took place makes 2021 follow 2019 directly. Using year − row_number would break every streak at 2020.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
 ]

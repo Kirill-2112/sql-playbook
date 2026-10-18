@@ -2109,4 +2109,154 @@ order by airport_code`,
       { label: 'MySQL: Natural language and boolean search', url: MY + 'fulltext-boolean.html' },
     ],
   },
+  {
+    id: 'airlines-051',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['materialized-views', 'joins'],
+    title: 'Passengers per route, stored',
+    prompt: 'Store, for each route_no and month (valid_from), the number of flight segments sold (passengers in this sample), for a route planning report.',
+    hint: 'A flight belongs to the route row whose valid_from ≤ scheduled_departure < valid_to.',
+    orderMatters: true,
+    checkSql: `select route_no, valid_from, passengers from route_load order by passengers desc, route_no, valid_from limit 5`,
+    solutions: [
+      {
+        approach: 'Materialized view over the period join',
+        postgres: `create materialized view route_load as
+select r.route_no, r.valid_from, count(s.ticket_no) as passengers
+from routes r
+join flights f on f.route_no = r.route_no
+              and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+left join segments s on s.flight_id = f.flight_id
+group by r.route_no, r.valid_from;`,
+        mysql: `create table route_load as
+select r.route_no, r.valid_from, count(s.ticket_no) as passengers
+from routes r
+join flights f on f.route_no = r.route_no
+              and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+left join segments s on s.flight_id = f.flight_id
+group by r.route_no, r.valid_from;`,
+        mysqlNote: 'A plain table stands in for the materialized view.',
+        explanation: 'LEFT JOIN to segments keeps routes whose flights sold nothing, with count(s.ticket_no) = 0. The period join runs once at refresh, not in every report.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Materialized views', url: PG + 'rules-materializedviews.html' }],
+  },
+  {
+    id: 'airlines-052',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'Apply a status feed',
+    prompt:
+      'An operations feed status_feed (flight_id, status) arrives: flight 11052 → Delayed, 11053 → On Time (unchanged), 999999 → Departed (unknown flight). Apply it: change only the statuses that differ, ignore unknown flights.',
+    orderMatters: true,
+    checkSql: `select flight_id, status from flights where flight_id in (11052, 11053, 999999) order by flight_id`,
+    solutions: [
+      {
+        approach: 'MERGE … WHEN MATCHED AND',
+        postgres: `create table status_feed (flight_id integer primary key, status text not null);
+insert into status_feed values (11052, 'Delayed'), (11053, 'On Time'), (999999, 'Departed');
+
+merge into flights f
+using status_feed s on s.flight_id = f.flight_id
+when matched and f.status <> s.status then
+  update set status = s.status;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation: 'Without a WHEN NOT MATCHED clause, feed rows for unknown flights are simply skipped, which is what a feed of updates should do.',
+      },
+      {
+        approach: 'UPDATE with a join',
+        postgres: `create table status_feed (flight_id integer primary key, status text not null);
+insert into status_feed values (11052, 'Delayed'), (11053, 'On Time'), (999999, 'Departed');
+
+update flights f set status = s.status
+from status_feed s
+where s.flight_id = f.flight_id and f.status <> s.status;`,
+        mysql: `create table status_feed (flight_id int primary key, status varchar(10) not null);
+insert into status_feed values (11052, 'Delayed'), (11053, 'On Time'), (999999, 'Departed');
+
+update flights f join status_feed s on s.flight_id = f.flight_id
+set f.status = s.status
+where f.status <> s.status;`,
+        explanation: 'For "update matching rows only", a joined UPDATE is all you need.',
+      },
+    ],
+    comparison: 'Same result. Reach for MERGE when the same feed must also insert or delete.',
+    docs: [
+      { label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' },
+      { label: 'MySQL: UPDATE', url: MY + 'update.html' },
+    ],
+  },
+  {
+    id: 'airlines-053',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Board passengers one at a time',
+    prompt:
+      'Boarding numbers on a flight must be 1, 2, 3, … without duplicates even when two gates scan at once. For ticket 0005432000395 on flight 77, lock the flight row, then set the pass\'s boarding_no to one more than the flight\'s current maximum. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select ticket_no, flight_id, boarding_no from boarding_passes where ticket_no = '0005432000395' and flight_id = 77`,
+    solutions: [
+      {
+        approach: 'Lock the parent row, then compute',
+        postgres: `select flight_id from flights where flight_id = 77 for update;
+
+update boarding_passes
+set boarding_no = (select coalesce(max(boarding_no), 0) + 1 from boarding_passes where flight_id = 77)
+where ticket_no = '0005432000395' and flight_id = 77;`,
+        mysql: `start transaction;
+
+select flight_id from flights where flight_id = 77 for update;
+
+update boarding_passes bp
+join (select coalesce(max(boarding_no), 0) + 1 as next_no from boarding_passes where flight_id = 77) n
+set bp.boarding_no = n.next_no
+where bp.ticket_no = '0005432000395' and bp.flight_id = 77;
+
+commit;`,
+        mysqlNote: 'MySQL cannot read the table being updated in a subquery of the SET (error 1093); computing the number in a derived table that is joined works.',
+        explanation:
+          '"max + 1" is a race: two gates read the same max and both write it. Locking the flight row first makes every gate wait its turn for that flight, so each reads the max after the previous one committed. The unique (flight_id, boarding_no) key is the safety net if someone forgets.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Explicit locking', url: PG + 'explicit-locking.html' },
+      { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
+    ],
+  },
+  {
+    id: 'airlines-054',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['normalization'],
+    title: 'Does the id decide the name?',
+    prompt:
+      'tickets repeats passenger_name on every ticket of a passenger. Check whether it is consistent: count the passengers (passenger_id) that appear with more than one name.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'GROUP BY with HAVING',
+        postgres: `select count(*) as inconsistent_passengers
+from (
+  select passenger_id
+  from tickets
+  group by passenger_id
+  having count(distinct passenger_name) > 1
+) x;`,
+        mysql: `select count(*) as inconsistent_passengers
+from (
+  select passenger_id
+  from tickets
+  group by passenger_id
+  having count(distinct passenger_name) > 1
+) x;`,
+        explanation:
+          'This tests a functional dependency: passenger_id → passenger_name. It holds (0), as the source documents promise, so a normalized design would keep names in a passengers table keyed by passenger_id. Storing them per ticket is a deliberate choice: a ticket records the name as printed.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUP BY and HAVING', url: PG + 'queries-table-expressions.html#QUERIES-GROUP' }],
+  },
 ]

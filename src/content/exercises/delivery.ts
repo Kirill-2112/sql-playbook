@@ -1393,4 +1393,133 @@ group by c.id, c.name, c.city;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
   },
+  {
+    id: 'delivery-038',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['materialized-views', 'dates-advanced'],
+    title: 'Daily revenue, stored and refreshed',
+    prompt: 'Store delivered revenue per day (day, orders, revenue) for a dashboard that reads it hundreds of times a day and refreshes it hourly.',
+    orderMatters: true,
+    checkSql: `select day, orders, revenue from daily_revenue where day between '2025-03-01' and '2025-03-03' order by day`,
+    solutions: [
+      {
+        approach: 'Materialized view',
+        postgres: `create materialized view daily_revenue as
+select created_at::date as day, count(*) as orders, sum(total) as revenue
+from orders
+where status = 'delivered'
+group by created_at::date;
+
+create unique index daily_revenue_day on daily_revenue (day);
+-- hourly: refresh materialized view concurrently daily_revenue;`,
+        mysql: `create table daily_revenue (day date primary key, orders int, revenue decimal(12, 2));
+
+replace into daily_revenue
+select date(created_at), count(*), sum(total)
+from orders
+where status = 'delivered'
+group by date(created_at);`,
+        mysqlNote: 'A table plus a scheduled REPLACE INTO plays the role of the materialized view.',
+        explanation: 'Reading 540 stored rows instead of scanning 200,000 orders on every dashboard load. The unique index allows REFRESH … CONCURRENTLY, so readers are not blocked during the hourly refresh.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: REFRESH MATERIALIZED VIEW', url: PG + 'sql-refreshmaterializedview.html' }],
+  },
+  {
+    id: 'delivery-039',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['constraints'],
+    title: 'Rules for orders',
+    prompt: 'Add CHECK constraints to orders: total must be positive, and status must be one of delivered, cancelled, refunded.',
+    orderMatters: false,
+    checkSql: `select count(*) as check_constraints from pg_constraint where conrelid = 'orders'::regclass and contype = 'c'`,
+    checkSqlMysql: `select count(*) as check_constraints
+from information_schema.table_constraints
+where table_schema = database() and table_name = 'orders' and constraint_type = 'CHECK'`,
+    solutions: [
+      {
+        approach: 'ALTER TABLE … ADD CONSTRAINT … CHECK',
+        postgres: `alter table orders
+  add constraint orders_total_positive check (total > 0),
+  add constraint orders_status_valid check (status in ('delivered', 'cancelled', 'refunded'));`,
+        mysql: `alter table orders
+  add constraint orders_total_positive check (total > 0),
+  add constraint orders_status_valid check (status in ('delivered', 'cancelled', 'refunded'));`,
+        explanation:
+          'Both rules are checked against all 200,000 existing orders first. Named constraints give readable error messages ("violates check constraint orders_status_valid") and can be dropped by name later.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Check constraints', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS' }],
+  },
+  {
+    id: 'delivery-040',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['lateral'],
+    title: 'Three latest orders per customer',
+    prompt: 'For customers 1 to 5, show their three most recent orders: customer_id, order id, created_at and total.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL … LIMIT 3',
+        postgres: `select c.id as customer_id, o.id, o.created_at, o.total
+from customers c
+cross join lateral (
+  select id, created_at, total from orders
+  where customer_id = c.id
+  order by created_at desc, id desc
+  limit 3
+) o
+where c.id between 1 and 5
+order by c.id, o.created_at desc, o.id desc;`,
+        mysql: `select c.id as customer_id, o.id, o.created_at, o.total
+from customers c
+cross join lateral (
+  select id, created_at, total from orders
+  where customer_id = c.id
+  order by created_at desc, id desc
+  limit 3
+) o
+where c.id between 1 and 5
+order by c.id, o.created_at desc, o.id desc;`,
+        mysqlNote: 'LATERAL since MySQL 8.0.14; the index InnoDB keeps on orders.customer_id serves the inner query.',
+        explanation: 'Per customer, the subquery reads that customer\'s orders, sorts and keeps three. In the browser database orders.customer_id has no index, so each run scans the table; an index on (customer_id, created_at) would make it instant.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'delivery-041',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['pivot', 'conditional-aggregates'],
+    title: 'Order outcomes by city',
+    prompt: 'For each customer city, show the number of delivered, cancelled and refunded orders as three columns.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts',
+        postgres: `select c.city,
+       count(*) filter (where o.status = 'delivered') as delivered,
+       count(*) filter (where o.status = 'cancelled') as cancelled,
+       count(*) filter (where o.status = 'refunded')  as refunded
+from orders o
+join customers c on c.id = o.customer_id
+group by c.city
+order by c.city;`,
+        mysql: `select c.city,
+       sum(o.status = 'delivered') as delivered,
+       sum(o.status = 'cancelled') as cancelled,
+       sum(o.status = 'refunded')  as refunded
+from orders o
+join customers c on c.id = o.customer_id
+group by c.city
+order by c.city;`,
+        explanation: 'Three conditional counts turn the status values into columns. With random data the shares are nearly equal across cities.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
 ]

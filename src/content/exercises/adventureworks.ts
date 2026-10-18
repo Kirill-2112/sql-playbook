@@ -1749,4 +1749,105 @@ end;`,
       { label: 'MySQL: ROW_COUNT()', url: MY + 'information-functions.html#function_row-count' },
     ],
   },
+  {
+    id: 'adventureworks-046',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['constraints'],
+    title: 'Never sell below cost',
+    prompt: 'Add a CHECK constraint to product: list_price must not be lower than standard_cost.',
+    orderMatters: false,
+    checkSql: `select count(*) as check_constraints from pg_constraint where conrelid = 'product'::regclass and contype = 'c'`,
+    checkSqlMysql: `select count(*) as check_constraints
+from information_schema.table_constraints
+where table_schema = database() and table_name = 'product' and constraint_type = 'CHECK'`,
+    solutions: [
+      {
+        approach: 'CHECK comparing two columns',
+        postgres: `alter table product add constraint product_price_not_below_cost check (list_price >= standard_cost);`,
+        mysql: `alter table product add constraint product_price_not_below_cost check (list_price >= standard_cost);`,
+        explanation: 'The rule holds for all 504 existing products, including the components with both values 0, so the constraint can be added. From now on a price update below cost is rejected.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Check constraints', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS' }],
+  },
+  {
+    id: 'adventureworks-047',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['generated-columns'],
+    title: 'Margin as a column',
+    prompt: 'Add a stored generated column margin to product: list_price − standard_cost.',
+    orderMatters: true,
+    checkSql: `select product_id, list_price, standard_cost, margin from product order by margin desc, product_id limit 3`,
+    solutions: [
+      {
+        approach: 'Generated column',
+        postgres: `alter table product add column margin numeric(19, 4) generated always as (list_price - standard_cost) stored;`,
+        mysql: `alter table product add column margin decimal(19, 4) generated always as (list_price - standard_cost) stored;`,
+        explanation: 'Always equal to the two prices it is computed from, and indexable for "highest margin" lists.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'adventureworks-048',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['temp-tables'],
+    title: 'Best customers, step one',
+    prompt: 'Put each customer\'s order count and total spent (sum of total_due, rounded to 2 decimals) into a temporary table customer_value (customer_id, orders, spent).',
+    orderMatters: true,
+    checkSql: `select customer_id, orders, spent from customer_value order by spent desc, customer_id limit 3`,
+    solutions: [
+      {
+        approach: 'CREATE TEMP TABLE … AS',
+        postgres: `create temp table customer_value as
+select customer_id, count(*) as orders, round(sum(total_due), 2) as spent
+from sales_order_header
+group by customer_id;`,
+        mysql: `create temporary table customer_value as
+select customer_id, count(*) as orders, round(sum(total_due), 2) as spent
+from sales_order_header
+group by customer_id;`,
+        explanation: 'Step one of a segmentation: later steps (quartiles, top lists, joins to territories) read this small table instead of the orders.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'adventureworks-049',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['arrays'],
+    title: 'Colours of each subcategory',
+    prompt: 'For each subcategory that has coloured products, show its name, the array of its distinct colours (alphabetical) and how many colours that is.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array_agg and cardinality',
+        postgres: `select s.name as subcategory,
+       array_agg(distinct p.color order by p.color) as colours,
+       cardinality(array_agg(distinct p.color)) as n
+from product p
+join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+where p.color is not null
+group by s.name
+order by n desc, s.name
+limit 10;`,
+        mysql: `select s.name as subcategory,
+       cast(concat('["', group_concat(distinct p.color order by p.color separator '", "'), '"]') as json) as colours,
+       count(distinct p.color) as n
+from product p
+join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+where p.color is not null
+group by s.name
+order by n desc, s.name
+limit 10;`,
+        mysqlNote: 'No arrays: a JSON array built from GROUP_CONCAT, and count(DISTINCT) for its size.',
+        explanation: 'cardinality() is the number of elements of an array; here it equals count(distinct color).',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Array functions', url: PG + 'functions-array.html' }],
+  },
 ]

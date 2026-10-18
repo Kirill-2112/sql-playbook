@@ -1693,4 +1693,119 @@ for each row
       { label: 'MySQL: Restrictions on stored programs', url: MY + 'stored-program-restrictions.html' },
     ],
   },
+  {
+    id: 'employees-044',
+    dataset: 'employees',
+    level: 4,
+    topics: ['upsert'],
+    title: 'Rename or add a department',
+    prompt: 'Apply two department changes in one statement: d005 is renamed "Engineering & Platform", and a new department d010 "Data" is added.',
+    orderMatters: true,
+    checkSql: `select dept_no, dept_name from departments where dept_no in ('d005', 'd010') order by dept_no`,
+    solutions: [
+      {
+        approach: 'Upsert on the primary key',
+        postgres: `insert into departments (dept_no, dept_name)
+values ('d005', 'Engineering & Platform'), ('d010', 'Data')
+on conflict (dept_no) do update set dept_name = excluded.dept_name;`,
+        mysql: `insert into departments (dept_no, dept_name)
+values ('d005', 'Engineering & Platform'), ('d010', 'Data') as new
+on duplicate key update dept_name = new.dept_name;`,
+        mysqlNote:
+          'departments also has a unique key on dept_name. In MySQL a clash on that key would also turn into an update (of whichever row clashes); PostgreSQL\'s ON CONFLICT (dept_no) handles only the primary key and raises an error for a duplicate name.',
+        explanation: 'One statement, two outcomes: d005 exists and is updated, d010 is new and is inserted.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'employees-045',
+    dataset: 'employees',
+    level: 4,
+    topics: ['json'],
+    title: 'An employee profile as JSON',
+    prompt:
+      'For employees 10050 and 10100, return one JSON object each: {"emp_no": …, "name": "First Last", "salaries": [all salary amounts in date order]}.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Nested JSON with an ordered array',
+        postgres: `select e.emp_no,
+       jsonb_build_object(
+         'emp_no', e.emp_no,
+         'name', e.first_name || ' ' || e.last_name,
+         'salaries', (select jsonb_agg(s.salary order by s.from_date) from salaries s where s.emp_no = e.emp_no)
+       ) as profile
+from employees e
+where e.emp_no in (10050, 10100)
+order by e.emp_no;`,
+        mysql: `select e.emp_no,
+       json_object(
+         'emp_no', e.emp_no,
+         'name', concat(e.first_name, ' ', e.last_name),
+         'salaries', (select cast(concat('[', group_concat(s.salary order by s.from_date), ']') as json)
+                      from salaries s where s.emp_no = e.emp_no)
+       ) as profile
+from employees e
+where e.emp_no in (10050, 10100)
+order by e.emp_no;`,
+        mysqlNote: 'JSON_ARRAYAGG has no ORDER BY, so the ordered array is built with GROUP_CONCAT and cast to JSON.',
+        explanation: 'A scalar subquery returns the array, and jsonb_build_object nests it inside the object: one row per employee, ready for an API.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: JSON creation functions', url: PG + 'functions-json.html#FUNCTIONS-JSON-CREATION-TABLE' },
+      { label: 'MySQL: JSON_OBJECT', url: MY + 'json-creation-functions.html' },
+    ],
+  },
+  {
+    id: 'employees-046',
+    dataset: 'employees',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'The longest run of raises',
+    prompt:
+      'A raise is a salary row higher than the employee\'s previous one. Find the 5 employees with the longest run of consecutive raises: emp_no and the number of raises in that run.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Flag raises, then number the breaks',
+        postgres: `with flagged as (
+  select emp_no, from_date,
+         case when salary > lag(salary) over (partition by emp_no order by from_date) then 1 else 0 end as raised
+  from salaries
+),
+grouped as (
+  select emp_no, raised,
+         sum(case when raised = 0 then 1 else 0 end) over (partition by emp_no order by from_date) as grp
+  from flagged
+)
+select emp_no, count(*) as raises
+from grouped
+where raised = 1
+group by emp_no, grp
+order by raises desc, emp_no
+limit 5;`,
+        mysql: `with flagged as (
+  select emp_no, from_date,
+         case when salary > lag(salary) over (partition by emp_no order by from_date) then 1 else 0 end as raised
+  from salaries
+),
+grouped as (
+  select emp_no, raised,
+         sum(case when raised = 0 then 1 else 0 end) over (partition by emp_no order by from_date) as grp
+  from flagged
+)
+select emp_no, count(*) as raises
+from grouped
+where raised = 1
+group by emp_no, grp
+order by raises desc, emp_no
+limit 5;`,
+        explanation:
+          'Another islands technique: a running count of "breaks" (rows that are not raises) stays the same along a run of raises, so it labels the run. It works when the condition is not about consecutive numbers but about row values.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
 ]

@@ -841,4 +841,84 @@ where not exists (select 1 from products p where p.product_name = n.product_name
       { label: 'MySQL: INSERT … SELECT', url: MY + 'insert-select.html' },
     ],
   },
+  {
+    id: 'northwind-052',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['upsert'],
+    title: 'Import customers from a CRM',
+    prompt:
+      'The CRM sends customers: ALFKI with a new phone 030-0074322, and NEWCO "New Company" in Oslo, Norway. Insert new customers and update the phone of existing ones in one statement.',
+    orderMatters: true,
+    checkSql: `select customer_id, company_name, city, phone from customers where customer_id in ('ALFKI', 'NEWCO') order by customer_id`,
+    solutions: [
+      {
+        approach: 'ON CONFLICT … DO UPDATE',
+        postgres: `insert into customers (customer_id, company_name, city, country, phone)
+values ('ALFKI', 'Alfreds Futterkiste', 'Berlin', 'Germany', '030-0074322'),
+       ('NEWCO', 'New Company', 'Oslo', 'Norway', null)
+on conflict (customer_id) do update set phone = excluded.phone;`,
+        mysql: `insert into customers (customer_id, company_name, city, country, phone)
+values ('ALFKI', 'Alfreds Futterkiste', 'Berlin', 'Germany', '030-0074322'),
+       ('NEWCO', 'New Company', 'Oslo', 'Norway', null) as new
+on duplicate key update phone = new.phone;`,
+        explanation: 'Only the listed column changes for existing customers; the rest of ALFKI\'s row stays. For NEWCO the whole row is inserted.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: INSERT … ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' },
+      { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
+    ],
+  },
+  {
+    id: 'northwind-053',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['date-series', 'dates-advanced'],
+    title: 'Orders week by week',
+    prompt: 'For the first 10 weeks of 1997 (weeks starting on Monday 1996-12-30), show each week\'s start date and its number of orders.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'generate_series with a 7-day step',
+        postgres: `select w::date as week_start, count(o.order_id) as orders
+from generate_series(date '1996-12-30', date '1996-12-30' + 63, interval '7 days') as w
+left join orders o on o.order_date >= w and o.order_date < w + interval '7 days'
+group by w
+order by w;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation: 'The step can be any interval: 7 days gives weeks. 63 days after the first Monday is the start of week 10.',
+      },
+      {
+        approach: 'Recursive CTE of week starts',
+        postgres: `with recursive weeks as (
+  select date '1996-12-30' as w, 1 as n
+  union all
+  select (w + 7)::date, n + 1 from weeks where n < 10
+)
+select w as week_start, count(o.order_id) as orders
+from weeks
+left join orders o on o.order_date >= w and o.order_date < w + 7
+group by w
+order by w;`,
+        mysql: `with recursive weeks as (
+  select date('1996-12-30') as w, 1 as n
+  union all
+  select w + interval 7 day, n + 1 from weeks where n < 10
+)
+select w as week_start, count(o.order_id) as orders
+from weeks
+left join orders o on o.order_date >= w and o.order_date < w + interval 7 day
+group by w
+order by w;`,
+        explanation: 'A counter n stops the recursion after 10 weeks.',
+      },
+    ],
+    comparison: 'Same 10 rows. Counting weeks from a fixed Monday avoids the ISO-week edge cases around New Year.',
+    docs: [
+      { label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' },
+      { label: 'MySQL: Recursive CTEs', url: MY + 'with.html#common-table-expressions-recursive' },
+    ],
+  },
 ]

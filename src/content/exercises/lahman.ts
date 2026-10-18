@@ -1724,4 +1724,34 @@ group by player_id;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
   },
+  {
+    id: 'lahman-048',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['text-search', 'strings'],
+    title: 'Martinez, with or without the accent',
+    prompt: 'Find every player whose last name is Martinez, whether written with an accent (Martínez) or without: player_id, name_first, name_last.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Remove the accent before comparing',
+        postgres: `select player_id, name_first, name_last
+from people
+where translate(name_last, 'áéíóúñ', 'aeioun') = 'Martinez'
+order by player_id;`,
+        mysql: `select player_id, name_first, name_last
+from people
+where name_last = 'Martinez'
+order by player_id;`,
+        mysqlNote:
+          'The column collation utf8mb4_0900_ai_ci is accent-insensitive (ai) and case-insensitive (ci): \'Martinez\' already equals \'Martínez\'. To compare exactly, use COLLATE utf8mb4_0900_as_cs or BINARY.',
+        explanation:
+          'PostgreSQL compares text exactly here, so \'Martínez\' <> \'Martinez\'. translate() replaces each listed character by the one at the same position, removing the accents for the comparison. The unaccent extension does this for all letters, where it is installed.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: translate', url: PG + 'functions-string.html' },
+      { label: 'MySQL: Unicode collations (ai/ci)', url: MY + 'charset-unicode-sets.html' },
+    ],
+  },
 ]

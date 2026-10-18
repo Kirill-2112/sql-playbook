@@ -1237,4 +1237,155 @@ insert into payment_by_month select * from payment;`,
       { label: 'MySQL: Partitioning functions', url: MY + 'partitioning-limitations-functions.html' },
     ],
   },
+  {
+    id: 'sakila-058',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['json', 'joins'],
+    title: 'A film with its cast, as JSON',
+    prompt: 'For films 1 to 3, return one JSON object each: {"title": …, "year": …, "actors": ["FIRST LAST", …]} with the actors in alphabetical order of last name, then first name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Object with an aggregated array',
+        postgres: `select f.film_id,
+       jsonb_build_object(
+         'title', f.title,
+         'year', f.release_year,
+         'actors', jsonb_agg(a.first_name || ' ' || a.last_name order by a.last_name, a.first_name)
+       ) as film
+from film f
+join film_actor fa on fa.film_id = f.film_id
+join actor a       on a.actor_id = fa.actor_id
+where f.film_id between 1 and 3
+group by f.film_id, f.title, f.release_year
+order by f.film_id;`,
+        mysql: `select f.film_id,
+       json_object(
+         'title', f.title,
+         'year', f.release_year,
+         'actors', cast(concat('[', group_concat(json_quote(concat(a.first_name, ' ', a.last_name))
+                                                order by a.last_name, a.first_name), ']') as json)
+       ) as film
+from film f
+join film_actor fa on fa.film_id = f.film_id
+join actor a       on a.actor_id = fa.actor_id
+where f.film_id between 1 and 3
+group by f.film_id, f.title, f.release_year
+order by f.film_id;`,
+        mysqlNote: 'JSON_QUOTE makes each name a valid JSON string (quotes, escapes) before GROUP_CONCAT glues them into an ordered array.',
+        explanation: 'GROUP BY film turns the actor rows into one array per film, nested inside the film object.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: jsonb_agg', url: PG + 'functions-aggregate.html' },
+      { label: 'MySQL: JSON_QUOTE', url: MY + 'json-creation-functions.html#function_json-quote' },
+    ],
+  },
+  {
+    id: 'sakila-059',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'Index only what is still out',
+    prompt: 'The counter staff look up the 183 rentals not yet returned (return_date is NULL) by customer. Create the smallest index that serves this.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'rental' and indexdef like '%return_date%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'rental' and column_name = 'return_date'`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index rental_open_by_customer on rental (customer_id) where return_date is null;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: '183 of 16,044 rentals: the index is about 90 times smaller than a full one and only changes when a rental is created or returned.',
+      },
+      {
+        approach: 'NULL test as the first key column',
+        postgres: `create index rental_return_customer on rental (return_date, customer_id);`,
+        mysql: `create index rental_return_customer on rental (return_date, customer_id);`,
+        explanation: 'NULLs are stored in the index too, together at one end, so "return_date is null and customer_id = ?" is one small range.',
+      },
+    ],
+    comparison: 'Both serve the lookup. The partial index is tiny; the composite one covers every rental but works everywhere.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
+  {
+    id: 'sakila-060',
+    dataset: 'sakila',
+    level: 2,
+    topics: ['casting', 'dates-basics'],
+    title: 'When is it due back',
+    prompt: 'A film may be kept for film.rental_duration days. For rentals 1 to 5, show rental_id, rental_date and the due date (rental_date plus that many days).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Integer to interval',
+        postgres: `select r.rental_id, r.rental_date,
+       r.rental_date + make_interval(days => f.rental_duration) as due
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+join film f      on f.film_id = i.film_id
+where r.rental_id between 1 and 5
+order by r.rental_id;`,
+        mysql: `select r.rental_id, r.rental_date,
+       r.rental_date + interval f.rental_duration day as due
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+join film f      on f.film_id = i.film_id
+where r.rental_id between 1 and 5
+order by r.rental_id;`,
+        mysqlNote: 'MySQL\'s INTERVAL accepts any expression as the amount: interval f.rental_duration day.',
+        explanation:
+          'A number is not an interval: make_interval(days => n) turns it into one. f.rental_duration * interval \'1 day\' is an equivalent spelling.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: make_interval', url: PG + 'functions-datetime.html' },
+      { label: 'MySQL: Temporal intervals', url: MY + 'expressions.html#temporal-intervals' },
+    ],
+  },
+  {
+    id: 'sakila-061',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'A procedure to rent a film',
+    prompt:
+      'Write a procedure rent_copy(p_inventory_id, p_customer_id, p_staff_id) that inserts a rental dated 2006-02-15 12:00 only if the copy is not currently rented out, and otherwise does nothing. Then rent copy 1 to customer 1 (staff 1).',
+    orderMatters: false,
+    checkSql: `call rent_copy(1, 1, 1);
+select count(*) as open_rentals_of_copy_1 from rental where inventory_id = 1 and return_date is null`,
+    solutions: [
+      {
+        approach: 'IF NOT EXISTS … INSERT',
+        postgres: `create procedure rent_copy(p_inventory_id integer, p_customer_id integer, p_staff_id integer)
+language plpgsql
+as $$
+begin
+  if not exists (select 1 from rental where inventory_id = p_inventory_id and return_date is null) then
+    insert into rental (rental_date, inventory_id, customer_id, staff_id)
+    values (timestamp '2006-02-15 12:00', p_inventory_id, p_customer_id, p_staff_id);
+  end if;
+end;
+$$;`,
+        mysql: `create procedure rent_copy(p_inventory_id int, p_customer_id int, p_staff_id int)
+begin
+  if not exists (select 1 from rental where inventory_id = p_inventory_id and return_date is null) then
+    insert into rental (rental_date, inventory_id, customer_id, staff_id)
+    values ('2006-02-15 12:00:00', p_inventory_id, p_customer_id, p_staff_id);
+  end if;
+end;`,
+        mysqlNote: `rental_id is AUTO_INCREMENT and last_update has a default, so they are left out. ${DELIMITER_NOTE}`,
+        explanation:
+          'Copy 1 is in the store, so one open rental is created. Called again it would do nothing. Two clerks calling at the same moment could both pass the check; lock the inventory row first (SELECT … FOR UPDATE) to close that gap.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' },
+      { label: 'MySQL: IF statement', url: MY + 'if.html' },
+    ],
+  },
 ]

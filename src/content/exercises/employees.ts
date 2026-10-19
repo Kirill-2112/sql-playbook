@@ -2139,4 +2139,58 @@ window w as (partition by emp_no order by from_date);`,
     ],
     docs: [{ label: 'PostgreSQL: Window function calls', url: PG + 'sql-select.html#SQL-WINDOW' }],
   },
+  {
+    id: 'employees-056',
+    dataset: 'employees',
+    level: 4,
+    topics: ['generated-columns', 'dates-basics'],
+    title: 'Age at hire, in days',
+    prompt: 'Add a stored generated column days_old_at_hire to employees: the number of days between birth_date and hire_date.',
+    orderMatters: true,
+    checkSql: `select emp_no, days_old_at_hire, days_old_at_hire / 365 as approx_years from employees where emp_no in (10050, 10100) order by emp_no`,
+    checkSqlMysql: `select emp_no, days_old_at_hire, days_old_at_hire div 365 as approx_years from employees where emp_no in (10050, 10100) order by emp_no`,
+    solutions: [
+      {
+        approach: 'Date difference in a generated column',
+        postgres: `alter table employees add column days_old_at_hire integer
+generated always as (hire_date - birth_date) stored;`,
+        mysql: `alter table employees add column days_old_at_hire int
+generated always as (datediff(hire_date, birth_date)) stored;`,
+        explanation:
+          'date − date is an integer number of days and IMMUTABLE, so it is allowed in a generated column. age(hire_date, birth_date) would give "years, months, days" instead, but an interval is harder to index and compare.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Date/time operators', url: PG + 'functions-datetime.html' }],
+  },
+  {
+    id: 'employees-057',
+    dataset: 'employees',
+    level: 4,
+    topics: ['temp-tables', 'window-frames'],
+    title: 'Yearly payroll, then growth',
+    prompt:
+      'Put the total salary paid per year (salary rows active on 1 July of that year, 1985–2002) into a temporary table payroll (year, total). The check computes the year-over-year growth from it.',
+    orderMatters: true,
+    checkSql: `select year, total, round(100.0 * (total - lag(total) over (order by year)) / lag(total) over (order by year), 1) as growth_pct
+from payroll where year between 1998 and 2002 order by year`,
+    solutions: [
+      {
+        approach: 'Temp table from a year series',
+        postgres: `create temp table payroll as
+select y as year, sum(s.salary) as total
+from generate_series(1985, 2002) as y
+join salaries s on s.from_date <= make_date(y, 7, 1) and s.to_date > make_date(y, 7, 1)
+group by y;`,
+        mysql: `create temporary table payroll as
+with recursive years (y) as (select 1985 union all select y + 1 from years where y < 2002)
+select y as year, sum(s.salary) as total
+from years
+join salaries s on s.from_date <= makedate(y, 1) + interval 6 month and s.to_date > makedate(y, 1) + interval 6 month
+group by y;`,
+        mysqlNote: 'MySQL has no make_date(y, m, d): MAKEDATE(y, 1) is 1 January, plus 6 months gives 1 July. (A fixed day-of-year such as 182 would land on 30 June in leap years and change the snapshot.)',
+        explanation: 'A "snapshot on 1 July" per year turns history rows into yearly figures. Stored once, the growth query and any chart read 18 rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
 ]

@@ -2124,4 +2124,135 @@ for update skip locked;`,
     ],
     docs: [{ label: 'PostgreSQL: The locking clause', url: PG + 'sql-select.html#SQL-FOR-UPDATE-SHARE' }],
   },
+  {
+    id: 'adventureworks-058',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['full-join'],
+    title: 'Products sold in 2023 vs 2025',
+    prompt: 'Count the products sold in both 2023 and 2025, only in 2023 and only in 2025.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two years',
+        postgres: `with y23 as (select distinct d.product_id from sales_order_detail d join sales_order_header h on h.sales_order_id = d.sales_order_id
+             where h.order_date >= '2023-01-01' and h.order_date < '2024-01-01'),
+     y25 as (select distinct d.product_id from sales_order_detail d join sales_order_header h on h.sales_order_id = d.sales_order_id
+             where h.order_date >= '2025-01-01' and h.order_date < '2026-01-01')
+select count(*) filter (where a.product_id is not null and b.product_id is not null) as both_years,
+       count(*) filter (where b.product_id is null) as only_2023,
+       count(*) filter (where a.product_id is null) as only_2025
+from y23 a full join y25 b on b.product_id = a.product_id;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'Products that disappear (only 2023) and new ones (only 2025) show how the range changed.',
+      },
+      {
+        approach: 'Flags per product',
+        postgres: `select sum(case when a = 1 and b = 1 then 1 else 0 end) as both_years,
+       sum(case when a = 1 and b = 0 then 1 else 0 end) as only_2023,
+       sum(case when a = 0 and b = 1 then 1 else 0 end) as only_2025
+from (
+  select d.product_id,
+         max(case when h.order_date >= '2023-01-01' and h.order_date < '2024-01-01' then 1 else 0 end) as a,
+         max(case when h.order_date >= '2025-01-01' and h.order_date < '2026-01-01' then 1 else 0 end) as b
+  from sales_order_detail d join sales_order_header h on h.sales_order_id = d.sales_order_id
+  group by d.product_id
+) p;`,
+        mysql: `select sum(a = 1 and b = 1) as both_years, sum(a = 1 and b = 0) as only_2023, sum(a = 0 and b = 1) as only_2025
+from (
+  select d.product_id,
+         max(h.order_date >= '2023-01-01' and h.order_date < '2024-01-01') as a,
+         max(h.order_date >= '2025-01-01' and h.order_date < '2026-01-01') as b
+  from sales_order_detail d join sales_order_header h on h.sales_order_id = d.sales_order_id
+  group by d.product_id
+) p;`,
+        explanation: 'One row per product with a flag per year; products sold in neither year count nowhere.',
+      },
+    ],
+    comparison: 'Same counts; the flag version reads the order tables once.',
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'adventureworks-059',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for store orders',
+    prompt: 'Store orders (online_order_flag = 0) are a minority, and the sales team lists them by customer. Create an index that holds only those orders.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'sales_order_header' and indexdef like '%online_order_flag%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'sales_order_header' and column_name = 'online_order_flag'`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index soh_store_orders_idx on sales_order_header (customer_id) where online_order_flag = 0;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: 'Only store orders are indexed; online orders, the large majority since mid-2024, stay out.',
+      },
+      {
+        approach: 'Flag first in a composite index',
+        postgres: `create index soh_flag_customer_idx on sales_order_header (online_order_flag, customer_id);`,
+        mysql: `create index soh_flag_customer_idx on sales_order_header (online_order_flag, customer_id);`,
+        explanation: 'With the flag as the first column, "flag = 0, by customer" is one range of the index.',
+      },
+    ],
+    comparison: 'Both serve the list. A low-cardinality column like a flag is rarely worth indexing alone, but as a filter of a partial index or as a prefix it works well.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
+  {
+    id: 'adventureworks-060',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Purchase orders by status',
+    prompt:
+      'Create po_by_status (purchase_order_id, status, order_date, total_due), list-partitioned by status: pending (1), approved and rejected (2, 3), complete (4). Copy the purchase orders into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'po_by_status'::regclass) as partitions,
+       (select count(*) from po_by_status) as total_rows,
+       (select count(*) from po_by_status where status = 4) as complete`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'po_by_status') as partitions,
+       (select count(*) from po_by_status) as total_rows,
+       (select count(*) from po_by_status where status = 4) as complete`,
+    solutions: [
+      {
+        approach: 'LIST partitions on an integer',
+        postgres: `create table po_by_status (
+  purchase_order_id integer not null,
+  status smallint not null,
+  order_date timestamp not null,
+  total_due numeric(19, 4) not null,
+  primary key (purchase_order_id, status)
+) partition by list (status);
+
+create table po_pending  partition of po_by_status for values in (1);
+create table po_decided  partition of po_by_status for values in (2, 3);
+create table po_complete partition of po_by_status for values in (4);
+
+insert into po_by_status select purchase_order_id, status, order_date, total_due from purchase_order_header;`,
+        mysql: `create table po_by_status (
+  purchase_order_id int not null,
+  status smallint not null,
+  order_date datetime not null,
+  total_due decimal(19, 4) not null,
+  primary key (purchase_order_id, status)
+)
+partition by list (status) (
+  partition p_pending  values in (1),
+  partition p_decided  values in (2, 3),
+  partition p_complete values in (4)
+);
+
+insert into po_by_status select purchase_order_id, status, order_date, total_due from purchase_order_header;`,
+        explanation:
+          'Open work (225 pending orders) lives in a small partition, history in a big one. Updating an order\'s status moves its row to another partition; PostgreSQL does that automatically on UPDATE.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
+  },
 ]

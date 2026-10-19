@@ -2475,4 +2475,151 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
   },
+  {
+    id: 'airlines-061',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Cities named San or Santa',
+    prompt: 'Make city names searchable by word and count the airports whose city contains the word "San" or "Santa".',
+    orderMatters: false,
+    checkSql: `select count(*) as airports from airports where to_tsvector('simple', city) @@ to_tsquery('simple', 'san | santa')`,
+    checkSqlMysql: `select count(*) as airports from airports where match(city) against ('san santa' in boolean mode)`,
+    solutions: [
+      {
+        approach: 'OR query on a full-text index',
+        postgres: `create index airports_city_fts on airports using gin (to_tsvector('simple', city));`,
+        mysql: `create fulltext index airports_city_ft on airports (city);`,
+        explanation: 'Whole words only: "Santander" or "Sana\'a" do not match "san", which LIKE \'San%\' would wrongly include.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Full text search', url: PG + 'textsearch-intro.html' }],
+  },
+  {
+    id: 'airlines-062',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['materialized-views', 'dates-advanced'],
+    title: 'Departures per airport and day',
+    prompt: 'Store the number of scheduled departures per airport and day (UTC) for a departures dashboard.',
+    hint: 'A flight belongs to the route row whose valid_from ≤ scheduled_departure < valid_to.',
+    orderMatters: true,
+    checkSql: `select airport, day, departures from airport_daily where airport = 'FRA' and day between '2025-12-01' and '2025-12-03' order by day`,
+    solutions: [
+      {
+        approach: 'Materialized view over the period join',
+        postgres: `create materialized view airport_daily as
+select r.departure_airport as airport, f.scheduled_departure::date as day, count(*) as departures
+from flights f
+join routes r on r.route_no = f.route_no
+             and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+group by r.departure_airport, f.scheduled_departure::date;`,
+        mysql: `create table airport_daily as
+select r.departure_airport as airport, date(f.scheduled_departure) as day, count(*) as departures
+from flights f
+join routes r on r.route_no = f.route_no
+             and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+group by r.departure_airport, date(f.scheduled_departure);`,
+        mysqlNote: 'A table stands in for the materialized view.',
+        explanation: 'A few thousand rows instead of the flights-routes period join on every dashboard load.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Materialized views', url: PG + 'rules-materializedviews.html' }],
+  },
+  {
+    id: 'airlines-063',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['temp-tables'],
+    title: 'Passengers of one day',
+    prompt: 'Put the tickets (ticket_no, passenger_id) with a flight departing on 2025-12-01 (UTC) into a temporary table today_pax, one row per ticket.',
+    orderMatters: false,
+    checkSql: `select count(*) as tickets, count(distinct passenger_id) as passengers from today_pax`,
+    solutions: [
+      {
+        approach: 'CREATE TEMP TABLE … AS SELECT DISTINCT',
+        postgres: `create temp table today_pax as
+select distinct t.ticket_no, t.passenger_id
+from tickets t
+join segments s on s.ticket_no = t.ticket_no
+join flights f  on f.flight_id = s.flight_id
+where f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2025-12-02';`,
+        mysql: `create temporary table today_pax as
+select distinct t.ticket_no, t.passenger_id
+from tickets t
+join segments s on s.ticket_no = t.ticket_no
+join flights f  on f.flight_id = s.flight_id
+where f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2025-12-02';`,
+        explanation: 'DISTINCT because a ticket with two flights that day would otherwise appear twice.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'airlines-064',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['merge'],
+    title: 'A new cabin layout',
+    prompt:
+      'Airplane E70 gets a new layout: rows 1–2 stay Business, row 3 becomes Comfort (A, C, D), and seats 20A–20D are removed. Write the new layout of rows 1–3 and row 20 into new_layout and apply it with one statement: update changed classes, insert new seats, delete seats of those rows that are no longer listed.',
+    orderMatters: true,
+    checkSql: `select seat_no, fare_conditions from seats where airplane_code = 'E70' and (seat_no like '1_' or seat_no like '2_' or seat_no like '3_' or seat_no like '20_') order by seat_no`,
+    solutions: [
+      {
+        approach: 'MERGE into a view of the affected rows',
+        postgres: `create table new_layout (seat_no varchar(4) primary key, fare_conditions varchar(10) not null);
+insert into new_layout values ('1A','Business'), ('1C','Business'), ('1D','Business'),
+                              ('2A','Business'), ('2C','Business'), ('2D','Business'),
+                              ('3A','Comfort'),  ('3C','Comfort'),  ('3D','Comfort');
+
+create view e70_layout_rows as
+select * from seats
+where airplane_code = 'E70'
+  and (seat_no like '1_' or seat_no like '2_' or seat_no like '3_' or seat_no like '20_');
+
+merge into e70_layout_rows s
+using new_layout n on n.seat_no = s.seat_no
+when matched and s.fare_conditions <> n.fare_conditions then update set fare_conditions = n.fare_conditions
+when not matched then insert (airplane_code, seat_no, fare_conditions) values ('E70', n.seat_no, n.fare_conditions)
+when not matched by source then delete;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          'MERGE runs against a simple view that shows only the affected rows, so NOT MATCHED BY SOURCE deletes seats 20A–20D but no other seat of the airplane. Row 3 does not exist yet and is inserted; rows 1–2 match and stay. MERGE into an updatable view works since PostgreSQL 17.',
+      },
+      {
+        approach: 'DELETE, then upsert',
+        postgres: `create table new_layout (seat_no varchar(4) primary key, fare_conditions varchar(10) not null);
+insert into new_layout values ('1A','Business'), ('1C','Business'), ('1D','Business'),
+                              ('2A','Business'), ('2C','Business'), ('2D','Business'),
+                              ('3A','Comfort'),  ('3C','Comfort'),  ('3D','Comfort');
+
+delete from seats
+where airplane_code = 'E70'
+  and (seat_no like '1_' or seat_no like '2_' or seat_no like '3_' or seat_no like '20_')
+  and seat_no not in (select seat_no from new_layout);
+
+insert into seats (airplane_code, seat_no, fare_conditions)
+select 'E70', seat_no, fare_conditions from new_layout
+on conflict (airplane_code, seat_no) do update set fare_conditions = excluded.fare_conditions;`,
+        mysql: `create table new_layout (seat_no varchar(4) primary key, fare_conditions varchar(10) not null);
+insert into new_layout values ('1A','Business'), ('1C','Business'), ('1D','Business'),
+                              ('2A','Business'), ('2C','Business'), ('2D','Business'),
+                              ('3A','Comfort'),  ('3C','Comfort'),  ('3D','Comfort');
+
+delete from seats
+where airplane_code = 'E70'
+  and (seat_no like '1_' or seat_no like '2_' or seat_no like '3_' or seat_no like '20_')
+  and seat_no not in (select seat_no from new_layout);
+
+insert into seats (airplane_code, seat_no, fare_conditions)
+select * from (select 'E70' as airplane_code, seat_no, fare_conditions from new_layout) as new
+on duplicate key update fare_conditions = new.fare_conditions;`,
+        explanation: 'The same three effects in two statements; the scope condition has to be repeated carefully in the DELETE.',
+      },
+    ],
+    comparison: 'Same layout. Scoping matters in both: a MERGE … NOT MATCHED BY SOURCE against the whole seats table would delete every other seat of every airplane.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
 ]

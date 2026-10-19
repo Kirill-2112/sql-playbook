@@ -1361,4 +1361,203 @@ order by quarter;`,
       { label: 'MySQL: QUARTER', url: MY + 'date-and-time-functions.html#function_quarter' },
     ],
   },
+  {
+    id: 'chinook-062',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['full-join'],
+    title: 'Artists with albums, artists with sales',
+    prompt: 'Count artists that have albums and sold something, have albums but never sold, and (to check) sold without having albums.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two artist lists',
+        postgres: `with with_albums as (select distinct artist_id from album),
+     with_sales as (
+       select distinct al.artist_id
+       from invoice_line il join track t on t.track_id = il.track_id join album al on al.album_id = t.album_id
+     )
+select count(*) filter (where a.artist_id is not null and s.artist_id is not null) as albums_and_sales,
+       count(*) filter (where s.artist_id is null) as albums_no_sales,
+       count(*) filter (where a.artist_id is null) as sales_no_albums
+from with_albums a
+full join with_sales s on s.artist_id = a.artist_id;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'The third count must be 0: a sale goes through a track and an album, so an artist with sales always has an album. A FULL JOIN makes such a consistency check explicit.',
+      },
+      {
+        approach: 'Flags from EXISTS',
+        postgres: `select sum(case when s then 1 else 0 end) as albums_and_sales,
+       sum(case when not s then 1 else 0 end) as albums_no_sales,
+       0 as sales_no_albums
+from (
+  select a.artist_id,
+         exists (select 1 from album al join track t on t.album_id = al.album_id
+                 join invoice_line il on il.track_id = t.track_id where al.artist_id = a.artist_id) as s
+  from (select distinct artist_id from album) a
+) x;`,
+        mysql: `select sum(s) as albums_and_sales,
+       sum(not s) as albums_no_sales,
+       0 as sales_no_albums
+from (
+  select a.artist_id,
+         exists (select 1 from album al join track t on t.album_id = al.album_id
+                 join invoice_line il on il.track_id = t.track_id where al.artist_id = a.artist_id) as s
+  from (select distinct artist_id from album) a
+) x;`,
+        explanation: 'Starting from artists with albums, one EXISTS flag tells whether anything sold. The third number is 0 by construction, which is exactly what the FULL JOIN version verifies.',
+      },
+    ],
+    comparison: 'Same counts. The FULL JOIN version tests the data; the EXISTS version assumes what it tests, which is fine once you know it holds.',
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'chinook-063',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Who composed it',
+    prompt: 'Make the composer column searchable by word and find the tracks credited to Mozart: track_id, name and composer.',
+    orderMatters: true,
+    checkSql: `select track_id, name, composer from track
+where to_tsvector('simple', coalesce(composer, '')) @@ to_tsquery('simple', 'mozart')
+order by track_id`,
+    checkSqlMysql: `select track_id, name, composer from track
+where match(composer) against ('+mozart' in boolean mode)
+order by track_id`,
+    solutions: [
+      {
+        approach: 'Full-text index on a nullable column',
+        postgres: `create index track_composer_fts on track using gin (to_tsvector('simple', coalesce(composer, '')));`,
+        mysql: `create fulltext index track_composer_ft on track (composer);`,
+        explanation:
+          'Many tracks have no composer (NULL). to_tsvector(NULL) is NULL, so the expression wraps it in coalesce; the query must use exactly the same expression as the index for the index to be used.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Creating indexes for text search', url: PG + 'textsearch-tables.html#TEXTSEARCH-TABLES-INDEX' }],
+  },
+  {
+    id: 'chinook-064',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['generated-columns', 'strings'],
+    title: 'A one-line billing address',
+    prompt: 'Add a stored generated column billing_line to invoice: address, city and country joined with ", ", skipping missing parts.',
+    orderMatters: true,
+    checkSql: `select invoice_id, billing_line from invoice where invoice_id in (1, 2) order by invoice_id`,
+    solutions: [
+      {
+        approach: 'concat_ws in a generated column',
+        postgres: `alter table invoice add column billing_line text
+generated always as (
+  coalesce(billing_address || ', ', '') || coalesce(billing_city || ', ', '') || coalesce(billing_country, '')
+) stored;`,
+        mysql: `alter table invoice add column billing_line varchar(200)
+generated always as (concat_ws(', ', billing_address, billing_city, billing_country)) stored;`,
+        mysqlNote: 'MySQL accepts CONCAT_WS in a generated column; it skips NULL arguments, so a missing part leaves no ", ," behind.',
+        explanation:
+          'In PostgreSQL concat_ws is only STABLE (it accepts arguments of any type, whose text form could depend on settings), so a generated column refuses it. || with coalesce does the same job: "part || \', \'" is NULL when the part is NULL, and coalesce turns that into an empty string.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: concat_ws', url: PG + 'functions-string.html' }],
+  },
+  {
+    id: 'chinook-065',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['materialized-views', 'joins'],
+    title: 'Artist revenue, stored',
+    prompt: 'Store revenue per artist (artist_id, name, revenue = unit_price × quantity summed) for a royalties report run once a month.',
+    orderMatters: true,
+    checkSql: `select artist_id, name, revenue from artist_revenue order by revenue desc, artist_id limit 3`,
+    solutions: [
+      {
+        approach: 'Materialized view',
+        postgres: `create materialized view artist_revenue as
+select ar.artist_id, ar.name, sum(il.unit_price * il.quantity) as revenue
+from invoice_line il
+join track t   on t.track_id = il.track_id
+join album al  on al.album_id = t.album_id
+join artist ar on ar.artist_id = al.artist_id
+group by ar.artist_id, ar.name;`,
+        mysql: `create table artist_revenue as
+select ar.artist_id, ar.name, sum(il.unit_price * il.quantity) as revenue
+from invoice_line il
+join track t   on t.track_id = il.track_id
+join album al  on al.album_id = t.album_id
+join artist ar on ar.artist_id = al.artist_id
+group by ar.artist_id, ar.name;`,
+        mysqlNote: 'A table refreshed monthly replaces the materialized view.',
+        explanation: 'A four-table join collapsed into one stored row per artist; the monthly report reads the result instead of recomputing it.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Materialized views', url: PG + 'rules-materializedviews.html' }],
+  },
+  {
+    id: 'chinook-066',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Invoice lines split by hash',
+    prompt: 'Create invoice_line_hashed with the columns of invoice_line, hash-partitioned by invoice_id into 3 partitions, and copy the lines into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'invoice_line_hashed'::regclass) as partitions,
+       (select count(*) from invoice_line_hashed) as total_rows`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'invoice_line_hashed') as partitions,
+       (select count(*) from invoice_line_hashed) as total_rows`,
+    solutions: [
+      {
+        approach: 'HASH partitions on a non-key column',
+        postgres: `create table invoice_line_hashed (like invoice_line, primary key (invoice_line_id, invoice_id))
+partition by hash (invoice_id);
+
+create table invoice_line_hashed_0 partition of invoice_line_hashed for values with (modulus 3, remainder 0);
+create table invoice_line_hashed_1 partition of invoice_line_hashed for values with (modulus 3, remainder 1);
+create table invoice_line_hashed_2 partition of invoice_line_hashed for values with (modulus 3, remainder 2);
+
+insert into invoice_line_hashed select * from invoice_line;`,
+        mysql: `create table invoice_line_hashed like invoice_line;
+
+alter table invoice_line_hashed drop primary key, add primary key (invoice_line_id, invoice_id);
+
+alter table invoice_line_hashed partition by hash (invoice_id) partitions 3;
+
+insert into invoice_line_hashed select * from invoice_line;`,
+        mysqlNote: 'CREATE TABLE … LIKE keeps the indexes; the primary key must be widened to include invoice_id before partitioning by it.',
+        explanation:
+          'Partitioning by invoice_id keeps all lines of an invoice in the same partition, so "lines of invoice X" reads one partition. The key must contain the partition column, hence (invoice_line_id, invoice_id).',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
+  },
+  {
+    id: 'chinook-067',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['upsert', 'constraints'],
+    title: 'Upsert needs a unique key',
+    prompt:
+      'Genre names should be unique and imports should not create duplicates. Add a unique constraint on genre.name, then insert genres "Jazz" (exists) and "K-Pop" (new, id 26) so that the existing one is left alone.',
+    orderMatters: true,
+    checkSql: `select genre_id, name from genre where name in ('Jazz', 'K-Pop') order by genre_id`,
+    solutions: [
+      {
+        approach: 'UNIQUE, then ON CONFLICT (name) DO NOTHING',
+        postgres: `alter table genre add constraint genre_name_key unique (name);
+
+insert into genre (genre_id, name) values (2, 'Jazz'), (26, 'K-Pop')
+on conflict (name) do nothing;`,
+        mysql: `alter table genre add constraint genre_name_key unique (name);
+
+insert into genre (genre_id, name) values (2, 'Jazz'), (26, 'K-Pop') as new
+on duplicate key update name = new.name;`,
+        mysqlNote: 'ON DUPLICATE KEY reacts to a clash on any unique key, here the primary key or the new one on name; the no-op update leaves Jazz untouched.',
+        explanation:
+          'ON CONFLICT needs a unique index or constraint that matches its target; without UNIQUE (name), PostgreSQL refuses the statement and MySQL would happily insert a second "Jazz" with another id.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
 ]

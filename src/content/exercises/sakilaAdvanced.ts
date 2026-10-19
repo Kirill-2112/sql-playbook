@@ -1717,4 +1717,34 @@ create temporary table actor_films_copy as select * from actor_films;`,
       { label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' },
     ],
   },
+  {
+    id: 'sakila-071',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for inactive customers',
+    prompt: 'A win-back campaign repeatedly lists inactive customers (active = 0) by last name. Create an index that holds only them.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'customer' and indexdef like '%active%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'customer' and column_name = 'active'`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index customer_inactive_idx on customer (last_name) where active = 0;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: '15 of 599 customers are inactive; the index holds just those, sorted by name.',
+      },
+      {
+        approach: 'Composite index',
+        postgres: `create index customer_active_last_name_idx on customer (active, last_name);`,
+        mysql: `create index customer_active_last_name_idx on customer (active, last_name);`,
+        explanation: 'active first, so "active = 0 order by last_name" is one sorted range.',
+      },
+    ],
+    comparison: 'Both serve the list; the partial index is 40 times smaller here.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
 ]

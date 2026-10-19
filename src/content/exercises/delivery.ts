@@ -1588,4 +1588,145 @@ order by lo;`,
     ],
     docs: [{ label: 'PostgreSQL: WITH RECURSIVE', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
   },
+  {
+    id: 'delivery-044',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['full-join', 'dates-advanced'],
+    title: 'Sign-ups and first orders by month',
+    prompt:
+      'For every month (YYYY-MM) with sign-ups or first orders, show how many customers signed up and how many placed their first order that month (0 if none).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two monthly counts',
+        postgres: `with signups as (
+  select to_char(signed_up_at, 'YYYY-MM') as month, count(*) as signed_up from customers group by 1
+),
+firsts as (
+  select to_char(first_at, 'YYYY-MM') as month, count(*) as first_orders
+  from (select customer_id, min(created_at) as first_at from orders group by customer_id) f
+  group by 1
+)
+select coalesce(s.month, f.month) as month, coalesce(s.signed_up, 0) as signed_up, coalesce(f.first_orders, 0) as first_orders
+from signups s
+full join firsts f on f.month = s.month
+order by month;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'Sign-ups run from January 2024, orders only start in January 2025, and sign-ups stop in August 2025: plenty of months exist on one side only.',
+      },
+      {
+        approach: 'UNION ALL of events',
+        postgres: `select month,
+       sum(case when kind = 's' then 1 else 0 end) as signed_up,
+       sum(case when kind = 'f' then 1 else 0 end) as first_orders
+from (
+  select to_char(signed_up_at, 'YYYY-MM') as month, 's' as kind from customers
+  union all
+  select to_char(min(created_at), 'YYYY-MM'), 'f' from orders group by customer_id
+) e
+group by month
+order by month;`,
+        mysql: `select month,
+       sum(kind = 's') as signed_up,
+       sum(kind = 'f') as first_orders
+from (
+  select date_format(signed_up_at, '%Y-%m') as month, 's' as kind from customers
+  union all
+  select date_format(min(created_at), '%Y-%m'), 'f' from orders group by customer_id
+) e
+group by month
+order by month;`,
+        explanation: 'One list of events, two conditional counts per month.',
+      },
+    ],
+    comparison: 'Same rows. In a real product the two curves would follow each other; here they do not, a sign of independently generated data.',
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'delivery-045',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['generated-columns', 'indexes'],
+    title: 'A date column you can index',
+    prompt: 'Reports group orders by day. Add a stored generated column created_on (the date of created_at) and an index on it.',
+    orderMatters: true,
+    checkSql: `select created_on, count(*) as orders from orders where created_on between '2025-03-01' and '2025-03-03' group by created_on order by created_on`,
+    solutions: [
+      {
+        approach: 'Generated column + index',
+        postgres: `alter table orders add column created_on date generated always as (created_at::date) stored;
+create index orders_created_on_idx on orders (created_on);`,
+        mysql: `alter table orders add column created_on date generated always as (date(created_at)) stored;
+create index orders_created_on_idx on orders (created_on);`,
+        explanation:
+          'created_at is a timestamp without time zone, so casting it to date is IMMUTABLE and allowed. (On a timestamptz it would depend on the session time zone and be refused.) Filters like created_on = \'2025-03-01\' are then simple and indexed.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'delivery-046',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['merge'],
+    title: 'Keep a stats table in sync',
+    prompt:
+      'Create restaurant_stats (restaurant_id, orders) holding counts for restaurants 1–3, with a wrong count for 1, a correct one for 2, and a row for restaurant 999 that does not exist. Then sync it with the real counts of delivered orders for restaurants 1–3 in one statement: fix, add, and delete what should not be there.',
+    orderMatters: true,
+    checkSql: `select restaurant_id, orders from restaurant_stats order by restaurant_id`,
+    solutions: [
+      {
+        approach: 'MERGE with all three cases',
+        postgres: `create table restaurant_stats (restaurant_id integer primary key, orders integer not null);
+insert into restaurant_stats
+select 1, 0
+union all select 2, count(*) from orders where restaurant_id = 2 and status = 'delivered'
+union all select 999, 5;
+
+merge into restaurant_stats t
+using (select restaurant_id, count(*) as orders from orders
+       where status = 'delivered' and restaurant_id between 1 and 3
+       group by restaurant_id) s
+on s.restaurant_id = t.restaurant_id
+when matched and t.orders <> s.orders then update set orders = s.orders
+when not matched then insert (restaurant_id, orders) values (s.restaurant_id, s.orders)
+when not matched by source then delete;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL: delete the rows not in the source, then INSERT … ON DUPLICATE KEY UPDATE (see the leaderboard exercise in Lahman).',
+        explanation: 'Restaurant 1 is fixed, 2 is left alone, 3 is added and 999 deleted: the table ends up equal to the source query.',
+      },
+      {
+        approach: 'DELETE + upsert',
+        postgres: `create table restaurant_stats (restaurant_id integer primary key, orders integer not null);
+insert into restaurant_stats
+select 1, 0
+union all select 2, count(*) from orders where restaurant_id = 2 and status = 'delivered'
+union all select 999, 5;
+
+delete from restaurant_stats where restaurant_id not between 1 and 3;
+insert into restaurant_stats (restaurant_id, orders)
+select restaurant_id, count(*) from orders
+where status = 'delivered' and restaurant_id between 1 and 3
+group by restaurant_id
+on conflict (restaurant_id) do update set orders = excluded.orders;`,
+        mysql: `create table restaurant_stats (restaurant_id int primary key, orders int not null);
+insert into restaurant_stats
+select 1, 0
+union all select 2, count(*) from orders where restaurant_id = 2 and status = 'delivered'
+union all select 999, 5;
+
+delete from restaurant_stats where restaurant_id not between 1 and 3;
+insert into restaurant_stats (restaurant_id, orders)
+select * from (select restaurant_id, count(*) as orders from orders
+               where status = 'delivered' and restaurant_id between 1 and 3
+               group by restaurant_id) as new
+on duplicate key update orders = new.orders;`,
+        explanation: 'The same sync in two statements; here "not in the source" is simply "outside 1–3".',
+      },
+    ],
+    comparison: 'Same table. MERGE … NOT MATCHED BY SOURCE derives what to delete from the source itself, so it stays right even when the source is a complex query.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
 ]

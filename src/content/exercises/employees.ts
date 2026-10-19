@@ -1894,4 +1894,104 @@ from dept_manager dm;`,
     ],
     docs: [{ label: 'PostgreSQL: EXISTS', url: PG + 'functions-subquery.html#FUNCTIONS-SUBQUERY-EXISTS' }],
   },
+  {
+    id: 'employees-049',
+    dataset: 'employees',
+    level: 2,
+    topics: ['full-join', 'group-by'],
+    title: 'Hires and leavers per year',
+    prompt:
+      'For every year in which someone was hired or someone left, show the year, the number hired and the number who left (0 if none). Someone left in the year their last dept_emp row ended, if that is not 9999-01-01.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two yearly counts',
+        postgres: `with hires as (
+  select extract(year from hire_date)::int as y, count(*) as hired from employees group by 1
+),
+leavers as (
+  select extract(year from last_day)::int as y, count(*) as left_company
+  from (select emp_no, max(to_date) as last_day from dept_emp group by emp_no) e
+  where last_day < '9999-01-01'
+  group by 1
+)
+select coalesce(h.y, l.y) as year, coalesce(h.hired, 0) as hired, coalesce(l.left_company, 0) as left_company
+from hires h
+full join leavers l on l.y = h.y
+order by year;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'Hiring stops in 1999 but people keep leaving until 2002; 1985 has hires and leavers alike. FULL JOIN keeps the years that exist on only one side.',
+      },
+      {
+        approach: 'UNION ALL of events, then pivot',
+        postgres: `select y as year,
+       sum(case when kind = 'hire' then 1 else 0 end) as hired,
+       sum(case when kind = 'leave' then 1 else 0 end) as left_company
+from (
+  select extract(year from hire_date)::int as y, 'hire' as kind from employees
+  union all
+  select extract(year from max(to_date))::int, 'leave' from dept_emp
+  group by emp_no having max(to_date) < '9999-01-01'
+) events
+group by y
+order by y;`,
+        mysql: `select y as year,
+       sum(kind = 'hire') as hired,
+       sum(kind = 'leave') as left_company
+from (
+  select year(hire_date) as y, 'hire' as kind from employees
+  union all
+  select year(max(to_date)), 'leave' from dept_emp
+  group by emp_no having max(to_date) < '9999-01-01'
+) events
+group by y
+order by y;`,
+        explanation: 'Stack both kinds of events into one list and count each kind per year. No join needed, and it works everywhere.',
+      },
+    ],
+    comparison: 'Same rows. The UNION ALL "event log" pattern is often the simplest replacement for FULL JOIN when both sides are counts.',
+    docs: [
+      { label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' },
+      { label: 'MySQL: UNION', url: MY + 'union.html' },
+    ],
+  },
+  {
+    id: 'employees-050',
+    dataset: 'employees',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Employees spread by hash',
+    prompt: 'Create employees_hashed with the columns of employees, hash-partitioned by emp_no into 4 partitions, and copy the employees into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'employees_hashed'::regclass) as partitions,
+       (select count(*) from employees_hashed) as total_rows`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'employees_hashed') as partitions,
+       (select count(*) from employees_hashed) as total_rows`,
+    solutions: [
+      {
+        approach: 'HASH partitions',
+        postgres: `create table employees_hashed (like employees, primary key (emp_no)) partition by hash (emp_no);
+
+create table employees_hashed_0 partition of employees_hashed for values with (modulus 4, remainder 0);
+create table employees_hashed_1 partition of employees_hashed for values with (modulus 4, remainder 1);
+create table employees_hashed_2 partition of employees_hashed for values with (modulus 4, remainder 2);
+create table employees_hashed_3 partition of employees_hashed for values with (modulus 4, remainder 3);
+
+insert into employees_hashed select * from employees;`,
+        mysql: `create table employees_hashed like employees;
+
+alter table employees_hashed partition by hash (emp_no) partitions 4;
+
+insert into employees_hashed select * from employees;`,
+        mysqlNote: 'With an integer column MySQL can use HASH (KEY is for other types). MySQL\'s HASH is simply emp_no MOD 4, so the spread depends on how ids are assigned.',
+        explanation: 'PostgreSQL hashes the value and then takes the remainder, which spreads even patterned ids evenly. In this sample every emp_no is a multiple of 50, so a plain MOD 4 would put almost everyone into partitions 0 and 2.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: HASH partitioning', url: MY + 'partitioning-hash.html' },
+    ],
+  },
 ]

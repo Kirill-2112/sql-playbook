@@ -2306,4 +2306,66 @@ order by first_day;`,
     ],
     docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
   },
+  {
+    id: 'airlines-056',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['upsert'],
+    title: 'Keep only the latest check-in',
+    prompt:
+      'Create last_checkin (passenger_id primary key, checked_in_at). Record two check-ins for passenger "RU 1" (2025-11-02 10:00, then an older one 2025-11-01 09:00 arriving late) and one for "RU 2". The table must keep each passenger\'s latest time.',
+    orderMatters: true,
+    checkSql: `select passenger_id, checked_in_at from last_checkin order by passenger_id`,
+    solutions: [
+      {
+        approach: 'Conditional upsert',
+        postgres: `create table last_checkin (passenger_id varchar(20) primary key, checked_in_at timestamptz not null);
+
+insert into last_checkin values ('RU 1', '2025-11-02 10:00+00'), ('RU 2', '2025-11-01 12:00+00');
+insert into last_checkin values ('RU 1', '2025-11-01 09:00+00')
+on conflict (passenger_id) do update set checked_in_at = excluded.checked_in_at
+where excluded.checked_in_at > last_checkin.checked_in_at;`,
+        mysql: `create table last_checkin (passenger_id varchar(20) primary key, checked_in_at datetime not null);
+
+insert into last_checkin values ('RU 1', '2025-11-02 10:00:00'), ('RU 2', '2025-11-01 12:00:00');
+insert into last_checkin values ('RU 1', '2025-11-01 09:00:00') as new
+on duplicate key update checked_in_at = greatest(last_checkin.checked_in_at, new.checked_in_at);`,
+        mysqlNote: 'ON DUPLICATE KEY UPDATE has no WHERE; GREATEST keeps the newer value instead.',
+        explanation: 'Events can arrive out of order. The WHERE on DO UPDATE ignores a late, older event, so the stored time never goes backwards.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT … WHERE', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'airlines-057',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['procedures', 'dml'],
+    title: 'Cancel a flight properly',
+    prompt:
+      'Write a procedure cancel_flight(p_flight_id) that sets the flight\'s status to Cancelled and removes its boarding passes (the passengers will be rebooked). Then cancel flight 11052.',
+    orderMatters: false,
+    checkSql: `call cancel_flight(11052);
+select (select status from flights where flight_id = 11052) as status,
+       (select count(*) from boarding_passes where flight_id = 11052) as passes`,
+    solutions: [
+      {
+        approach: 'Two statements in a procedure',
+        postgres: `create procedure cancel_flight(p_flight_id integer)
+language sql
+as $$
+  update flights set status = 'Cancelled' where flight_id = p_flight_id;
+  delete from boarding_passes where flight_id = p_flight_id;
+$$;`,
+        mysql: `create procedure cancel_flight(p_flight_id int)
+begin
+  update flights set status = 'Cancelled' where flight_id = p_flight_id;
+  delete from boarding_passes where flight_id = p_flight_id;
+end;`,
+        mysqlNote: `${DELIMITER_NOTE}`,
+        explanation: 'The flight\'s segments (the passengers\' rights to fly) stay; only the boarding passes, which are tied to seats on this departure, go. Both changes belong together, which is what the procedure guarantees.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
+  },
 ]

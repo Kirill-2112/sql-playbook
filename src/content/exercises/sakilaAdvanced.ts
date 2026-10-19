@@ -1388,4 +1388,142 @@ end;`,
       { label: 'MySQL: IF statement', url: MY + 'if.html' },
     ],
   },
+  {
+    id: 'sakila-062',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['generated-columns', 'conditions'],
+    title: 'A length category column',
+    prompt: 'Add a stored generated column length_class to film: "short" under 90 minutes, "feature" up to 150, "epic" above (length may be NULL).',
+    orderMatters: true,
+    checkSql: `select length_class, count(*) as films from film group by length_class order by length_class`,
+    solutions: [
+      {
+        approach: 'CASE in a generated column',
+        postgres: `alter table film add column length_class text generated always as (
+  case when length < 90 then 'short' when length <= 150 then 'feature' when length > 150 then 'epic' end
+) stored;`,
+        mysql: `alter table film add column length_class varchar(10) generated always as (
+  case when length < 90 then 'short' when length <= 150 then 'feature' when length > 150 then 'epic' end
+) stored;`,
+        explanation: 'A CASE with no ELSE gives NULL when length is NULL, so unknown lengths stay unknown instead of falling into a class.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'sakila-063',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['materialized-views'],
+    title: 'Customer lifetime value, stored',
+    prompt: 'Store each customer\'s number of payments and total paid, for the marketing team\'s weekly look at top customers.',
+    orderMatters: true,
+    checkSql: `select customer_id, payments, total_paid from customer_value order by total_paid desc, customer_id limit 5`,
+    solutions: [
+      {
+        approach: 'Materialized view',
+        postgres: `create materialized view customer_value as
+select customer_id, count(*) as payments, sum(amount) as total_paid
+from payment
+group by customer_id;`,
+        mysql: `create table customer_value as
+select customer_id, count(*) as payments, sum(amount) as total_paid
+from payment
+group by customer_id;`,
+        mysqlNote: 'A table rebuilt weekly stands in for the materialized view.',
+        explanation: 'A weekly view does not need live data: computing it once and reading the stored rows is cheaper. REFRESH MATERIALIZED VIEW customer_value brings it up to date.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Materialized views', url: PG + 'rules-materializedviews.html' }],
+  },
+  {
+    id: 'sakila-064',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['merge', 'joins'],
+    title: 'New prices for two categories',
+    prompt:
+      'Pricing decides: films in category Horror rent for 1.99, films in Comedy for 3.99. Store that as category_price (name, rental_rate) and apply it to film in one statement, only where the price changes.',
+    orderMatters: true,
+    checkSql: `select c.name, f.rental_rate, count(*) as films
+from film f join film_category fc on fc.film_id = f.film_id join category c on c.category_id = fc.category_id
+where c.name in ('Horror', 'Comedy')
+group by c.name, f.rental_rate
+order by c.name, f.rental_rate`,
+    solutions: [
+      {
+        approach: 'MERGE from a joined source',
+        postgres: `create table category_price (name varchar(25) primary key, rental_rate numeric(4, 2) not null);
+insert into category_price values ('Horror', 1.99), ('Comedy', 3.99);
+
+merge into film f
+using (select fc.film_id, cp.rental_rate
+       from film_category fc
+       join category c on c.category_id = fc.category_id
+       join category_price cp on cp.name = c.name) s
+on s.film_id = f.film_id
+when matched and f.rental_rate <> s.rental_rate then
+  update set rental_rate = s.rental_rate;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation: 'The USING clause can be any query: here it maps every film of the two categories to its new price.',
+      },
+      {
+        approach: 'UPDATE with joins',
+        postgres: `create table category_price (name varchar(25) primary key, rental_rate numeric(4, 2) not null);
+insert into category_price values ('Horror', 1.99), ('Comedy', 3.99);
+
+update film f set rental_rate = cp.rental_rate
+from film_category fc, category c, category_price cp
+where fc.film_id = f.film_id and c.category_id = fc.category_id and cp.name = c.name
+  and f.rental_rate <> cp.rental_rate;`,
+        mysql: `create table category_price (name varchar(25) primary key, rental_rate decimal(4, 2) not null);
+insert into category_price values ('Horror', 1.99), ('Comedy', 3.99);
+
+update film f
+join film_category fc on fc.film_id = f.film_id
+join category c on c.category_id = fc.category_id
+join category_price cp on cp.name = c.name
+set f.rental_rate = cp.rental_rate
+where f.rental_rate <> cp.rental_rate;`,
+        explanation: 'For updates only, a joined UPDATE does the job in both databases.',
+      },
+    ],
+    comparison: 'Same prices afterwards. Each film has exactly one category in Sakila; if a film could be in both, the new price would depend on which row came first.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'sakila-065',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['upsert'],
+    title: 'A page-view counter',
+    prompt:
+      'Create film_views (film_id primary key, views). Record views of films 1, 1 and 2 with three statements, each adding 1 to the counter or starting it at 1.',
+    orderMatters: true,
+    checkSql: `select film_id, views from film_views order by film_id`,
+    solutions: [
+      {
+        approach: 'Increment on conflict',
+        postgres: `create table film_views (film_id integer primary key, views integer not null);
+
+insert into film_views values (1, 1) on conflict (film_id) do update set views = film_views.views + 1;
+insert into film_views values (1, 1) on conflict (film_id) do update set views = film_views.views + 1;
+insert into film_views values (2, 1) on conflict (film_id) do update set views = film_views.views + 1;`,
+        mysql: `create table film_views (film_id int primary key, views int not null);
+
+insert into film_views values (1, 1) on duplicate key update views = views + 1;
+insert into film_views values (1, 1) on duplicate key update views = views + 1;
+insert into film_views values (2, 1) on duplicate key update views = views + 1;`,
+        mysqlNote: 'Inside ON DUPLICATE KEY UPDATE, a plain column name refers to the existing row.',
+        explanation:
+          'The classic counter: the first view inserts 1, later ones add to the stored value. In ON CONFLICT the existing row is referred to by the table name (film_views.views), the new one as excluded. Atomic, so concurrent views are never lost.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' },
+      { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
+    ],
+  },
 ]

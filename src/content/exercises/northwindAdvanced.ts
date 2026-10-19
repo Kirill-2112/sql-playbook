@@ -1026,4 +1026,34 @@ alter table shippers add column active tinyint(1) not null default 1;`,
       { label: 'MySQL: ALTER TABLE', url: MY + 'alter-table.html' },
     ],
   },
+  {
+    id: 'northwind-057',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['temp-tables', 'joins'],
+    title: 'A reorder list to work through',
+    prompt:
+      'Build a temporary table to_reorder (product_id, product_name, supplier, short_by) of active products whose stock plus units on order is below the reorder level, with how many units they are short.',
+    orderMatters: true,
+    checkSql: `select product_id, product_name, supplier, short_by from to_reorder order by short_by desc, product_id`,
+    solutions: [
+      {
+        approach: 'CREATE TEMP TABLE … AS',
+        postgres: `create temp table to_reorder as
+select p.product_id, p.product_name, s.company_name as supplier,
+       p.reorder_level - p.units_in_stock - p.units_on_order as short_by
+from products p
+join suppliers s on s.supplier_id = p.supplier_id
+where p.discontinued = 0 and p.units_in_stock + p.units_on_order < p.reorder_level;`,
+        mysql: `create temporary table to_reorder as
+select p.product_id, p.product_name, s.company_name as supplier,
+       p.reorder_level - p.units_in_stock - p.units_on_order as short_by
+from products p
+join suppliers s on s.supplier_id = p.supplier_id
+where p.discontinued = 0 and p.units_in_stock + p.units_on_order < p.reorder_level;`,
+        explanation: 'A snapshot the buyer can work through and update (say, mark rows as ordered) without changing the real tables.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
 ]

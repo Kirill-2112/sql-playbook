@@ -1889,4 +1889,139 @@ limit 5;`,
     ],
     docs: [{ label: 'PostgreSQL: Arrays', url: PG + 'arrays.html' }],
   },
+  {
+    id: 'lahman-053',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['materialized-views', 'aggregates'],
+    title: 'All-time franchise records',
+    prompt: 'Store each franchise\'s all-time record since 1871: franch_id, seasons, wins, losses and winning percentage rounded to 3 decimals.',
+    orderMatters: true,
+    checkSql: `select franch_id, seasons, wins, losses, pct from franchise_records order by pct desc, franch_id limit 5`,
+    solutions: [
+      {
+        approach: 'Materialized view',
+        postgres: `create materialized view franchise_records as
+select franch_id, count(*) as seasons, sum(w) as wins, sum(l) as losses,
+       round(sum(w)::numeric / (sum(w) + sum(l)), 3) as pct
+from teams
+group by franch_id;`,
+        mysql: `create table franchise_records as
+select franch_id, count(*) as seasons, sum(w) as wins, sum(l) as losses,
+       round(sum(w) / (sum(w) + sum(l)), 3) as pct
+from teams
+group by franch_id;`,
+        mysqlNote: 'A table stands in for the materialized view; refresh it once a season.',
+        explanation: '150 years of results change once a year: a perfect case for storing the aggregate. The top of the list includes short-lived 19th-century clubs with few seasons.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Materialized views', url: PG + 'rules-materializedviews.html' }],
+  },
+  {
+    id: 'lahman-054',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Salaries split by league',
+    prompt: 'Create salaries_by_league with the columns of salaries, list-partitioned by lg_id into AL and NL, and copy the salaries into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'salaries_by_league'::regclass) as partitions,
+       (select count(*) from salaries_by_league) as total_rows,
+       (select count(*) from salaries_by_league where lg_id = 'AL') as al_rows`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'salaries_by_league') as partitions,
+       (select count(*) from salaries_by_league) as total_rows,
+       (select count(*) from salaries_by_league where lg_id = 'AL') as al_rows`,
+    solutions: [
+      {
+        approach: 'LIST partitions',
+        postgres: `create table salaries_by_league (like salaries, primary key (year_id, team_id, player_id, lg_id))
+partition by list (lg_id);
+
+create table salaries_al partition of salaries_by_league for values in ('AL');
+create table salaries_nl partition of salaries_by_league for values in ('NL');
+
+insert into salaries_by_league select * from salaries;`,
+        mysql: `create table salaries_by_league like salaries;
+
+alter table salaries_by_league drop primary key, add primary key (year_id, team_id, player_id, lg_id);
+
+alter table salaries_by_league
+partition by list columns (lg_id) (
+  partition p_al values in ('AL'),
+  partition p_nl values in ('NL')
+);
+
+insert into salaries_by_league select * from salaries;`,
+        explanation: 'The primary key grows to include lg_id, as both databases require. A query for one league reads one partition.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: LIST COLUMNS partitioning', url: MY + 'partitioning-columns-list.html' },
+    ],
+  },
+  {
+    id: 'lahman-055',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['control-flow', 'functions'],
+    title: 'Longest winning streak, with a loop',
+    prompt:
+      'Write a function longest_winning_run(p_franch_id) that walks through a franchise\'s seasons in year order with a loop and returns the longest run of consecutive winning seasons (w > l).',
+    orderMatters: false,
+    checkSql: `select longest_winning_run('NYY') as nyy, longest_winning_run('BOS') as bos, longest_winning_run('XXX') as unknown`,
+    solutions: [
+      {
+        approach: 'FOR loop / cursor with two counters',
+        postgres: `create function longest_winning_run(p_franch_id text)
+returns integer
+language plpgsql
+stable
+as $$
+declare
+  r record;
+  cur integer := 0;
+  best integer := 0;
+begin
+  for r in select w, l from teams where franch_id = p_franch_id order by year_id loop
+    if r.w > r.l then
+      cur := cur + 1;
+      best := greatest(best, cur);
+    else
+      cur := 0;
+    end if;
+  end loop;
+  return best;
+end;
+$$;`,
+        mysql: `create function longest_winning_run(p_franch_id varchar(3))
+returns int
+reads sql data
+begin
+  declare done int default 0;
+  declare v_w, v_l, cur, best int default 0;
+  declare c cursor for select w, l from teams where franch_id = p_franch_id order by year_id;
+  declare continue handler for not found set done = 1;
+  open c;
+  seasons: loop
+    fetch c into v_w, v_l;
+    if done then leave seasons; end if;
+    if v_w > v_l then
+      set cur = cur + 1;
+      set best = greatest(best, cur);
+    else
+      set cur = 0;
+    end if;
+  end loop;
+  close c;
+  return best;
+end;`,
+        mysqlNote: `A cursor with a NOT FOUND handler replaces the FOR … IN query loop. ${DELIMITER_NOTE}`,
+        explanation:
+          'A running counter that resets on every losing season, and the best value seen so far. The set-based islands query gives the same answer; the loop is easier to extend with rules that do not fit SQL, such as "a .500 season does not break the streak".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Looping through query results', url: PG + 'plpgsql-control-structures.html#PLPGSQL-RECORDS-ITERATING' }],
+  },
 ]

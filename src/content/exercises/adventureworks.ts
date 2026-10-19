@@ -1998,4 +1998,101 @@ limit 5;`,
       { label: 'MySQL: Optimizing subqueries', url: MY + 'subquery-optimization.html' },
     ],
   },
+  {
+    id: 'adventureworks-054',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['casting', 'text-search'],
+    title: 'Sizes that are numbers',
+    prompt: 'size holds either a number ("44") or a letter size ("M"). For products with a numeric size, show the smallest, largest and average size (1 decimal) per product line.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Filter by pattern, then cast',
+        postgres: `select product_line,
+       min(size::int) as smallest, max(size::int) as largest,
+       round(avg(size::int), 1) as average
+from product
+where size ~ '^[0-9]+$'
+group by product_line
+order by product_line;`,
+        mysql: `select product_line,
+       min(cast(size as unsigned)) as smallest, max(cast(size as unsigned)) as largest,
+       round(avg(cast(size as unsigned)), 1) as average
+from product
+where size regexp '^[0-9]+$'
+group by product_line
+order by product_line;`,
+        mysqlNote: 'MySQL would cast \'M\' to 0 with a warning instead of failing, so the filter matters even more: without it the letter sizes would silently become zeros.',
+        explanation:
+          'Casting \'M\' to integer is an error in PostgreSQL, so keep only the all-digit sizes first. max(size) on the text would also be wrong: as text, "62" < "8".',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: POSIX regular expressions', url: PG + 'functions-matching.html#FUNCTIONS-POSIX-REGEXP' },
+      { label: 'MySQL: CAST', url: MY + 'cast-functions.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-055',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'Days without a sale',
+    prompt: 'Find the gaps of at least 2 days without any order: the last day with orders before the gap, the next day with orders and the number of empty days.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEAD over distinct days',
+        postgres: `with days as (
+  select distinct order_date::date as day from sales_order_header
+)
+select day as last_sale, next_day as next_sale, next_day - day - 1 as empty_days
+from (select day, lead(day) over (order by day) as next_day from days) d
+where next_day - day - 1 >= 2
+order by day;`,
+        mysql: `with days as (
+  select distinct date(order_date) as day from sales_order_header
+)
+select day as last_sale, next_day as next_sale, datediff(next_day, day) - 1 as empty_days
+from (select day, lead(day) over (order by day) as next_day from days) d
+where datediff(next_day, day) - 1 >= 2
+order by day;`,
+        mysqlNote: 'DATEDIFF(a, b) counts days; date − date is not day arithmetic in MySQL.',
+        explanation: 'date − date gives a number of days in PostgreSQL. There are only two such gaps, both in summer 2022, when the sample (every 4th order) still had few orders per day; single empty days are more common.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Date/time operators', url: PG + 'functions-datetime.html' }],
+  },
+  {
+    id: 'adventureworks-056',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['transactions'],
+    title: 'Keep the good lines',
+    prompt:
+      'Raise list prices of products 1 and 2 by 10%. Then set a savepoint, accidentally set product 3\'s price to 0, and undo only that mistake. In PostgreSQL you are already inside a transaction.',
+    orderMatters: true,
+    checkSql: `select product_id, list_price from product where product_id in (1, 2, 3) order by product_id`,
+    solutions: [
+      {
+        approach: 'SAVEPOINT and ROLLBACK TO',
+        postgres: `update product set list_price = round(list_price * 1.1, 2) where product_id in (1, 2);
+savepoint before_mistake;
+update product set list_price = 0 where product_id = 3;
+rollback to savepoint before_mistake;`,
+        mysql: `start transaction;
+update product set list_price = round(list_price * 1.1, 2) where product_id in (1, 2);
+savepoint before_mistake;
+update product set list_price = 0 where product_id = 3;
+rollback to savepoint before_mistake;
+commit;`,
+        explanation: 'ROLLBACK TO SAVEPOINT undoes only what happened after the savepoint; the price raise stays and the transaction remains open.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: SAVEPOINT', url: PG + 'sql-savepoint.html' },
+      { label: 'MySQL: SAVEPOINT', url: MY + 'savepoint.html' },
+    ],
+  },
 ]

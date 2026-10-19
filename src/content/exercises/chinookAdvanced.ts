@@ -2007,4 +2007,145 @@ select 18, track_id from wanted;`,
     comparison: 'Same final playlist. A "make it exactly this list" sync is MERGE\'s strongest use case.',
     docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
   },
+  {
+    id: 'chinook-081',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['temp-tables', 'subqueries'],
+    title: 'Tracks nobody bought',
+    prompt:
+      'Put the tracks that never appear on an invoice line into a temporary table unsold (track_id, genre_id, unit_price). Then: the 5 genres with the most unsold tracks.',
+    orderMatters: true,
+    checkSql: `select g.name as genre, count(*) as unsold_tracks
+from unsold u
+join genre g on g.genre_id = u.genre_id
+group by g.name
+order by unsold_tracks desc, genre
+limit 5`,
+    solutions: [
+      {
+        approach: 'CREATE TEMPORARY TABLE … AS with NOT EXISTS',
+        postgres: `create temporary table unsold as
+select t.track_id, t.genre_id, t.unit_price
+from track t
+where not exists (select 1 from invoice_line l where l.track_id = t.track_id);`,
+        mysql: `create temporary table unsold as
+select t.track_id, t.genre_id, t.unit_price
+from track t
+where not exists (select 1 from invoice_line l where l.track_id = t.track_id);`,
+        explanation:
+          '1,519 of 3,503 tracks were never sold. Kept in a temp table, they can be counted by genre, priced for a sale and joined to albums without repeating the anti-join each time.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' },
+      { label: 'MySQL: CREATE TEMPORARY TABLE', url: MY + 'create-temporary-table.html' },
+    ],
+  },
+  {
+    id: 'chinook-082',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['triggers', 'json'],
+    title: 'Keep the old version of every invoice',
+    prompt:
+      'Create invoice_audit (invoice_id, old_data, new_data) and a trigger that, on every update of an invoice, stores the row before and after as JSON. (In MySQL, billing_country and total are enough.)',
+    orderMatters: true,
+    checkSql: `update invoice set total = 0.99 where invoice_id = 1;
+update invoice set billing_country = 'Deutschland' where invoice_id = 2;
+select invoice_id,
+       old_data ->> 'billing_country' as old_country, new_data ->> 'billing_country' as new_country,
+       (old_data ->> 'total')::numeric as old_total, (new_data ->> 'total')::numeric as new_total
+from invoice_audit
+order by invoice_id`,
+    checkSqlMysql: `update invoice set total = 0.99 where invoice_id = 1;
+update invoice set billing_country = 'Deutschland' where invoice_id = 2;
+select invoice_id,
+       old_data ->> '$.billing_country' as old_country, new_data ->> '$.billing_country' as new_country,
+       cast(old_data ->> '$.total' as decimal(10, 2)) as old_total, cast(new_data ->> '$.total' as decimal(10, 2)) as new_total
+from invoice_audit
+order by invoice_id`,
+    solutions: [
+      {
+        approach: 'Row to JSON in an AFTER UPDATE trigger',
+        postgres: `create table invoice_audit (
+  invoice_id integer     not null,
+  changed_at timestamptz not null default now(),
+  old_data   jsonb       not null,
+  new_data   jsonb       not null
+);
+
+create function audit_invoice() returns trigger
+language plpgsql
+as $$
+begin
+  insert into invoice_audit (invoice_id, old_data, new_data)
+  values (old.invoice_id, to_jsonb(old), to_jsonb(new));
+  return new;
+end;
+$$;
+
+create trigger invoice_audit_trg
+after update on invoice
+for each row execute function audit_invoice();`,
+        mysql: `create table invoice_audit (
+  invoice_id int      not null,
+  changed_at datetime not null default current_timestamp,
+  old_data   json     not null,
+  new_data   json     not null
+);
+
+create trigger invoice_audit_trg
+after update on invoice
+for each row
+  insert into invoice_audit (invoice_id, old_data, new_data)
+  values (old.invoice_id,
+          json_object('billing_country', old.billing_country, 'total', old.total),
+          json_object('billing_country', new.billing_country, 'total', new.total));`,
+        mysqlNote: 'MySQL cannot turn a whole row into JSON: JSON_OBJECT needs every column listed, so a new column is not audited until the trigger is changed.',
+        explanation:
+          'to_jsonb(old) captures every column, including ones added later, so one audit table can serve many tables. ->> reads a field back as text.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: JSON functions', url: PG + 'functions-json.html' },
+      { label: 'MySQL: JSON_OBJECT', url: MY + 'json-creation-functions.html#function_json-object' },
+    ],
+  },
+  {
+    id: 'chinook-083',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['full-join', 'group-by'],
+    title: 'Customers and staff by country',
+    prompt:
+      'For every country that has customers or employees: the number of customers and the number of employees (0 when there are none). Most customers first, then by country.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two counts',
+        postgres: `with c as (select country, count(*) as customers from customer group by country),
+     e as (select country, count(*) as employees from employee group by country)
+select coalesce(c.country, e.country) as country,
+       coalesce(c.customers, 0) as customers,
+       coalesce(e.employees, 0) as employees
+from c
+full join e on e.country = c.country
+order by customers desc, employees desc, country;`,
+        mysql: `with c as (select country, count(*) as customers from customer group by country),
+     e as (select country, count(*) as employees from employee group by country)
+select c.country, c.customers, coalesce(e.employees, 0) as employees
+from c left join e on e.country = c.country
+union all
+select e.country, 0, e.employees
+from e left join c on c.country = e.country
+where c.country is null
+order by customers desc, employees desc, country;`,
+        mysqlNote: 'No FULL JOIN in MySQL: a LEFT JOIN, plus the rows only the right side has.',
+        explanation:
+          'Counting first and joining the two small results avoids multiplying rows. Here all employees are in Canada, so the "employees only" half is empty, but the query does not rely on that.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
 ]

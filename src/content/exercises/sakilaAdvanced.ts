@@ -2152,4 +2152,47 @@ limit 5 offset 5;`,
     ],
     docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
   },
+  {
+    id: 'sakila-083',
+    dataset: 'sakila',
+    level: 2,
+    topics: ['casting', 'conditions'],
+    title: 'Postal codes as numbers, safely',
+    prompt:
+      'Group addresses by postal code as a number: "under 10000", "10000-49999", "50000 and up", and "not a number" for codes that are empty or contain anything but digits. Show bucket and count, ordered by bucket.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Check with a pattern, then cast',
+        postgres: `select case
+         when postal_code is null or postal_code !~ '^[0-9]+$' then 'not a number'
+         when postal_code::integer < 10000 then 'under 10000'
+         when postal_code::integer < 50000 then '10000-49999'
+         else '50000 and up'
+       end as bucket,
+       count(*) as addresses
+from address
+group by bucket
+order by bucket;`,
+        mysql: `select case
+         when postal_code is null or postal_code not regexp '^[0-9]+$' then 'not a number'
+         when cast(postal_code as unsigned) < 10000 then 'under 10000'
+         when cast(postal_code as unsigned) < 50000 then '10000-49999'
+         else '50000 and up'
+       end as bucket,
+       count(*) as addresses
+from address
+group by bucket
+order by bucket;`,
+        mysqlNote:
+          'MySQL would not fail on cast(\'\' as unsigned): it returns 0 with a warning, so the 4 empty codes would quietly land in "under 10000". The pattern check is what keeps them out.',
+        explanation:
+          'In PostgreSQL \'\'::integer is an error, and so is any code with a letter. CASE tests its branches in order, so the cast only runs on values that passed the digit check. A WHERE with "pattern AND cast" gives no such promise: the planner may evaluate the cast first.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CASE', url: PG + 'functions-conditional.html#FUNCTIONS-CASE' },
+      { label: 'MySQL: Type conversion', url: MY + 'type-conversion.html' },
+    ],
+  },
 ]

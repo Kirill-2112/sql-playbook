@@ -2394,4 +2394,203 @@ order by year_id;`,
     ],
     docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
   },
+  {
+    id: 'lahman-067',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['transactions', 'locks-isolation'],
+    title: 'Move a salary row to another team',
+    prompt:
+      'The 2016 salary of player \'sabatcc01\' was booked to the wrong team. Lock his 2016 salary row, then move it from NYA to BOS in one transaction. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select year_id, team_id, player_id, salary from salaries where player_id = 'sabatcc01' and year_id = 2016`,
+    solutions: [
+      {
+        approach: 'Lock the rows, then update',
+        postgres: `select salary from salaries where player_id = 'sabatcc01' and year_id = 2016 for update;
+
+update salaries set team_id = 'BOS'
+where player_id = 'sabatcc01' and year_id = 2016 and team_id = 'NYA';`,
+        mysql: `start transaction;
+
+select salary from salaries where player_id = 'sabatcc01' and year_id = 2016 for update;
+
+update salaries set team_id = 'BOS'
+where player_id = 'sabatcc01' and year_id = 2016 and team_id = 'NYA';
+
+commit;`,
+        explanation:
+          'The update changes part of the primary key (team_id) and must still satisfy the foreign key to teams (2016, BOS), which it does. Locking first means a concurrent correction of the same rows waits instead of overwriting this one.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Transactions', url: PG + 'tutorial-transactions.html' }],
+  },
+  {
+    id: 'lahman-068',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['recursive', 'set-operations'],
+    title: 'Seasons without salary data',
+    prompt: 'Build the seasons 2010–2025 with a recursive CTE and list those that have no row in salaries.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive series EXCEPT existing years',
+        postgres: `with recursive seasons (y) as (
+  select 2010 union all select y + 1 from seasons where y < 2025
+)
+select y as season from seasons
+except
+select distinct year_id from salaries
+order by season;`,
+        mysql: `with recursive seasons (y) as (
+  select 2010 union all select y + 1 from seasons where y < 2025
+)
+select y as season from seasons
+except
+select distinct year_id from salaries
+order by season;`,
+        mysqlNote: 'EXCEPT exists since MySQL 8.0.31.',
+        explanation: 'The Lahman salary data stops after 2016, so 2017–2025 come out. Generating the expected values and subtracting the present ones is the general way to find what is missing.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'lahman-069',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['triggers', 'upsert'],
+    title: 'A summary kept current by a trigger',
+    prompt:
+      'Create hr_totals (player_id primary key, hr) from batting. Then add a trigger that, on every new batting row, adds its home runs to hr_totals (inserting the player if new). Test with a new 2025 row (stint 9, NYA, AL) for judgeaa01 with 3 home runs.',
+    orderMatters: false,
+    checkSql: `insert into batting (player_id, year_id, stint, team_id, lg_id, hr) values ('judgeaa01', 2025, 9, 'NYA', 'AL', 3);
+select player_id, hr from hr_totals where player_id = 'judgeaa01'`,
+    solutions: [
+      {
+        approach: 'AFTER INSERT trigger doing an upsert',
+        postgres: `create table hr_totals as select player_id, sum(hr)::integer as hr from batting group by player_id;
+alter table hr_totals add primary key (player_id);
+
+create function add_to_hr_totals() returns trigger
+language plpgsql
+as $$
+begin
+  insert into hr_totals (player_id, hr) values (new.player_id, coalesce(new.hr, 0))
+  on conflict (player_id) do update set hr = hr_totals.hr + excluded.hr;
+  return new;
+end;
+$$;
+
+create trigger batting_hr_totals
+after insert on batting
+for each row execute function add_to_hr_totals();`,
+        mysql: `create table hr_totals as select player_id, cast(sum(hr) as signed) as hr from batting group by player_id;
+alter table hr_totals add primary key (player_id);
+
+create trigger batting_hr_totals
+after insert on batting
+for each row
+  insert into hr_totals (player_id, hr) values (new.player_id, coalesce(new.hr, 0)) as n
+  on duplicate key update hr = hr_totals.hr + n.hr;`,
+        mysqlNote: 'A one-statement trigger body needs no BEGIN … END.',
+        explanation:
+          'The summary stays in step without recomputing. Triggers like this are cheap per row but make bulk loads slower: for those, rebuild the summary afterwards instead.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
+  },
+  {
+    id: 'lahman-070',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['normalization', 'lateral'],
+    title: 'An outdated franchise name',
+    prompt: 'teams_franchises.franch_name and the team\'s season name can drift apart. Which active franchises have a name different from their latest season\'s team name?',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Compare with the latest season',
+        postgres: `select f.franch_id, f.franch_name, latest.name as latest_team_name
+from teams_franchises f
+cross join lateral (select name from teams t where t.franch_id = f.franch_id order by year_id desc limit 1) latest
+where f.active = 'Y' and f.franch_name <> latest.name
+order by f.franch_id;`,
+        mysql: `select f.franch_id, f.franch_name, latest.name as latest_team_name
+from teams_franchises f
+cross join lateral (select name from teams t where t.franch_id = f.franch_id order by year_id desc limit 1) latest
+where f.active = 'Y' and f.franch_name <> latest.name
+order by f.franch_id;`,
+        explanation:
+          'Cleveland became the Guardians, Florida the Miami Marlins, Oakland the "Athletics". The franchise name is a second copy of a fact that changes, so it went stale; a view deriving it from the latest season could not.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'lahman-071',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Home runs by league and division, 2024',
+    prompt: 'Sum 2024 team home runs by league and division with subtotals per league and a grand total (labels "All").',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP',
+        postgres: `select coalesce(lg_id, 'All') as league, coalesce(div_id, 'All') as division, sum(hr) as hr
+from teams
+where year_id = 2024
+group by rollup (lg_id, div_id)
+order by grouping(lg_id), lg_id, grouping(div_id), div_id;`,
+        mysql: `select coalesce(lg_id, 'All') as league, coalesce(div_id, 'All') as division, sum(hr) as hr
+from teams
+where year_id = 2024
+group by lg_id, div_id with rollup
+order by grouping(lg_id), lg_id, grouping(div_id), div_id;`,
+        explanation: 'Six divisions, two league subtotals, one total: nine rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'lahman-072',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['merge'],
+    title: 'Sync franchise names',
+    prompt: 'Fix the stale names found above: in one statement, set teams_franchises.franch_name to the latest season\'s team name for every active franchise where it differs.',
+    orderMatters: true,
+    checkSql: `select franch_id, franch_name from teams_franchises where franch_id in ('CLE', 'FLA', 'OAK', 'NYY') order by franch_id`,
+    solutions: [
+      {
+        approach: 'MERGE from the latest names',
+        postgres: `merge into teams_franchises f
+using (select distinct on (franch_id) franch_id, name from teams order by franch_id, year_id desc) t
+on t.franch_id = f.franch_id
+when matched and f.active = 'Y' and f.franch_name <> t.name then
+  update set franch_name = t.name;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation: 'DISTINCT ON gives the latest season per franchise; MERGE updates only the active ones whose name differs.',
+      },
+      {
+        approach: 'UPDATE with a join to the latest names',
+        postgres: `update teams_franchises f set franch_name = t.name
+from (select distinct on (franch_id) franch_id, name from teams order by franch_id, year_id desc) t
+where t.franch_id = f.franch_id and f.active = 'Y' and f.franch_name <> t.name;`,
+        mysql: `update teams_franchises f
+join (select franch_id, name from (
+        select franch_id, name, row_number() over (partition by franch_id order by year_id desc) as n from teams
+      ) r where n = 1) t on t.franch_id = f.franch_id
+set f.franch_name = t.name
+where f.active = 'Y' and f.franch_name <> t.name;`,
+        mysqlNote: 'No DISTINCT ON in MySQL: ROW_NUMBER picks the latest season per franchise.',
+        explanation: 'The same sync as a joined UPDATE.',
+      },
+    ],
+    comparison: 'Same result: three names updated, the others untouched.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
 ]

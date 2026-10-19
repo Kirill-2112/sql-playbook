@@ -2657,4 +2657,106 @@ from (select product_subcategory_id, count(distinct product_category_id) as cate
     ],
     docs: [{ label: 'PostgreSQL: GROUP BY', url: PG + 'queries-table-expressions.html#QUERIES-GROUP' }],
   },
+  {
+    id: 'adventureworks-073',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['set-operations'],
+    title: 'Bought, sold, or both',
+    prompt:
+      'How many products appear only on purchase orders (bought from vendors), only on sales orders, and on both? One row with three counts.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'EXCEPT and INTERSECT',
+        postgres: `select
+  (select count(*) from (select product_id from purchase_order_detail
+                         except
+                         select product_id from sales_order_detail) x) as bought_only,
+  (select count(*) from (select product_id from sales_order_detail
+                         except
+                         select product_id from purchase_order_detail) x) as sold_only,
+  (select count(*) from (select product_id from purchase_order_detail
+                         intersect
+                         select product_id from sales_order_detail) x) as both_ways;`,
+        mysql: `select
+  (select count(*) from (select product_id from purchase_order_detail
+                         except
+                         select product_id from sales_order_detail) x) as bought_only,
+  (select count(*) from (select product_id from sales_order_detail
+                         except
+                         select product_id from purchase_order_detail) x) as sold_only,
+  (select count(*) from (select product_id from purchase_order_detail
+                         intersect
+                         select product_id from sales_order_detail) x) as both_ways;`,
+        mysqlNote: 'INTERSECT and EXCEPT exist since MySQL 8.0.31.',
+        explanation:
+          'Set operations remove duplicates, so each product counts once however many order lines it has. 76 products are both bought and sold (helmets, socks, tyres: resold goods); the rest are either components or bikes built in-house.',
+      },
+      {
+        approach: 'FULL JOIN of the two product lists',
+        postgres: `select count(*) filter (where s.product_id is null) as bought_only,
+       count(*) filter (where p.product_id is null) as sold_only,
+       count(*) filter (where p.product_id is not null and s.product_id is not null) as both_ways
+from (select distinct product_id from purchase_order_detail) p
+full join (select distinct product_id from sales_order_detail) s on s.product_id = p.product_id;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; solution A works there.',
+        explanation: 'One pass that classifies every product by which side it was found on.',
+      },
+    ],
+    comparison: 'Same three numbers. The set operations read like the question; the FULL JOIN computes all three at once.',
+    docs: [
+      { label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' },
+      { label: 'MySQL: INTERSECT', url: MY + 'intersect.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-074',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['distinct', 'ranking'],
+    title: 'The priciest product in each subcategory',
+    prompt:
+      'For each product subcategory, show the subcategory name and its most expensive product (name and list_price). On a tie, take the lower product_id. Order by product_subcategory_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'DISTINCT ON',
+        postgres: `select distinct on (p.product_subcategory_id)
+       sc.name as subcategory, p.name as product, p.list_price
+from product p
+join product_subcategory sc on sc.product_subcategory_id = p.product_subcategory_id
+order by p.product_subcategory_id, p.list_price desc, p.product_id;`,
+        mysql: null,
+        mysqlNote: 'No DISTINCT ON in MySQL; see solution B.',
+        explanation:
+          'DISTINCT ON keeps the first row of each group in ORDER BY order, so the ORDER BY must start with the DISTINCT ON columns and then say which row is "first".',
+      },
+      {
+        approach: 'ROW_NUMBER() = 1',
+        postgres: `select subcategory, product, list_price
+from (
+  select sc.name as subcategory, p.name as product, p.list_price, p.product_subcategory_id,
+         row_number() over (partition by p.product_subcategory_id order by p.list_price desc, p.product_id) as n
+  from product p
+  join product_subcategory sc on sc.product_subcategory_id = p.product_subcategory_id
+) ranked
+where n = 1
+order by product_subcategory_id;`,
+        mysql: `select subcategory, product, list_price
+from (
+  select sc.name as subcategory, p.name as product, p.list_price, p.product_subcategory_id,
+         row_number() over (partition by p.product_subcategory_id order by p.list_price desc, p.product_id) as n
+  from product p
+  join product_subcategory sc on sc.product_subcategory_id = p.product_subcategory_id
+) ranked
+where n = 1
+order by product_subcategory_id;`,
+        explanation: 'The portable form: number the rows in each subcategory and keep number 1.',
+      },
+    ],
+    comparison: 'Same 37 rows. DISTINCT ON is shorter and often faster in PostgreSQL; ROW_NUMBER works everywhere and extends to "top 3 per group".',
+    docs: [{ label: 'PostgreSQL: DISTINCT ON', url: PG + 'sql-select.html#SQL-DISTINCT' }],
+  },
 ]

@@ -1614,4 +1614,200 @@ update customers set preferred_shipper_id = 3 where customer_id = 'ALFKI';`,
     ],
     docs: [{ label: 'PostgreSQL: Foreign keys (ON DELETE)', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-FK' }],
   },
+  {
+    id: 'northwind-076',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['generated-columns', 'partial-covering-indexes'],
+    title: 'Days late, and an index for late orders',
+    prompt:
+      'Add a stored generated column days_late to orders: shipped_date minus required_date in whole days (NULL while not shipped). Then index days_late for the late orders only (days_late > 0).',
+    orderMatters: false,
+    checkSql: `select count(*) as late_orders, sum(days_late) as total_days_late, max(days_late) as worst from orders where days_late > 0`,
+    solutions: [
+      {
+        approach: 'Generated column plus a partial index',
+        postgres: `alter table orders
+add column days_late integer
+generated always as (shipped_date::date - required_date::date) stored;
+
+create index orders_late_idx on orders (days_late) where days_late > 0;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation:
+          'Casting a timestamp (without time zone) to date is immutable, so it is allowed in a generated column; subtracting two dates gives whole days. The partial index holds only the 37 late orders, not all 830.',
+      },
+      {
+        approach: 'Generated column plus an ordinary index',
+        postgres: `alter table orders
+add column days_late integer
+generated always as (shipped_date::date - required_date::date) stored;
+
+create index orders_days_late_idx on orders (days_late);`,
+        mysql: `alter table orders
+add column days_late int
+generated always as (datediff(shipped_date, required_date)) stored;
+
+create index orders_days_late_idx on orders (days_late);`,
+        mysqlNote: 'DATEDIFF ignores the time part and is deterministic, so MySQL accepts it in a generated column.',
+        explanation: 'A full index on days_late also serves "days_late > 0" as a range scan; it just carries every order, including the NULLs of unshipped ones.',
+      },
+    ],
+    comparison: 'Same column, same answers (37 late orders, 236 days in total, 23 at worst). The partial index is smaller; the ordinary one works in both databases.',
+    docs: [
+      { label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' },
+      { label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' },
+    ],
+  },
+  {
+    id: 'northwind-077',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'A procedure that ships an order',
+    prompt:
+      'Write a procedure ship_order(p_order_id, p_date) that sets shipped_date, but raises an error if the order does not exist, is already shipped, or p_date is before the order date. Then ship order 11008 on 1998-05-01.',
+    orderMatters: false,
+    checkSql: `select order_id, shipped_date from orders where order_id = 11008`,
+    solutions: [
+      {
+        approach: 'Checks with IF, errors with RAISE / SIGNAL',
+        postgres: `create procedure ship_order(p_order_id int, p_date date)
+language plpgsql
+as $$
+declare
+  v_ordered timestamp;
+  v_shipped timestamp;
+begin
+  select order_date, shipped_date into v_ordered, v_shipped
+  from orders where order_id = p_order_id for update;
+
+  if not found then
+    raise exception 'order % does not exist', p_order_id;
+  elsif v_shipped is not null then
+    raise exception 'order % was already shipped on %', p_order_id, v_shipped::date;
+  elsif p_date < v_ordered::date then
+    raise exception 'order % cannot ship before it was placed', p_order_id;
+  end if;
+
+  update orders set shipped_date = p_date where order_id = p_order_id;
+end;
+$$;
+
+call ship_order(11008, '1998-05-01');`,
+        mysql: `create procedure ship_order(p_order_id int, p_date date)
+begin
+  declare v_ordered datetime;
+  declare v_shipped datetime;
+  declare v_found int;
+
+  select count(*), max(order_date), max(shipped_date) into v_found, v_ordered, v_shipped
+  from orders where order_id = p_order_id for update;
+
+  if v_found = 0 then
+    signal sqlstate '45000' set message_text = 'order does not exist';
+  elseif v_shipped is not null then
+    signal sqlstate '45000' set message_text = 'order was already shipped';
+  elseif p_date < date(v_ordered) then
+    signal sqlstate '45000' set message_text = 'order cannot ship before it was placed';
+  end if;
+
+  update orders set shipped_date = p_date where order_id = p_order_id;
+end;
+
+call ship_order(11008, '1998-05-01');`,
+        mysqlNote:
+          DELIMITER_NOTE +
+          ' MySQL has no FOUND: count(*) always returns one row, so it tells whether the order exists. SIGNAL cannot format values into the message the way RAISE does.',
+        explanation:
+          'An error stops the procedure and rolls back its statement, so a bad call changes nothing. Calling ship_order(11008, …) a second time would now fail with "already shipped".',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Errors and messages', url: PG + 'plpgsql-errors-and-messages.html' },
+      { label: 'MySQL: SIGNAL', url: MY + 'signal.html' },
+    ],
+  },
+  {
+    id: 'northwind-078',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['date-series', 'conditional-aggregates'],
+    title: 'Due, on time, late and open by month',
+    prompt:
+      'For every month from July 1996 to June 1998, by required_date: how many orders were due, how many shipped on time (on or before required_date), how many late, and how many are not shipped. Show the month as YYYY-MM.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Month series, LEFT JOIN, counts with FILTER',
+        postgres: `select to_char(m.month, 'YYYY-MM') as month,
+       count(o.order_id) as due,
+       count(*) filter (where o.shipped_date <= o.required_date) as on_time,
+       count(*) filter (where o.shipped_date > o.required_date) as late,
+       count(o.order_id) filter (where o.shipped_date is null) as not_shipped
+from generate_series('1996-07-01'::timestamp, '1998-06-01', interval '1 month') as m (month)
+left join orders o
+  on o.required_date >= m.month and o.required_date < m.month + interval '1 month'
+group by m.month
+order by m.month;`,
+        mysql: `with recursive months (month) as (
+  select cast('1996-07-01' as datetime)
+  union all
+  select month + interval 1 month from months where month < '1998-06-01'
+)
+select date_format(m.month, '%Y-%m') as month,
+       count(o.order_id) as due,
+       sum(case when o.shipped_date <= o.required_date then 1 else 0 end) as on_time,
+       sum(case when o.shipped_date > o.required_date then 1 else 0 end) as late,
+       sum(case when o.order_id is not null and o.shipped_date is null then 1 else 0 end) as not_shipped
+from months m
+left join orders o
+  on o.required_date >= m.month and o.required_date < m.month + interval 1 month
+group by m.month
+order by m.month;`,
+        mysqlNote: 'No generate_series or FILTER in MySQL: a recursive CTE makes the months and SUM(CASE …) does the counting.',
+        explanation:
+          'The series guarantees all 24 months appear. The open count must check that a joined order exists: in a month with no orders the LEFT JOIN row has every order column NULL, and "shipped_date is null" alone would count it as open.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' },
+      { label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' },
+    ],
+  },
+  {
+    id: 'northwind-079',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['limit'],
+    title: 'Top 11 prices, ties included',
+    prompt: 'Show the 11 most expensive products (product_name, unit_price), but if more products share the 11th price, include them too.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FETCH FIRST … WITH TIES',
+        postgres: `select product_name, unit_price
+from products
+order by unit_price desc
+fetch first 11 rows with ties;`,
+        mysql: null,
+        mysqlNote: 'MySQL has no WITH TIES; see solution B.',
+        explanation: 'WITH TIES keeps going past row 11 while the ORDER BY value is equal: 43.90 is shared by two products, so 12 rows come out. Ties after the cut are returned in no particular order unless the ORDER BY says more.',
+      },
+      {
+        approach: 'RANK() ≤ 11',
+        postgres: `select product_name, unit_price
+from (select product_name, unit_price, rank() over (order by unit_price desc) as r from products) ranked
+where r <= 11
+order by unit_price desc, product_name;`,
+        mysql: `select product_name, unit_price
+from (select product_name, unit_price, rank() over (order by unit_price desc) as r from products) ranked
+where r <= 11
+order by unit_price desc, product_name;`,
+        explanation: 'RANK gives equal prices the same number, so every product tied at rank 11 passes the filter.',
+      },
+    ],
+    comparison: 'Same 12 products. WITH TIES is shorter and stops early; RANK works everywhere.',
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
 ]

@@ -2156,4 +2156,153 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: Function volatility', url: PG + 'xfunc-volatility.html' }],
   },
+  {
+    id: 'delivery-060',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['temp-tables', 'text-aggregation'],
+    title: 'Customers to call about refunds',
+    prompt:
+      'Support wants to call customers with 3 or more refunded orders. Put them in a temporary table (customer_id, refunds), then list per customer city: how many there are and their names separated by ", " in customer id order.',
+    orderMatters: true,
+    checkSql: `select c.city, count(*) as customers, string_agg(c.name, ', ' order by c.id) as names
+from to_call t
+join customers c on c.id = t.customer_id
+group by c.city
+order by c.city`,
+    checkSqlMysql: `select c.city, count(*) as customers, group_concat(c.name order by c.id separator ', ') as names
+from to_call t
+join customers c on c.id = t.customer_id
+group by c.city
+order by c.city`,
+    solutions: [
+      {
+        approach: 'CREATE TEMPORARY TABLE … AS',
+        postgres: `create temporary table to_call as
+select customer_id, count(*) as refunds
+from orders
+where status = 'refunded'
+group by customer_id
+having count(*) >= 3;`,
+        mysql: `create temporary table to_call as
+select customer_id, count(*) as refunds
+from orders
+where status = 'refunded'
+group by customer_id
+having count(*) >= 3;`,
+        explanation:
+          'The temp table holds the 32 customers once; the per-city list (and any follow-up, such as their latest orders) reads from it instead of re-scanning 200,000 orders. It disappears when the session ends and other sessions never see it.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' },
+      { label: 'MySQL: GROUP_CONCAT', url: MY + 'aggregate-functions.html#function_group-concat' },
+    ],
+  },
+  {
+    id: 'delivery-061',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'One partition per status',
+    prompt:
+      'Most queries read only delivered orders. Create orders_by_status with the columns of orders, list-partitioned by status (delivered, cancelled, refunded), and copy the orders into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'orders_by_status'::regclass) as partitions,
+       (select count(*) from orders_by_status) as total_rows,
+       (select count(*) from orders_by_status where status = 'refunded') as refunded`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'orders_by_status') as partitions,
+       (select count(*) from orders_by_status) as total_rows,
+       (select count(*) from orders_by_status where status = 'refunded') as refunded`,
+    solutions: [
+      {
+        approach: 'LIST partitioning',
+        postgres: `create table orders_by_status (
+  id            integer       not null,
+  customer_id   integer       not null,
+  restaurant_id integer       not null,
+  total         numeric(8, 2) not null,
+  status        text          not null,
+  created_at    timestamp     not null,
+  primary key (id, status)
+) partition by list (status);
+
+create table orders_delivered partition of orders_by_status for values in ('delivered');
+create table orders_cancelled partition of orders_by_status for values in ('cancelled');
+create table orders_refunded  partition of orders_by_status for values in ('refunded');
+
+insert into orders_by_status select * from orders;`,
+        mysql: `create table orders_by_status (
+  id            int           not null,
+  customer_id   int           not null,
+  restaurant_id int           not null,
+  total         decimal(8, 2) not null,
+  status        varchar(10)   not null,
+  created_at    datetime      not null,
+  primary key (id, status)
+)
+partition by list columns (status) (
+  partition p_delivered values in ('delivered'),
+  partition p_cancelled values in ('cancelled'),
+  partition p_refunded  values in ('refunded')
+);
+
+insert into orders_by_status select * from orders;`,
+        mysqlNote: 'Plain LIST needs integers; LIST COLUMNS accepts strings. MySQL partitioned tables cannot have foreign keys.',
+        explanation:
+          'A query with "status = \'delivered\'" reads only that partition. A new status would fail to insert until it has a partition (or, in PostgreSQL, a DEFAULT partition catches everything else). When an order changes status, the row moves between partitions automatically.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: LIST COLUMNS partitioning', url: MY + 'partitioning-columns-list.html' },
+    ],
+  },
+  {
+    id: 'delivery-062',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['materialized-views', 'joins'],
+    title: 'Revenue by city and cuisine, stored',
+    prompt:
+      'Store delivered revenue per restaurant city and cuisine (city, cuisine, orders, revenue) so the management report does not scan all orders each time, and make it refreshable without blocking readers.',
+    orderMatters: true,
+    checkSql: `select city, cuisine, orders, revenue from city_cuisine_revenue where city = 'Tel Aviv' order by revenue desc`,
+    solutions: [
+      {
+        approach: 'Materialized view with a unique index',
+        postgres: `create materialized view city_cuisine_revenue as
+select r.city, r.cuisine, count(*) as orders, sum(o.total) as revenue
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered'
+group by r.city, r.cuisine;
+
+create unique index city_cuisine_revenue_key on city_cuisine_revenue (city, cuisine);
+-- later: refresh materialized view concurrently city_cuisine_revenue;`,
+        mysql: `create table city_cuisine_revenue (
+  city    varchar(20),
+  cuisine varchar(20),
+  orders  int,
+  revenue decimal(14, 2),
+  primary key (city, cuisine)
+);
+
+replace into city_cuisine_revenue
+select r.city, r.cuisine, count(*), sum(o.total)
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered'
+group by r.city, r.cuisine;`,
+        mysqlNote: 'No materialized views: a table filled by REPLACE INTO, re-run on a schedule. A combination that disappears would stay in the table unless it is deleted first.',
+        explanation:
+          'At most 30 stored rows instead of a join over 200,000 orders. REFRESH … CONCURRENTLY needs a unique index without a WHERE clause; it compares old and new contents and changes only what differs, so reports keep reading during the refresh.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' },
+      { label: 'PostgreSQL: REFRESH MATERIALIZED VIEW', url: PG + 'sql-refreshmaterializedview.html' },
+    ],
+  },
 ]

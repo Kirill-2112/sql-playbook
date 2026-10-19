@@ -2580,4 +2580,152 @@ group by y, t.title;`,
     ],
     docs: [{ label: 'PostgreSQL: Materialized views', url: PG + 'rules-materializedviews.html' }],
   },
+  {
+    id: 'employees-069',
+    dataset: 'employees',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Lock the salary, not the employee',
+    prompt:
+      'Give employee 10500 a 5% raise from 2002-08-01. Read the name and current salary in one join, but lock only the salary row (other sessions may still lock the employee row). Then close the current salary and insert the new one. In PostgreSQL you are already inside a transaction.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    checkSql: `select salary, from_date, to_date from salaries where emp_no = 10500 and from_date >= '2001-01-01' order by from_date`,
+    solutions: [
+      {
+        approach: 'FOR UPDATE OF one table',
+        postgres: `select e.first_name, e.last_name, s.salary
+from employees e
+join salaries s on s.emp_no = e.emp_no
+where e.emp_no = 10500 and s.to_date = '9999-01-01'
+for update of s;
+
+update salaries set to_date = '2002-08-01'
+where emp_no = 10500 and to_date = '9999-01-01';
+
+insert into salaries (emp_no, salary, from_date, to_date)
+select emp_no, round(salary * 1.05), '2002-08-01', '9999-01-01'
+from salaries
+where emp_no = 10500 and to_date = '2002-08-01';`,
+        mysql: `start transaction;
+
+select e.first_name, e.last_name, s.salary
+from employees e
+join salaries s on s.emp_no = e.emp_no
+where e.emp_no = 10500 and s.to_date = '9999-01-01'
+for update of s;
+
+update salaries set to_date = '2002-08-01'
+where emp_no = 10500 and to_date = '9999-01-01';
+
+insert into salaries (emp_no, salary, from_date, to_date)
+select emp_no, round(salary * 1.05), '2002-08-01', '9999-01-01'
+from salaries
+where emp_no = 10500 and to_date = '2002-08-01';
+
+commit;`,
+        mysqlNote: 'FOR UPDATE OF exists since MySQL 8.0 and names the table by its alias, as in PostgreSQL.',
+        explanation:
+          'A plain FOR UPDATE on a join locks the matching rows of every table in it. OF s narrows it to the salary row, so an unrelated change to the employee (say, a new last name) is not blocked. 54,628 × 1.05 rounds to 57,359.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: The locking clause', url: PG + 'sql-select.html#SQL-FOR-UPDATE-SHARE' },
+      { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
+    ],
+  },
+  {
+    id: 'employees-070',
+    dataset: 'employees',
+    level: 5,
+    topics: ['procedures', 'transactions'],
+    title: 'A procedure for promotions',
+    prompt:
+      'Write a procedure promote(p_emp_no, p_title, p_raise_pct, p_date) that closes the employee\'s current title and salary on p_date and starts the new title and the raised salary from p_date. Promote 10450 to Senior Engineer with 10% on 2002-08-01.',
+    hint: CURRENT_NOTE,
+    orderMatters: false,
+    checkSql: `select (select title from titles where emp_no = 10450 and to_date = '9999-01-01') as current_title,
+       (select salary from salaries where emp_no = 10450 and to_date = '9999-01-01') as current_salary,
+       (select count(*) from titles where emp_no = 10450 and to_date = '2002-08-01') as closed_titles,
+       (select count(*) from salaries where emp_no = 10450 and to_date = '2002-08-01') as closed_salaries`,
+    solutions: [
+      {
+        approach: 'Four statements in one procedure',
+        postgres: `create procedure promote(p_emp_no int, p_title varchar, p_raise_pct numeric, p_date date)
+language plpgsql
+as $$
+begin
+  update titles set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  insert into titles (emp_no, title, from_date, to_date) values (p_emp_no, p_title, p_date, '9999-01-01');
+
+  update salaries set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  insert into salaries (emp_no, salary, from_date, to_date)
+  select emp_no, round(salary * (1 + p_raise_pct / 100)), p_date, '9999-01-01'
+  from salaries where emp_no = p_emp_no and to_date = p_date;
+end;
+$$;
+
+call promote(10450, 'Senior Engineer', 10, '2002-08-01');`,
+        mysql: `create procedure promote(p_emp_no int, p_title varchar(50), p_raise_pct decimal(5, 2), p_date date)
+begin
+  update titles set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  insert into titles (emp_no, title, from_date, to_date) values (p_emp_no, p_title, p_date, '9999-01-01');
+
+  update salaries set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  insert into salaries (emp_no, salary, from_date, to_date)
+  select emp_no, round(salary * (1 + p_raise_pct / 100)), p_date, '9999-01-01'
+  from salaries where emp_no = p_emp_no and to_date = p_date;
+end;
+
+call promote(10450, 'Senior Engineer', 10, '2002-08-01');`,
+        mysqlNote: DELIMITER_NOTE + ' MySQL parameters need a length: varchar(50), not just varchar.',
+        explanation:
+          'Callers now cannot forget one of the four steps. In PostgreSQL a CALL runs inside one transaction, so if the insert fails the closing updates are undone too; in MySQL with autocommit each statement commits separately, so a careful version wraps the body in START TRANSACTION … COMMIT. 50,217 × 1.1 rounds to 55,239.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' },
+      { label: 'MySQL: CREATE PROCEDURE', url: MY + 'create-procedure.html' },
+    ],
+  },
+  {
+    id: 'employees-071',
+    dataset: 'employees',
+    level: 3,
+    topics: ['pivot', 'conditional-aggregates'],
+    title: 'Pay by gender in each department',
+    prompt:
+      'For each department: the average current salary of men, of women (rounded to whole numbers), and the difference men minus women. One row per department, ordered by dept_no.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'AVG with FILTER / CASE',
+        postgres: `select d.dept_no, d.dept_name,
+       round(avg(s.salary) filter (where e.gender = 'M')) as men,
+       round(avg(s.salary) filter (where e.gender = 'F')) as women,
+       round(avg(s.salary) filter (where e.gender = 'M')) - round(avg(s.salary) filter (where e.gender = 'F')) as difference
+from departments d
+join dept_emp de on de.dept_no = d.dept_no and de.to_date = '9999-01-01'
+join employees e on e.emp_no = de.emp_no
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+group by d.dept_no, d.dept_name
+order by d.dept_no;`,
+        mysql: `select d.dept_no, d.dept_name,
+       round(avg(case when e.gender = 'M' then s.salary end)) as men,
+       round(avg(case when e.gender = 'F' then s.salary end)) as women,
+       round(avg(case when e.gender = 'M' then s.salary end)) - round(avg(case when e.gender = 'F' then s.salary end)) as difference
+from departments d
+join dept_emp de on de.dept_no = d.dept_no and de.to_date = '9999-01-01'
+join employees e on e.emp_no = de.emp_no
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+group by d.dept_no, d.dept_name
+order by d.dept_no;`,
+        mysqlNote: 'No FILTER: CASE without ELSE gives NULL for the other gender, and AVG skips NULLs.',
+        explanation:
+          'Each column averages a different subset of the same group: that is the pivot. Averages per department hide differences in title and seniority, so a gap here is a question to look into, not a conclusion.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
 ]

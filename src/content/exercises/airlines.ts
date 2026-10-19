@@ -2914,4 +2914,235 @@ from (
     comparison: 'Same counts.',
     docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
   },
+  {
+    id: 'airlines-073',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Flights split by month',
+    prompt:
+      'Create flights_by_month with the same columns as flights, range-partitioned by scheduled_departure into one partition per month from October 2025 to January 2026, and copy all flights into it.',
+    hint: UTC_NOTE,
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'flights_by_month'::regclass) as partitions,
+       (select count(*) from flights_by_month) as total_rows,
+       (select count(*) from flights_by_month where scheduled_departure >= '2025-12-01' and scheduled_departure < '2026-01-01') as december`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'flights_by_month') as partitions,
+       (select count(*) from flights_by_month) as total_rows,
+       (select count(*) from flights_by_month where scheduled_departure >= '2025-12-01' and scheduled_departure < '2026-01-01') as december`,
+    solutions: [
+      {
+        approach: 'Monthly range partitions',
+        postgres: `create table flights_by_month (
+  flight_id           integer     not null,
+  route_no            varchar(6)  not null,
+  status              varchar(10) not null,
+  scheduled_departure timestamptz not null,
+  scheduled_arrival   timestamptz not null,
+  actual_departure    timestamptz,
+  actual_arrival      timestamptz,
+  primary key (flight_id, scheduled_departure)
+) partition by range (scheduled_departure);
+
+create table flights_2025_10 partition of flights_by_month for values from ('2025-10-01') to ('2025-11-01');
+create table flights_2025_11 partition of flights_by_month for values from ('2025-11-01') to ('2025-12-01');
+create table flights_2025_12 partition of flights_by_month for values from ('2025-12-01') to ('2026-01-01');
+create table flights_2026_01 partition of flights_by_month for values from ('2026-01-01') to ('2026-02-01');
+
+insert into flights_by_month select * from flights;`,
+        mysql: `create table flights_by_month (
+  flight_id           int         not null,
+  route_no            varchar(6)  not null,
+  status              varchar(10) not null,
+  scheduled_departure datetime    not null,
+  scheduled_arrival   datetime    not null,
+  actual_departure    datetime,
+  actual_arrival      datetime,
+  primary key (flight_id, scheduled_departure)
+)
+partition by range columns (scheduled_departure) (
+  partition p2025_10 values less than ('2025-11-01'),
+  partition p2025_11 values less than ('2025-12-01'),
+  partition p2025_12 values less than ('2026-01-01'),
+  partition p2026_01 values less than ('2026-02-01')
+);
+
+insert into flights_by_month select * from flights;`,
+        mysqlNote: 'MySQL lists each partition by its upper bound only; the lower bound is the previous partition\'s.',
+        explanation:
+          'The primary key must contain the partition key, hence (flight_id, scheduled_departure). With a timestamptz key the bounds are moments: here they are read in the session time zone, UTC. Dropping a finished month later is just DROP TABLE flights_2025_10 (or ALTER TABLE … DROP PARTITION), with no DELETE.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: RANGE COLUMNS partitioning', url: MY + 'partitioning-columns-range.html' },
+    ],
+  },
+  {
+    id: 'airlines-074',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['recursive', 'arrays'],
+    title: 'Fewest changes to Okinawa',
+    prompt:
+      'Find every route from SVX (Yekaterinburg) to OKA (Okinawa) with the fewest flights, never visiting an airport twice. Show the path as text like SVX > WUH > HND > OKA and the number of changes. Ignore dates: any route that exists in routes counts.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE carrying the path as an array',
+        postgres: `with recursive legs as (
+  select distinct departure_airport as a, arrival_airport as b from routes
+),
+paths (last_stop, path) as (
+  select b, array[a, b]::text[] from legs where a = 'SVX'
+  union all
+  select l.b, p.path || l.b::text
+  from paths p
+  join legs l on l.a = p.last_stop
+  where l.b <> all (p.path) and cardinality(p.path) < 4
+)
+select array_to_string(path, ' > ') as path, cardinality(path) - 2 as changes
+from paths
+where last_stop = 'OKA'
+  and cardinality(path) = (select min(cardinality(path)) from paths where last_stop = 'OKA')
+order by path;`,
+        mysql: `with recursive legs as (
+  select distinct departure_airport as a, arrival_airport as b from routes
+),
+paths (last_stop, path, stops) as (
+  select b, cast(concat(a, ' > ', b) as char(200)) collate utf8mb4_0900_ai_ci, 2 from legs where a = 'SVX'
+  union all
+  select l.b, concat(p.path, ' > ', l.b), p.stops + 1
+  from paths p
+  join legs l on l.a = p.last_stop
+  where find_in_set(l.b, replace(p.path, ' > ', ',')) = 0 and p.stops < 4
+)
+select path, stops - 2 as changes
+from paths
+where last_stop = 'OKA'
+  and stops = (select min(stops) from paths where last_stop = 'OKA')
+order by path;`,
+        mysqlNote:
+          'No arrays in MySQL: the path is a string, and FIND_IN_SET checks whether an airport is already on it. The anchor CASTs the string wide enough, because a recursive CTE takes its column types from the anchor row; CAST also gives it the connection\'s collation, so COLLATE sets it back to the table\'s for FIND_IN_SET.',
+        explanation:
+          'The anchor casts the array to text[] so both halves of the recursion have the same type. "<> ALL (path)" keeps the walk from going in circles. The depth limit (at most 4 airports, two changes) keeps the search small; without it every acyclic path in the network would be explored. Two routes come out, both via Wuhan.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' },
+      { label: 'PostgreSQL: Array functions', url: PG + 'functions-array.html' },
+    ],
+  },
+  {
+    id: 'airlines-075',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['views', 'joins'],
+    title: 'An itinerary view',
+    prompt:
+      'Create a view itinerary with ticket_no, passenger_name, flight_id, departure_airport, arrival_airport, scheduled_departure, fare_conditions and price: one row per flight of a ticket. Then the itinerary of ticket 0005432006945 is a plain query on it.',
+    hint: VALIDITY_NOTE,
+    orderMatters: true,
+    checkSql: `select flight_id, departure_airport, arrival_airport, fare_conditions, price
+from itinerary
+where ticket_no = '0005432006945'
+order by scheduled_departure`,
+    solutions: [
+      {
+        approach: 'View over tickets, segments, flights and routes',
+        postgres: `create view itinerary as
+select t.ticket_no, t.passenger_name, f.flight_id, r.departure_airport, r.arrival_airport,
+       f.scheduled_departure, s.fare_conditions, s.price
+from tickets t
+join segments s on s.ticket_no = t.ticket_no
+join flights f on f.flight_id = s.flight_id
+${ROUTE_JOIN};`,
+        mysql: `create view itinerary as
+select t.ticket_no, t.passenger_name, f.flight_id, r.departure_airport, r.arrival_airport,
+       f.scheduled_departure, s.fare_conditions, s.price
+from tickets t
+join segments s on s.ticket_no = t.ticket_no
+join flights f on f.flight_id = s.flight_id
+${ROUTE_JOIN};`,
+        explanation:
+          'Four tables and the period join are written once. A WHERE on the view is pushed down into the joins, so asking for one ticket still uses the ticket indexes instead of building the whole view.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' },
+      { label: 'MySQL: CREATE VIEW', url: MY + 'create-view.html' },
+    ],
+  },
+  {
+    id: 'airlines-076',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['generated-columns', 'indexes'],
+    title: 'A searchable last name',
+    prompt:
+      'Add a stored generated column last_name to tickets holding the last word of passenger_name, and index it. Then: which 5 last names are the most common?',
+    orderMatters: true,
+    checkSql: `select last_name, count(*) as tickets from tickets group by last_name order by tickets desc, last_name limit 5`,
+    solutions: [
+      {
+        approach: 'Generated column with split_part / substring_index',
+        postgres: `alter table tickets
+add column last_name varchar(50)
+generated always as (split_part(passenger_name, ' ', -1)) stored;
+
+create index tickets_last_name_idx on tickets (last_name);`,
+        mysql: `alter table tickets
+add column last_name varchar(50)
+generated always as (substring_index(passenger_name, ' ', -1)) stored;
+
+create index tickets_last_name_idx on tickets (last_name);`,
+        mysqlNote: 'substring_index(text, \' \', -1) returns everything after the last space.',
+        explanation:
+          'A negative field number in split_part counts from the end (PostgreSQL 14+). The rule "last word" is simple but not always right: for Benoît Le Goff it gives Goff. Names are hard; a real system would store the parts separately.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: String functions', url: PG + 'functions-string.html' },
+      { label: 'MySQL: SUBSTRING_INDEX', url: MY + 'string-functions.html#function_substring-index' },
+    ],
+  },
+  {
+    id: 'airlines-077',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for business class only',
+    prompt:
+      'The lounge screen asks, for one flight at a time, which tickets are in Business. Create an index on segments that holds only Business segments.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'segments' and indexdef like '%fare_conditions%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'segments' and column_name = 'fare_conditions'`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index segments_business_idx on segments (flight_id) include (ticket_no)
+where fare_conditions = 'Business';
+
+-- used by: select ticket_no from segments where flight_id = 4321 and fare_conditions = 'Business'`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation:
+          'Business is 2,080 of 19,446 segments, so the index is about a ninth of a full one. INCLUDE adds ticket_no to the leaf entries, so the query can be answered from the index alone.',
+      },
+      {
+        approach: 'Composite index with the fare class first',
+        postgres: `create index segments_fare_flight_idx on segments (fare_conditions, flight_id, ticket_no);`,
+        mysql: `create index segments_fare_flight_idx on segments (fare_conditions, flight_id, ticket_no);`,
+        explanation: 'With fare_conditions leading, Business rows for one flight sit together in the index. Adding ticket_no makes it covering, the MySQL way of getting what INCLUDE gives.',
+      },
+    ],
+    comparison: 'Both answer the lounge query from the index. The partial one is much smaller; the composite one also serves Economy and Comfort.',
+    docs: [
+      { label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' },
+      { label: 'PostgreSQL: Index-only scans', url: PG + 'indexes-index-only-scans.html' },
+    ],
+  },
 ]

@@ -1416,4 +1416,76 @@ group by speed;`,
     ],
     docs: [{ label: 'PostgreSQL: CASE', url: PG + 'functions-conditional.html#FUNCTIONS-CASE' }],
   },
+  {
+    id: 'northwind-070',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['select-basics'],
+    title: 'Out of stock',
+    prompt: 'List the products with no units in stock: product_id, product_name, units_on_order and whether they are discontinued.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Equality filter',
+        postgres: `select product_id, product_name, units_on_order, discontinued
+from products
+where units_in_stock = 0
+order by product_id;`,
+        mysql: `select product_id, product_name, units_on_order, discontinued
+from products
+where units_in_stock = 0
+order by product_id;`,
+        explanation: 'Discontinued products with no stock are fine; active ones with nothing on order need a buyer\'s attention.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WHERE', url: PG + 'queries-table-expressions.html#QUERIES-WHERE' }],
+  },
+  {
+    id: 'northwind-071',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['arrays', 'self-cross-join'],
+    title: 'Orders with products in common',
+    prompt: 'For orders 10248 to 10260, find the pairs of different orders that share at least one product: both order ids and the shared product ids as an array.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Product arrays and the overlap operator',
+        postgres: `with prods as (
+  select order_id, array_agg(product_id order by product_id) as products
+  from order_details
+  where order_id between 10248 and 10260
+  group by order_id
+)
+select a.order_id as order_1, b.order_id as order_2,
+       array(select unnest(a.products) intersect select unnest(b.products) order by 1) as shared
+from prods a
+join prods b on b.order_id > a.order_id and a.products && b.products
+order by order_1, order_2;`,
+        mysql: null,
+        mysqlNote: 'MySQL has no arrays; see solution B.',
+        explanation: '&& means "the arrays have at least one element in common"; the shared elements come from INTERSECT over the two unnested arrays.',
+      },
+      {
+        approach: 'Self join on order lines',
+        postgres: `select a.order_id as order_1, b.order_id as order_2,
+       array_agg(a.product_id order by a.product_id) as shared
+from order_details a
+join order_details b on b.product_id = a.product_id and b.order_id > a.order_id
+where a.order_id between 10248 and 10260 and b.order_id between 10248 and 10260
+group by a.order_id, b.order_id
+order by order_1, order_2;`,
+        mysql: `select a.order_id as order_1, b.order_id as order_2,
+       cast(concat('[', group_concat(a.product_id order by a.product_id), ']') as json) as shared
+from order_details a
+join order_details b on b.product_id = a.product_id and b.order_id > a.order_id
+where a.order_id between 10248 and 10260 and b.order_id between 10248 and 10260
+group by a.order_id, b.order_id
+order by order_1, order_2;`,
+        explanation: 'Joining order lines on the product gives one row per shared product; grouping by the order pair collects them.',
+      },
+    ],
+    comparison: 'Same pairs. The array version reads like the question; the self join is the relational way and works in MySQL with a JSON array.',
+    docs: [{ label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' }],
+  },
 ]

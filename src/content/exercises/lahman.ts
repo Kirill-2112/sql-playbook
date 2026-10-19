@@ -2304,4 +2304,94 @@ from (
     comparison: 'Same counts.',
     docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
   },
+  {
+    id: 'lahman-064',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['upsert'],
+    title: 'Keep the best single season',
+    prompt:
+      'Create best_hr (player_id primary key, year_id, hr). Load 2024 season totals for players with 40+ home runs, then load 2025 the same way, keeping for each player only their better season.',
+    orderMatters: true,
+    checkSql: `select player_id, year_id, hr from best_hr order by hr desc, player_id limit 8`,
+    solutions: [
+      {
+        approach: 'Conditional upsert',
+        postgres: `create table best_hr (player_id varchar(9) primary key, year_id smallint not null, hr smallint not null);
+
+insert into best_hr
+select player_id, 2024, sum(hr) from batting where year_id = 2024 group by player_id having sum(hr) >= 40
+on conflict (player_id) do update set year_id = excluded.year_id, hr = excluded.hr where excluded.hr > best_hr.hr;
+
+insert into best_hr
+select player_id, 2025, sum(hr) from batting where year_id = 2025 group by player_id having sum(hr) >= 40
+on conflict (player_id) do update set year_id = excluded.year_id, hr = excluded.hr where excluded.hr > best_hr.hr;`,
+        mysql: `create table best_hr (player_id varchar(9) primary key, year_id smallint not null, hr smallint not null);
+
+insert into best_hr
+select * from (select player_id, 2024 as year_id, sum(hr) as hr from batting where year_id = 2024 group by player_id having sum(hr) >= 40) as new
+on duplicate key update year_id = if(new.hr > best_hr.hr, new.year_id, best_hr.year_id), hr = greatest(best_hr.hr, new.hr);
+
+insert into best_hr
+select * from (select player_id, 2025 as year_id, sum(hr) as hr from batting where year_id = 2025 group by player_id having sum(hr) >= 40) as new
+on duplicate key update year_id = if(new.hr > best_hr.hr, new.year_id, best_hr.year_id), hr = greatest(best_hr.hr, new.hr);`,
+        mysqlNote: 'No WHERE on ON DUPLICATE KEY UPDATE: decide each column with IF/GREATEST. year_id is set first, while best_hr.hr still holds the old value; MySQL applies the assignments left to right.',
+        explanation: 'The WHERE of DO UPDATE keeps the old row unless the new season is better, so the table always holds each player\'s best season.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT … WHERE', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'lahman-065',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['views', 'numbers'],
+    title: 'Team seasons with percentages',
+    prompt: 'Create a view team_seasons (year_id, team_id, name, w, l, pct, run_diff) with pct = w / (w + l) to 3 decimals and run_diff = runs scored − runs allowed.',
+    orderMatters: true,
+    checkSql: `select year_id, team_id, pct, run_diff from team_seasons where year_id = 2025 order by run_diff desc, team_id limit 5`,
+    solutions: [
+      {
+        approach: 'View with computed columns',
+        postgres: `create view team_seasons as
+select year_id, team_id, name, w, l,
+       round(w::numeric / nullif(w + l, 0), 3) as pct,
+       r - ra as run_diff
+from teams;`,
+        mysql: `create view team_seasons as
+select year_id, team_id, name, w, l,
+       round(w / nullif(w + l, 0), 3) as pct,
+       r - ra as run_diff
+from teams;`,
+        explanation: 'Every report that needs a winning percentage now gets the same formula, including the cast that avoids integer division and the nullif that protects against 0 games.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'lahman-066',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['window-frames'],
+    title: 'A five-season average of home runs',
+    prompt: 'For the Yankees (franch_id NYY) from 1990, show each season\'s team home runs and the average over that season and the four before it (1 decimal).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROWS BETWEEN 4 PRECEDING',
+        postgres: `select year_id, hr, avg_5
+from (select year_id, hr, round(avg(hr) over (order by year_id rows between 4 preceding and current row), 1) as avg_5
+      from teams where franch_id = 'NYY' and year_id >= 1986) t
+where year_id >= 1990
+order by year_id;`,
+        mysql: `select year_id, hr, avg_5
+from (select year_id, hr, round(avg(hr) over (order by year_id rows between 4 preceding and current row), 1) as avg_5
+      from teams where franch_id = 'NYY' and year_id >= 1986) t
+where year_id >= 1990
+order by year_id;`,
+        explanation: 'The inner query starts in 1986 so that 1990 already has four seasons before it; filtering 1990+ happens after the window is computed. 1994 and 2020 were short seasons and pull the average down.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
 ]

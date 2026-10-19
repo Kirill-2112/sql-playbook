@@ -2000,4 +2000,102 @@ order by h;`,
     comparison: 'Same 24 rows.',
     docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
   },
+  {
+    id: 'delivery-055',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['select-basics'],
+    title: 'Restaurants in Haifa',
+    prompt: 'List the restaurants in Haifa: id, name and cuisine, ordered by id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Filter on city',
+        postgres: `select id, name, cuisine
+from restaurants
+where city = 'Haifa'
+order by id;`,
+        mysql: `select id, name, cuisine
+from restaurants
+where city = 'Haifa'
+order by id;`,
+        explanation: 'A plain filter. Text comparison is case-sensitive in PostgreSQL ("haifa" would match nothing) and case-insensitive with MySQL\'s default collation.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WHERE', url: PG + 'queries-table-expressions.html#QUERIES-WHERE' }],
+  },
+  {
+    id: 'delivery-056',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['normalization', 'constraints'],
+    title: 'Statuses as a lookup table',
+    prompt:
+      'Replace free-text statuses with a lookup: create order_statuses (code primary key, label), fill it with the three statuses, and add a foreign key from orders.status to it.',
+    orderMatters: true,
+    checkSql: `select s.code, s.label, count(o.id) as orders
+from order_statuses s left join orders o on o.status = s.code
+group by s.code, s.label order by s.code`,
+    solutions: [
+      {
+        approach: 'Lookup table + foreign key',
+        postgres: `create table order_statuses (code text primary key, label text not null);
+insert into order_statuses values ('cancelled', 'Cancelled'), ('delivered', 'Delivered'), ('refunded', 'Refunded');
+
+alter table orders add constraint orders_status_fkey foreign key (status) references order_statuses (code);`,
+        mysql: `create table order_statuses (code varchar(10) primary key, label varchar(20) not null);
+insert into order_statuses values ('cancelled', 'Cancelled'), ('delivered', 'Delivered'), ('refunded', 'Refunded');
+
+alter table orders add constraint orders_status_fkey foreign key (status) references order_statuses (code);`,
+        mysqlNote: 'The foreign key needs an index on orders.status; InnoDB creates one automatically.',
+        explanation:
+          'Compared with a CHECK, a lookup table can hold more about each status (a label, a sort order, whether it counts as revenue) and grow without ALTER TABLE. Adding the foreign key validates all 200,000 existing orders first.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Foreign keys', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-FK' }],
+  },
+  {
+    id: 'delivery-057',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['upsert', 'aggregates'],
+    title: 'Load daily stats twice, safely',
+    prompt:
+      'Create daily_stats (day primary key, orders, revenue). Load the delivered totals of 2025-03-01 and 2025-03-02 into it with one statement, then run the same statement again: the second run must update, not duplicate or fail.',
+    orderMatters: true,
+    checkSql: `select day, orders, revenue from daily_stats order by day`,
+    solutions: [
+      {
+        approach: 'INSERT … SELECT with ON CONFLICT',
+        postgres: `create table daily_stats (day date primary key, orders integer not null, revenue numeric(12, 2) not null);
+
+insert into daily_stats
+select created_at::date, count(*), sum(total) from orders
+where status = 'delivered' and created_at >= '2025-03-01' and created_at < '2025-03-03'
+group by created_at::date
+on conflict (day) do update set orders = excluded.orders, revenue = excluded.revenue;
+
+insert into daily_stats
+select created_at::date, count(*), sum(total) from orders
+where status = 'delivered' and created_at >= '2025-03-01' and created_at < '2025-03-03'
+group by created_at::date
+on conflict (day) do update set orders = excluded.orders, revenue = excluded.revenue;`,
+        mysql: `create table daily_stats (day date primary key, orders int not null, revenue decimal(12, 2) not null);
+
+insert into daily_stats
+select * from (select date(created_at) as day, count(*) as orders, sum(total) as revenue from orders
+               where status = 'delivered' and created_at >= '2025-03-01' and created_at < '2025-03-03'
+               group by date(created_at)) as new
+on duplicate key update orders = new.orders, revenue = new.revenue;
+
+insert into daily_stats
+select * from (select date(created_at) as day, count(*) as orders, sum(total) as revenue from orders
+               where status = 'delivered' and created_at >= '2025-03-01' and created_at < '2025-03-03'
+               group by date(created_at)) as new
+on duplicate key update orders = new.orders, revenue = new.revenue;`,
+        explanation: 'An idempotent load: running the job again (after a crash, or by accident) gives the same table. That property makes scheduled jobs safe to retry.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: INSERT … ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
 ]

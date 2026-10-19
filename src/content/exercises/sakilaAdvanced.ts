@@ -1996,4 +1996,113 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: PL/pgSQL', url: PG + 'plpgsql.html' }],
   },
+  {
+    id: 'sakila-078',
+    dataset: 'sakila',
+    level: 1,
+    topics: ['select-basics'],
+    title: 'Long R-rated films',
+    prompt: 'List the R-rated films longer than 3 hours: title and length, longest first (ties by title).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Two conditions',
+        postgres: `select title, length
+from film
+where rating = 'R' and length > 180
+order by length desc, title;`,
+        mysql: `select title, length
+from film
+where rating = 'R' and length > 180
+order by length desc, title;`,
+        explanation: 'Sakila titles are upper-case ASCII, so ordering by title is the same in both databases here.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ORDER BY', url: PG + 'queries-order.html' }],
+  },
+  {
+    id: 'sakila-079',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Move a copy to the other store',
+    prompt:
+      'Move inventory copy 1 from store 1 to store 2, but only if it is not rented out at the moment; lock the copy first so it cannot be rented meanwhile. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select inventory_id, store_id from inventory where inventory_id = 1`,
+    solutions: [
+      {
+        approach: 'Lock, check, update',
+        postgres: `select inventory_id from inventory where inventory_id = 1 for update;
+
+update inventory set store_id = 2
+where inventory_id = 1
+  and not exists (select 1 from rental where inventory_id = 1 and return_date is null);`,
+        mysql: `start transaction;
+
+select inventory_id from inventory where inventory_id = 1 for update;
+
+update inventory set store_id = 2
+where inventory_id = 1
+  and not exists (select 1 from rental where inventory_id = 1 and return_date is null);
+
+commit;`,
+        explanation:
+          'A clerk renting the copy has to lock it too (or insert a rental referencing it, which takes a key share lock), so check and move happen without anyone slipping in between. Copy 1 is in the store, so it moves.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Row-level locks', url: PG + 'explicit-locking.html#LOCKING-ROWS' }],
+  },
+  {
+    id: 'sakila-080',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Customers split by store',
+    prompt: 'Create customer_by_store (customer_id, store_id, first_name, last_name, email, active) list-partitioned by store_id (1 and 2) and copy the customers into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'customer_by_store'::regclass) as partitions,
+       (select count(*) from customer_by_store) as total_rows,
+       (select count(*) from customer_by_store where store_id = 1) as store_1`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'customer_by_store') as partitions,
+       (select count(*) from customer_by_store) as total_rows,
+       (select count(*) from customer_by_store where store_id = 1) as store_1`,
+    solutions: [
+      {
+        approach: 'LIST by store',
+        postgres: `create table customer_by_store (
+  customer_id integer not null,
+  store_id    integer not null,
+  first_name  varchar(45) not null,
+  last_name   varchar(45) not null,
+  email       varchar(50),
+  active      smallint not null,
+  primary key (customer_id, store_id)
+) partition by list (store_id);
+
+create table customer_store_1 partition of customer_by_store for values in (1);
+create table customer_store_2 partition of customer_by_store for values in (2);
+
+insert into customer_by_store select customer_id, store_id, first_name, last_name, email, active from customer;`,
+        mysql: `create table customer_by_store (
+  customer_id int not null,
+  store_id    int not null,
+  first_name  varchar(45) not null,
+  last_name   varchar(45) not null,
+  email       varchar(50),
+  active      tinyint not null,
+  primary key (customer_id, store_id)
+)
+partition by list (store_id) (
+  partition p_store_1 values in (1),
+  partition p_store_2 values in (2)
+);
+
+insert into customer_by_store select customer_id, store_id, first_name, last_name, email, active from customer;`,
+        explanation: 'Each store\'s customers sit in their own partition: queries for one store read one partition, and a third store is one more partition.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
+  },
 ]

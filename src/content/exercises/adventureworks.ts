@@ -2451,4 +2451,162 @@ limit 20 offset 40;`,
       { label: 'MySQL: COLLATE in SQL statements', url: MY + 'charset-collate.html' },
     ],
   },
+  {
+    id: 'adventureworks-066',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['select-basics', 'conditions'],
+    title: 'Vendors by credit rating',
+    prompt: 'List the active vendors (active_flag = 1) with a credit rating of 3 or worse (higher is worse): business_entity_id, name, credit_rating.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Two conditions',
+        postgres: `select business_entity_id, name, credit_rating
+from vendor
+where active_flag = 1 and credit_rating >= 3
+order by credit_rating desc, business_entity_id;`,
+        mysql: `select business_entity_id, name, credit_rating
+from vendor
+where active_flag = 1 and credit_rating >= 3
+order by credit_rating desc, business_entity_id;`,
+        explanation: 'Most vendors have rating 1 (superior); the few weak ones are worth a review before new purchase orders.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WHERE', url: PG + 'queries-table-expressions.html#QUERIES-WHERE' }],
+  },
+  {
+    id: 'adventureworks-067',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['ddl'],
+    title: 'Rename a table and a column',
+    prompt: 'Rename the table shift to work_shift and its column name to shift_name, then show the shifts.',
+    orderMatters: true,
+    checkSql: `select shift_id, shift_name from work_shift order by shift_id`,
+    solutions: [
+      {
+        approach: 'ALTER TABLE … RENAME',
+        postgres: `alter table shift rename to work_shift;
+alter table work_shift rename column name to shift_name;`,
+        mysql: `rename table shift to work_shift;
+alter table work_shift rename column name to shift_name;`,
+        mysqlNote: 'MySQL has RENAME TABLE (and also accepts ALTER TABLE … RENAME TO); RENAME COLUMN exists since 8.0.',
+        explanation: 'Renaming is a metadata change: no data is copied. Views and functions that used the old names must be updated; PostgreSQL views follow the rename automatically, because they store the table by identity, not by name.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: ALTER TABLE', url: PG + 'sql-altertable.html' },
+      { label: 'MySQL: RENAME TABLE', url: MY + 'rename-table.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-068',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['merge'],
+    title: 'A vendor price list',
+    prompt:
+      'Vendor 1508 sends new standard prices vendor_prices (product_id, standard_price): 355 → 1.45, 535 → 3.32 (unchanged), 940 → 61.50. Apply them to product_vendor in one statement, only where the price changes.',
+    orderMatters: true,
+    checkSql: `select product_id, standard_price from product_vendor where business_entity_id = 1508 order by product_id`,
+    solutions: [
+      {
+        approach: 'MERGE on the vendor and product',
+        postgres: `create table vendor_prices (product_id integer primary key, standard_price numeric(19, 4) not null);
+insert into vendor_prices values (355, 1.45), (535, 3.32), (940, 61.50);
+
+merge into product_vendor pv
+using vendor_prices n on n.product_id = pv.product_id and pv.business_entity_id = 1508
+when matched and pv.standard_price <> n.standard_price then
+  update set standard_price = n.standard_price;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation: 'The vendor condition belongs in ON, so only that vendor\'s rows match; in WHEN it would be checked too late to restrict the join.',
+      },
+      {
+        approach: 'UPDATE with a join',
+        postgres: `create table vendor_prices (product_id integer primary key, standard_price numeric(19, 4) not null);
+insert into vendor_prices values (355, 1.45), (535, 3.32), (940, 61.50);
+
+update product_vendor pv set standard_price = n.standard_price
+from vendor_prices n
+where n.product_id = pv.product_id and pv.business_entity_id = 1508 and pv.standard_price <> n.standard_price;`,
+        mysql: `create table vendor_prices (product_id int primary key, standard_price decimal(19, 4) not null);
+insert into vendor_prices values (355, 1.45), (535, 3.32), (940, 61.50);
+
+update product_vendor pv join vendor_prices n on n.product_id = pv.product_id
+set pv.standard_price = n.standard_price
+where pv.business_entity_id = 1508 and pv.standard_price <> n.standard_price;`,
+        explanation: 'For price updates alone, the joined UPDATE is enough.',
+      },
+    ],
+    comparison: 'Same prices afterwards.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'adventureworks-069',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['temp-tables'],
+    title: 'Subcategory revenue to work with',
+    prompt: 'Put revenue per subcategory (sum of line_total, rounded to 2 decimals) into a temporary table subcat_revenue (subcategory, revenue).',
+    orderMatters: true,
+    checkSql: `select subcategory, revenue from subcat_revenue order by revenue desc, subcategory limit 5`,
+    solutions: [
+      {
+        approach: 'CREATE TEMP TABLE … AS',
+        postgres: `create temp table subcat_revenue as
+select s.name as subcategory, round(sum(d.line_total), 2) as revenue
+from sales_order_detail d
+join product p on p.product_id = d.product_id
+join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+group by s.name;`,
+        mysql: `create temporary table subcat_revenue as
+select s.name as subcategory, round(sum(d.line_total), 2) as revenue
+from sales_order_detail d
+join product p on p.product_id = d.product_id
+join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+group by s.name;`,
+        explanation: 'The three-table join over 31,000 lines runs once; follow-up questions (top 5, share of total) read about 35 rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'adventureworks-070',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['window-frames'],
+    title: 'A three-month moving average',
+    prompt: 'For each month of 2024, show sales (sum of sub_total, rounded to 0 decimals) and the average of that month and the two before it (rounded to 0 decimals).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROWS BETWEEN 2 PRECEDING',
+        postgres: `with monthly as (
+  select date_trunc('month', order_date)::date as month, sum(sub_total) as sales
+  from sales_order_header
+  where order_date >= '2023-11-01' and order_date < '2025-01-01'
+  group by 1
+)
+select to_char(month, 'YYYY-MM') as month, round(sales) as sales, avg_3
+from (select month, sales, round(avg(sales) over (order by month rows between 2 preceding and current row)) as avg_3 from monthly) m
+where month >= '2024-01-01'
+order by month;`,
+        mysql: `with monthly as (
+  select cast(date_format(order_date, '%Y-%m-01') as date) as month, sum(sub_total) as sales
+  from sales_order_header
+  where order_date >= '2023-11-01' and order_date < '2025-01-01'
+  group by 1
+)
+select date_format(month, '%Y-%m') as month, round(sales) as sales, avg_3
+from (select month, sales, round(avg(sales) over (order by month rows between 2 preceding and current row)) as avg_3 from monthly) m
+where month >= '2024-01-01'
+order by month;`,
+        explanation: 'The data starts in November 2023 so that January 2024 already has two months of history. The jump in mid-2024 shows up in the average one or two months later: smoothing always lags.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
 ]

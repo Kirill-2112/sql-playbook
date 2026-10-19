@@ -2355,4 +2355,56 @@ order by e.emp_no, s.from_date desc;`,
     ],
     docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
   },
+  {
+    id: 'employees-063',
+    dataset: 'employees',
+    level: 5,
+    topics: ['triggers', 'control-flow'],
+    title: 'No salary cuts',
+    prompt:
+      'Create a trigger that rejects a new salary row lower than the employee\'s previous salary. Then give employee 10050 a raise to 100000 from 2003-01-01 (allowed).',
+    orderMatters: false,
+    checkSql: `insert into salaries (emp_no, salary, from_date, to_date) values (10050, 100000, '2003-01-01', '9999-01-01');
+select count(*) as salary_rows, max(salary) as top_salary from salaries where emp_no = 10050`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger that raises',
+        postgres: `create function no_salary_cut() returns trigger
+language plpgsql
+as $$
+declare
+  v_prev integer;
+begin
+  select salary into v_prev from salaries
+  where emp_no = new.emp_no and from_date < new.from_date
+  order by from_date desc limit 1;
+  if v_prev is not null and new.salary < v_prev then
+    raise exception 'salary for % cannot drop from % to %', new.emp_no, v_prev, new.salary;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger salaries_no_cut
+before insert on salaries
+for each row execute function no_salary_cut();`,
+        mysql: `create trigger salaries_no_cut
+before insert on salaries
+for each row
+begin
+  declare v_prev int;
+  select salary into v_prev from salaries
+  where emp_no = new.emp_no and from_date < new.from_date
+  order by from_date desc limit 1;
+  if v_prev is not null and new.salary < v_prev then
+    signal sqlstate '45000' set message_text = 'salary cannot drop';
+  end if;
+end;`,
+        mysqlNote: 'SIGNAL raises the error. In the mysql client, wrap it in DELIMITER $$ … $$.',
+        explanation:
+          'The data itself contains salary drops (an earlier exercise found them), so the rule applies to new rows only; existing history is untouched. A business rule that compares with other rows is a typical job for a trigger.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: RAISE', url: PG + 'plpgsql-errors-and-messages.html' }],
+  },
 ]

@@ -1732,4 +1732,121 @@ order by w;`,
     comparison: 'Same 5 rows.',
     docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
   },
+  {
+    id: 'chinook-073',
+    dataset: 'chinook',
+    level: 1,
+    topics: ['select-basics'],
+    title: 'Tracks over ten minutes',
+    prompt: 'How many tracks are longer than 10 minutes, and what is the longest one\'s length in minutes (1 decimal)?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Filter and aggregate',
+        postgres: `select count(*) as long_tracks, round(max(milliseconds) / 60000.0, 1) as longest_minutes
+from track
+where milliseconds > 600000;`,
+        mysql: `select count(*) as long_tracks, round(max(milliseconds) / 60000.0, 1) as longest_minutes
+from track
+where milliseconds > 600000;`,
+        explanation: '10 minutes = 600,000 ms. Dividing by 60000.0 (not 60000) avoids integer division in PostgreSQL. Most of the very long tracks are TV episodes.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SELECT', url: PG + 'sql-select.html' }],
+  },
+  {
+    id: 'chinook-074',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['arrays', 'group-by'],
+    title: 'Genres of each artist',
+    prompt: 'For artists whose tracks span at least 3 genres, show the artist name and the array of genre names (alphabetical).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array_agg(DISTINCT … ORDER BY)',
+        postgres: `select ar.name as artist, array_agg(distinct g.name order by g.name) as genres
+from artist ar
+join album al on al.artist_id = ar.artist_id
+join track t on t.album_id = al.album_id
+join genre g on g.genre_id = t.genre_id
+group by ar.artist_id, ar.name
+having count(distinct g.genre_id) >= 3
+order by ar.artist_id;`,
+        mysql: `select ar.name as artist,
+       cast(concat('["', group_concat(distinct g.name order by g.name separator '", "'), '"]') as json) as genres
+from artist ar
+join album al on al.artist_id = ar.artist_id
+join track t on t.album_id = al.album_id
+join genre g on g.genre_id = t.genre_id
+group by ar.artist_id, ar.name
+having count(distinct g.genre_id) >= 3
+order by ar.artist_id;`,
+        mysqlNote: 'A JSON array built from GROUP_CONCAT instead of an array.',
+        explanation: 'Mostly compilation-style "artists" span many genres; HAVING keeps only those with three or more.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: array_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'chinook-075',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for big invoices',
+    prompt: 'Finance reviews invoices above 10.00 by date. Create the smallest index that serves "total > 10 order by invoice_date".',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'invoice' and indexdef like '%invoice_date%' and indexdef like '%total%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'invoice' and column_name = 'total'`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index invoice_big_idx on invoice (invoice_date) where total > 10;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: '64 of 412 invoices qualify. The query must contain total > 10 (or a stricter condition the planner can prove implies it) to use the index.',
+      },
+      {
+        approach: 'Composite index',
+        postgres: `create index invoice_total_date_idx on invoice (total, invoice_date);`,
+        mysql: `create index invoice_total_date_idx on invoice (total, invoice_date);`,
+        explanation: 'Finds totals above 10 as one range, but the dates come out sorted only within each total, so the database still sorts.',
+      },
+    ],
+    comparison: 'The partial index serves both the filter and the date order; the composite one serves only the filter efficiently.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
+  {
+    id: 'chinook-076',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['views', 'joins'],
+    title: 'A view of track details',
+    prompt: 'Create a view track_details (track_id, track, album, artist, genre, minutes) with minutes rounded to 1 decimal, so that reports do not repeat the four joins.',
+    orderMatters: true,
+    checkSql: `select track_id, track, album, artist, genre, minutes from track_details where track_id in (1, 2) order by track_id`,
+    solutions: [
+      {
+        approach: 'View over four joins',
+        postgres: `create view track_details as
+select t.track_id, t.name as track, al.title as album, ar.name as artist, g.name as genre,
+       round(t.milliseconds / 60000.0, 1) as minutes
+from track t
+join album al  on al.album_id = t.album_id
+join artist ar on ar.artist_id = al.artist_id
+left join genre g on g.genre_id = t.genre_id;`,
+        mysql: `create view track_details as
+select t.track_id, t.name as track, al.title as album, ar.name as artist, g.name as genre,
+       round(t.milliseconds / 60000.0, 1) as minutes
+from track t
+join album al  on al.album_id = t.album_id
+join artist ar on ar.artist_id = al.artist_id
+left join genre g on g.genre_id = t.genre_id;`,
+        explanation: 'genre_id may be NULL, so that join is a LEFT JOIN: a track without a genre still belongs in the view.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
 ]

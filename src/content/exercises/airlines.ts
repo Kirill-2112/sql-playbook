@@ -2743,4 +2743,49 @@ order by airplane_types desc, route_no;`,
     ],
     docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
   },
+  {
+    id: 'airlines-069',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['window-frames', 'dates-advanced'],
+    title: 'Departures in the last 7 days',
+    prompt: 'For FRA, for each day of December 2025 (UTC), show the departures that day and the total over that day and the 6 days before.',
+    hint: 'A flight belongs to the route row whose valid_from ≤ scheduled_departure < valid_to.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'RANGE frame over dates',
+        postgres: `with daily as (
+  select f.scheduled_departure::date as day, count(*) as departures
+  from flights f
+  join routes r on r.route_no = f.route_no
+               and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+  where r.departure_airport = 'FRA' and f.scheduled_departure >= '2025-11-25' and f.scheduled_departure < '2026-01-01'
+  group by 1
+)
+select day, departures, last_7_days
+from (select day, departures,
+             sum(departures) over (order by day range between interval '6 days' preceding and current row) as last_7_days
+      from daily) d
+where day >= '2025-12-01'
+order by day;`,
+        mysql: `with daily as (
+  select date(f.scheduled_departure) as day, count(*) as departures
+  from flights f
+  join routes r on r.route_no = f.route_no
+               and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+  where r.departure_airport = 'FRA' and f.scheduled_departure >= '2025-11-25' and f.scheduled_departure < '2026-01-01'
+  group by 1
+)
+select day, departures, last_7_days
+from (select day, departures,
+             sum(departures) over (order by day range between interval 6 day preceding and current row) as last_7_days
+      from daily) d
+where day >= '2025-12-01'
+order by day;`,
+        explanation: 'RANGE counts in days, so a day without departures would not stretch the window as ROWS would. The data starts on 25 November to give 1 December a full week.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
 ]

@@ -1808,4 +1808,90 @@ limit 5;`,
     ],
     docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
   },
+  {
+    id: 'employees-047',
+    dataset: 'employees',
+    level: 4,
+    topics: ['merge'],
+    title: 'Load new titles, skip known ones',
+    prompt:
+      'HR sends title_feed (emp_no, title, from_date): (10050, Senior Staff, 2002-08-01) is new, (10050, its current title and from_date) is already loaded. Insert only the rows not in titles yet, in one statement.',
+    orderMatters: true,
+    checkSql: `select title, from_date, to_date from titles where emp_no = 10050 order by from_date`,
+    solutions: [
+      {
+        approach: 'MERGE … WHEN NOT MATCHED THEN INSERT',
+        postgres: `create table title_feed (emp_no integer, title varchar(50), from_date date);
+insert into title_feed
+select 10050, 'Senior Staff', date '2002-08-01'
+union all
+select emp_no, title, from_date from titles where emp_no = 10050 and to_date = '9999-01-01';
+
+merge into titles t
+using title_feed f on f.emp_no = t.emp_no and f.title = t.title and f.from_date = t.from_date
+when not matched then
+  insert (emp_no, title, from_date, to_date) values (f.emp_no, f.title, f.from_date, '9999-01-01');`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation: 'Only the WHEN NOT MATCHED branch is used, so matching rows are left alone: an "insert if missing" for a whole batch. (A real loader would also close the previous current title.)',
+      },
+      {
+        approach: 'INSERT … SELECT … WHERE NOT EXISTS',
+        postgres: `create table title_feed (emp_no integer, title varchar(50), from_date date);
+insert into title_feed
+select 10050, 'Senior Staff', date '2002-08-01'
+union all
+select emp_no, title, from_date from titles where emp_no = 10050 and to_date = '9999-01-01';
+
+insert into titles (emp_no, title, from_date, to_date)
+select f.emp_no, f.title, f.from_date, '9999-01-01'
+from title_feed f
+where not exists (select 1 from titles t
+                  where t.emp_no = f.emp_no and t.title = f.title and t.from_date = f.from_date);`,
+        mysql: `create table title_feed (emp_no int, title varchar(50), from_date date);
+insert into title_feed
+select 10050, 'Senior Staff', date '2002-08-01'
+union all
+select emp_no, title, from_date from titles where emp_no = 10050 and to_date = '9999-01-01';
+
+insert into titles (emp_no, title, from_date, to_date)
+select f.emp_no, f.title, f.from_date, '9999-01-01'
+from title_feed f
+where not exists (select 1 from titles t
+                  where t.emp_no = f.emp_no and t.title = f.title and t.from_date = f.from_date);`,
+        explanation: 'The same "insert what is missing" with a filter, portable to any database.',
+      },
+    ],
+    comparison: 'Same rows. For a single insert-if-missing branch, INSERT … WHERE NOT EXISTS is just as clear; MERGE shines once updates or deletes join in.',
+    docs: [
+      { label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' },
+      { label: 'MySQL: INSERT … SELECT', url: MY + 'insert-select.html' },
+    ],
+  },
+  {
+    id: 'employees-048',
+    dataset: 'employees',
+    level: 4,
+    topics: ['normalization', 'subqueries'],
+    title: 'Are managers members of their department?',
+    prompt:
+      'dept_manager and dept_emp are separate tables. Check that every manager record has a matching dept_emp row (same employee and department): count the manager records without one.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'NOT EXISTS',
+        postgres: `select count(*) as managers_checked,
+       count(*) filter (where not exists (
+         select 1 from dept_emp de where de.emp_no = dm.emp_no and de.dept_no = dm.dept_no)) as without_membership
+from dept_manager dm;`,
+        mysql: `select count(*) as managers_checked,
+       sum(not exists (
+         select 1 from dept_emp de where de.emp_no = dm.emp_no and de.dept_no = dm.dept_no)) as without_membership
+from dept_manager dm;`,
+        explanation:
+          'Both tables are junction tables between employees and departments, one for membership and one for management. The rule "a manager belongs to the department" spans two tables, so no single-table constraint can enforce it; this query audits it (all 24 pass).',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: EXISTS', url: PG + 'functions-subquery.html#FUNCTIONS-SUBQUERY-EXISTS' }],
+  },
 ]

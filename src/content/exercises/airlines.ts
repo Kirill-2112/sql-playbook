@@ -2259,4 +2259,51 @@ from (
     ],
     docs: [{ label: 'PostgreSQL: GROUP BY and HAVING', url: PG + 'queries-table-expressions.html#QUERIES-GROUP' }],
   },
+  {
+    id: 'airlines-055',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['gaps-islands', 'dates-advanced'],
+    title: 'When Moscow to St Petersburg flew daily',
+    prompt:
+      'Find the runs of consecutive days (UTC) with at least one scheduled flight from SVO (Moscow) to LED (St Petersburg): first day, last day and number of days, in date order.',
+    hint: 'A flight belongs to the route row whose valid_from ≤ scheduled_departure < valid_to; the airports are on the route.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Day minus row number',
+        postgres: `with days as (
+  select distinct f.scheduled_departure::date as day
+  from flights f
+  join routes r on r.route_no = f.route_no
+               and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+  where r.departure_airport = 'SVO' and r.arrival_airport = 'LED'
+),
+runs as (
+  select day, day - (row_number() over (order by day))::int as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from runs
+group by grp
+order by first_day;`,
+        mysql: `with days as (
+  select distinct date(f.scheduled_departure) as day
+  from flights f
+  join routes r on r.route_no = f.route_no
+               and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+  where r.departure_airport = 'SVO' and r.arrival_airport = 'LED'
+),
+runs as (
+  select day, day - interval (row_number() over (order by day)) day as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from runs
+group by grp
+order by first_day;`,
+        mysqlNote: 'Subtract an INTERVAL from a date in MySQL; date − number would turn the date into a number.',
+        explanation: 'Islands of consecutive days. The route flies on 117 of the 121 days, in 5 runs: the gaps are days that month\'s schedule (days_of_week) leaves out. Cancelled flights still count here, because they were scheduled.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
 ]

@@ -1522,4 +1522,70 @@ order by c.city;`,
     ],
     docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
   },
+  {
+    id: 'delivery-042',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Revenue by city and cuisine, with totals',
+    prompt:
+      'Sum delivered revenue by restaurant city and cuisine, with a subtotal per city and a grand total (labels "All cuisines" and "All cities"). Each city\'s subtotal after its cuisines, the total last.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP',
+        postgres: `select coalesce(r.city, 'All cities') as city,
+       coalesce(r.cuisine, 'All cuisines') as cuisine,
+       sum(o.total) as revenue
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered'
+group by rollup (r.city, r.cuisine)
+order by grouping(r.city), r.city, grouping(r.cuisine), r.cuisine;`,
+        mysql: `select coalesce(r.city, 'All cities') as city,
+       coalesce(r.cuisine, 'All cuisines') as cuisine,
+       sum(o.total) as revenue
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered'
+group by r.city, r.cuisine with rollup
+order by grouping(r.city), r.city, grouping(r.cuisine), r.cuisine;`,
+        explanation: 'ROLLUP (city, cuisine) adds one subtotal row per city and one grand total; GROUPING() sorts each subtotal after its detail rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUPING SETS, CUBE, ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'delivery-043',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['recursive', 'cte'],
+    title: 'A histogram with every bucket',
+    prompt: 'Show the number of orders in each 20-wide total band from 20 to 260 (20–40, 40–60, …, 240–260), including bands with no orders.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE of bands',
+        postgres: `with recursive bands (lo) as (
+  select 20 union all select lo + 20 from bands where lo < 240
+)
+select lo as band_from, lo + 20 as band_to, count(o.id) as orders
+from bands
+left join orders o on o.total >= lo and o.total < lo + 20
+group by lo
+order by lo;`,
+        mysql: `with recursive bands (lo) as (
+  select 20 union all select lo + 20 from bands where lo < 240
+)
+select lo as band_from, lo + 20 as band_to, count(o.id) as orders
+from bands
+left join orders o on o.total >= lo and o.total < lo + 20
+group by lo
+order by lo;`,
+        explanation:
+          'Totals run from 30 to 250, so the first band (20–40) and the last (240–260) are only half covered and the bands in between are nearly equal: the generator draws totals uniformly. Building the bands first is what keeps an empty band visible.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH RECURSIVE', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
 ]

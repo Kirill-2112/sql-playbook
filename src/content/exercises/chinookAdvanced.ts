@@ -1053,4 +1053,134 @@ end;`,
       { label: 'MySQL: IF statement', url: MY + 'if.html' },
     ],
   },
+  {
+    id: 'chinook-054',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['query-plans', 'subqueries'],
+    title: 'Jazz buyers, three ways',
+    prompt: 'Which customers bought at least one Jazz track? Show customer_id, in order.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'EXISTS',
+        postgres: `select c.customer_id
+from customer c
+where exists (
+  select 1 from invoice i
+  join invoice_line il on il.invoice_id = i.invoice_id
+  join track t on t.track_id = il.track_id
+  join genre g on g.genre_id = t.genre_id
+  where i.customer_id = c.customer_id and g.name = 'Jazz')
+order by c.customer_id;`,
+        mysql: `select c.customer_id
+from customer c
+where exists (
+  select 1 from invoice i
+  join invoice_line il on il.invoice_id = i.invoice_id
+  join track t on t.track_id = il.track_id
+  join genre g on g.genre_id = t.genre_id
+  where i.customer_id = c.customer_id and g.name = 'Jazz')
+order by c.customer_id;`,
+        explanation: 'A semi-join: each customer is kept once, as soon as one Jazz purchase is found.',
+      },
+      {
+        approach: 'IN',
+        postgres: `select customer_id
+from customer
+where customer_id in (
+  select i.customer_id from invoice i
+  join invoice_line il on il.invoice_id = i.invoice_id
+  join track t on t.track_id = il.track_id
+  join genre g on g.genre_id = t.genre_id
+  where g.name = 'Jazz')
+order by customer_id;`,
+        mysql: `select customer_id
+from customer
+where customer_id in (
+  select i.customer_id from invoice i
+  join invoice_line il on il.invoice_id = i.invoice_id
+  join track t on t.track_id = il.track_id
+  join genre g on g.genre_id = t.genre_id
+  where g.name = 'Jazz')
+order by customer_id;`,
+        explanation: 'Usually planned as the same semi-join as EXISTS.',
+      },
+      {
+        approach: 'JOIN + DISTINCT',
+        postgres: `select distinct i.customer_id
+from invoice i
+join invoice_line il on il.invoice_id = i.invoice_id
+join track t on t.track_id = il.track_id
+join genre g on g.genre_id = t.genre_id
+where g.name = 'Jazz'
+order by i.customer_id;`,
+        mysql: `select distinct i.customer_id
+from invoice i
+join invoice_line il on il.invoice_id = i.invoice_id
+join track t on t.track_id = il.track_id
+join genre g on g.genre_id = t.genre_id
+where g.name = 'Jazz'
+order by i.customer_id;`,
+        explanation: 'Produces one row per Jazz purchase, then removes the duplicates: more work when customers buy many Jazz tracks.',
+      },
+    ],
+    comparison:
+      'Same customers. EXISTS and IN express "is there any", which lets the planner stop early; JOIN + DISTINCT builds every match first. Compare the timings in the table.',
+    docs: [{ label: 'PostgreSQL: Subquery expressions', url: PG + 'functions-subquery.html' }],
+  },
+  {
+    id: 'chinook-055',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['date-series', 'window-frames'],
+    title: 'Monthly revenue of 2024 with a running total',
+    prompt: 'For every month of 2024 (YYYY-MM), show revenue (sum of invoice totals, 0 if none) and the running total since January.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Month series + window',
+        postgres: `select to_char(m, 'YYYY-MM') as month,
+       coalesce(sum(i.total), 0) as revenue,
+       sum(coalesce(sum(i.total), 0)) over (order by m) as running
+from generate_series(date '2024-01-01', date '2024-12-01', interval '1 month') as m
+left join invoice i on i.invoice_date >= m and i.invoice_date < m + interval '1 month'
+group by m
+order by m;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation: 'The series guarantees all 12 months; the window then adds up the monthly sums in order.',
+      },
+      {
+        approach: 'Recursive months + window',
+        postgres: `with recursive months as (
+  select date '2024-01-01' as m
+  union all
+  select (m + interval '1 month')::date from months where m < date '2024-12-01'
+)
+select to_char(m, 'YYYY-MM') as month,
+       coalesce(sum(i.total), 0) as revenue,
+       sum(coalesce(sum(i.total), 0)) over (order by m) as running
+from months
+left join invoice i on i.invoice_date >= m and i.invoice_date < m + interval '1 month'
+group by m
+order by m;`,
+        mysql: `with recursive months as (
+  select date('2024-01-01') as m
+  union all
+  select m + interval 1 month from months where m < '2024-12-01'
+)
+select date_format(m, '%Y-%m') as month,
+       coalesce(sum(i.total), 0) as revenue,
+       sum(coalesce(sum(i.total), 0)) over (order by m) as running
+from months
+left join invoice i on i.invoice_date >= m and i.invoice_date < m + interval 1 month
+group by m
+order by m;`,
+        explanation: 'The same, with the twelve months built by recursion.',
+      },
+    ],
+    comparison: 'Same 12 rows. Note sum(coalesce(sum(…), 0)) over (…): the inner sum is per month, the outer one runs across months.',
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'tutorial-window.html' }],
+  },
 ]

@@ -921,4 +921,109 @@ order by w;`,
       { label: 'MySQL: Recursive CTEs', url: MY + 'with.html#common-table-expressions-recursive' },
     ],
   },
+  {
+    id: 'northwind-054',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Products that are sauces',
+    prompt: 'Make product names searchable by word and find the products with the word "sauce" in their name: product_id and product_name.',
+    orderMatters: true,
+    checkSql: `select product_id, product_name from products
+where to_tsvector('simple', product_name) @@ to_tsquery('simple', 'sauce')
+order by product_id`,
+    checkSqlMysql: `select product_id, product_name from products
+where match(product_name) against ('+sauce' in boolean mode)
+order by product_id`,
+    solutions: [
+      {
+        approach: 'Full-text index',
+        postgres: `create index products_name_fts on products using gin (to_tsvector('simple', product_name));`,
+        mysql: `create fulltext index products_name_ft on products (product_name);`,
+        explanation: 'Two products match. With the \'english\' configuration "sauces" would match too, because both reduce to the stem "sauc".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Full text search', url: PG + 'textsearch-intro.html' }],
+  },
+  {
+    id: 'northwind-055',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Orders by year',
+    prompt:
+      'Create orders_by_year (order_id, customer_id, order_date, freight) partitioned by order_date into 1996, 1997 and 1998, and copy the orders into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'orders_by_year'::regclass) as partitions,
+       (select count(*) from orders_by_year) as total_rows,
+       (select count(*) from orders_by_year where order_date >= '1997-01-01' and order_date < '1998-01-01') as y1997`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'orders_by_year') as partitions,
+       (select count(*) from orders_by_year) as total_rows,
+       (select count(*) from orders_by_year where order_date >= '1997-01-01' and order_date < '1998-01-01') as y1997`,
+    solutions: [
+      {
+        approach: 'Yearly partitions',
+        postgres: `create table orders_by_year (
+  order_id    integer       not null,
+  customer_id varchar(5),
+  order_date  timestamp     not null,
+  freight     numeric(10, 2),
+  primary key (order_id, order_date)
+) partition by range (order_date);
+
+create table orders_1996 partition of orders_by_year for values from ('1996-01-01') to ('1997-01-01');
+create table orders_1997 partition of orders_by_year for values from ('1997-01-01') to ('1998-01-01');
+create table orders_1998 partition of orders_by_year for values from ('1998-01-01') to ('1999-01-01');
+
+insert into orders_by_year select order_id, customer_id, order_date, freight from orders;`,
+        mysql: `create table orders_by_year (
+  order_id    int            not null,
+  customer_id varchar(5),
+  order_date  datetime       not null,
+  freight     decimal(10, 2),
+  primary key (order_id, order_date)
+)
+partition by range columns (order_date) (
+  partition p1996 values less than ('1997-01-01'),
+  partition p1997 values less than ('1998-01-01'),
+  partition p1998 values less than ('1999-01-01')
+);
+
+insert into orders_by_year select order_id, customer_id, order_date, freight from orders;`,
+        explanation:
+          'order_date must be NOT NULL here: a NULL could not be placed in any range partition (PostgreSQL would need a DEFAULT partition). For 830 rows partitioning is pure practice; it starts to pay off with millions.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
+  },
+  {
+    id: 'northwind-056',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['ddl'],
+    title: 'Reshape the shippers table',
+    prompt:
+      'In shippers: rename phone to phone_number, widen company_name to 80 characters, and add a column active (boolean / 0-1, default true) for every shipper.',
+    orderMatters: true,
+    checkSql: `select shipper_id, company_name, phone_number, active from shippers order by shipper_id`,
+    solutions: [
+      {
+        approach: 'ALTER TABLE, step by step',
+        postgres: `alter table shippers rename column phone to phone_number;
+alter table shippers alter column company_name type varchar(80);
+alter table shippers add column active boolean not null default true;`,
+        mysql: `alter table shippers rename column phone to phone_number;
+alter table shippers modify company_name varchar(80) not null;
+alter table shippers add column active tinyint(1) not null default 1;`,
+        mysqlNote:
+          'MODIFY restates the whole column definition, so repeat NOT NULL or it is lost. MySQL has no real boolean: BOOLEAN is TINYINT(1), and true is 1.',
+        explanation: 'Renaming keeps the data; widening a varchar is a metadata change in both databases; the default fills the new column for existing rows.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: ALTER TABLE', url: PG + 'sql-altertable.html' },
+      { label: 'MySQL: ALTER TABLE', url: MY + 'alter-table.html' },
+    ],
+  },
 ]

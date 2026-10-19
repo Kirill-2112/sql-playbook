@@ -1850,4 +1850,152 @@ limit 10;`,
     ],
     docs: [{ label: 'PostgreSQL: Array functions', url: PG + 'functions-array.html' }],
   },
+  {
+    id: 'adventureworks-050',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Black frames',
+    prompt: 'Make product names searchable by word, then find products whose name contains both "frame" and "black": product_id and name.',
+    orderMatters: true,
+    checkSql: `select product_id, name from product
+where to_tsvector('simple', name) @@ to_tsquery('simple', 'frame & black')
+order by product_id`,
+    checkSqlMysql: `select product_id, name from product
+where match(name) against ('+frame +black' in boolean mode)
+order by product_id`,
+    solutions: [
+      {
+        approach: 'Full-text index on the name',
+        postgres: `create index product_name_fts on product using gin (to_tsvector('simple', name));`,
+        mysql: `create fulltext index product_name_ft on product (name);`,
+        explanation:
+          'Names like "HL Road Frame - Black, 58" are split into words (hl, road, frame, black, 58), punctuation dropped. Both words must be present, in any order and position, which two LIKE conditions could only approximate.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Parsing documents', url: PG + 'textsearch-controls.html#TEXTSEARCH-PARSING-DOCUMENTS' },
+      { label: 'MySQL: Full-text search', url: MY + 'fulltext-search.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-051',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['ddl', 'constraints'],
+    title: 'A ratings table from scratch',
+    prompt:
+      'Create product_rating: product_id (references product), customer_id (references customer), rating from 1 to 5, rated_at defaulting to the current time; one rating per customer and product. Then add two ratings for product 1.',
+    orderMatters: true,
+    checkSql: `select product_id, customer_id, rating from product_rating order by customer_id`,
+    solutions: [
+      {
+        approach: 'Composite key, FKs, CHECK and DEFAULT',
+        postgres: `create table product_rating (
+  product_id  integer   not null references product (product_id),
+  customer_id integer   not null references customer (customer_id),
+  rating      smallint  not null check (rating between 1 and 5),
+  rated_at    timestamp not null default current_timestamp,
+  primary key (product_id, customer_id)
+);
+
+insert into product_rating (product_id, customer_id, rating) values (1, 11002, 5), (1, 11005, 3);`,
+        mysql: `create table product_rating (
+  product_id  int      not null,
+  customer_id int      not null,
+  rating      smallint not null check (rating between 1 and 5),
+  rated_at    datetime not null default current_timestamp,
+  primary key (product_id, customer_id),
+  foreign key (product_id)  references product (product_id),
+  foreign key (customer_id) references customer (customer_id)
+);
+
+insert into product_rating (product_id, customer_id, rating) values (1, 11002, 5), (1, 11005, 3);`,
+        mysqlNote: 'Foreign keys as separate clauses: MySQL 8.4 ignores a REFERENCES written inside a column definition.',
+        explanation:
+          'The composite primary key enforces "one rating per customer and product". The check rejects a 6, the default fills rated_at, and the foreign keys refuse ratings for products or customers that do not exist.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE TABLE', url: PG + 'sql-createtable.html' },
+      { label: 'MySQL: CREATE TABLE', url: MY + 'create-table.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-052',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['locks-isolation', 'dml'],
+    title: 'Take stock without overselling',
+    prompt:
+      'Reserve 5 units of product 1 at location 1, but only if at least 5 are there, in a way that stays correct when many orders arrive at once. The check shows the new quantity.',
+    orderMatters: false,
+    checkSql: `select quantity from product_inventory where product_id = 1 and location_id = 1`,
+    solutions: [
+      {
+        approach: 'Conditional UPDATE',
+        postgres: `update product_inventory
+set quantity = quantity - 5
+where product_id = 1 and location_id = 1 and quantity >= 5;`,
+        mysql: `update product_inventory
+set quantity = quantity - 5
+where product_id = 1 and location_id = 1 and quantity >= 5;`,
+        explanation:
+          'The check and the change happen in one statement on a locked row: a concurrent order waits, then re-reads the new quantity. Reading the stock in one query and updating in another (without FOR UPDATE) lets two orders both see 6 and both take 5. If the UPDATE reports 0 rows, there was not enough.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Read Committed and UPDATE', url: PG + 'transaction-iso.html#XACT-READ-COMMITTED' },
+      { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-053',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['query-plans', 'aggregates'],
+    title: 'Best sellers, two ways',
+    prompt: 'Find the 5 products with the most units sold (sum of order_qty): product_id, name and units.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Aggregate, then join',
+        postgres: `select p.product_id, p.name, d.units
+from (select product_id, sum(order_qty) as units from sales_order_detail group by product_id) d
+join product p on p.product_id = d.product_id
+order by d.units desc, p.product_id
+limit 5;`,
+        mysql: `select p.product_id, p.name, d.units
+from (select product_id, sum(order_qty) as units from sales_order_detail group by product_id) d
+join product p on p.product_id = d.product_id
+order by d.units desc, p.product_id
+limit 5;`,
+        explanation: 'One pass over the 31,000 order lines builds the totals; only then are the ~260 sold products matched with their names.',
+      },
+      {
+        approach: 'Correlated subquery per product',
+        postgres: `select product_id, name, units
+from (select p.product_id, p.name,
+             (select sum(d.order_qty) from sales_order_detail d where d.product_id = p.product_id) as units
+      from product p) x
+where units is not null
+order by units desc, product_id
+limit 5;`,
+        mysql: `select product_id, name, units
+from (select p.product_id, p.name,
+             (select sum(d.order_qty) from sales_order_detail d where d.product_id = p.product_id) as units
+      from product p) x
+where units is not null
+order by units desc, product_id
+limit 5;`,
+        explanation: 'Sums the lines of each of the 504 products separately. Fine with an index on sales_order_detail(product_id), slow without one.',
+      },
+    ],
+    comparison:
+      'Same five rows. Compare the timings: aggregating first and joining the small result is the usual winner; the correlated form depends entirely on an index for the inner lookup.',
+    docs: [
+      { label: 'PostgreSQL: Using EXPLAIN', url: PG + 'using-explain.html' },
+      { label: 'MySQL: Optimizing subqueries', url: MY + 'subquery-optimization.html' },
+    ],
+  },
 ]

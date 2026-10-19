@@ -1754,4 +1754,139 @@ order by player_id;`,
       { label: 'MySQL: Unicode collations (ai/ci)', url: MY + 'charset-unicode-sets.html' },
     ],
   },
+  {
+    id: 'lahman-049',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['locks-isolation', 'ddl'],
+    title: 'Optimistic locking with a version number',
+    prompt:
+      'Two editors may fix the same team record. Add a row_version column (default 0) to teams. Then save an edit to the 2025 NYA row only if nobody changed it since you read version 0, increasing the version.',
+    orderMatters: false,
+    checkSql: `select team_id, w, row_version from teams where year_id = 2025 and team_id = 'NYA'`,
+    solutions: [
+      {
+        approach: 'Version check in the UPDATE',
+        postgres: `alter table teams add column row_version integer not null default 0;
+
+update teams
+set w = w, row_version = row_version + 1
+where year_id = 2025 and team_id = 'NYA' and row_version = 0;`,
+        mysql: `alter table teams add column row_version int not null default 0;
+
+update teams
+set w = w, row_version = row_version + 1
+where year_id = 2025 and team_id = 'NYA' and row_version = 0;`,
+        explanation:
+          'No lock is held while the editor thinks. When saving, the WHERE requires the version they read; if someone saved first the version is 1, the update matches 0 rows, and the application tells the editor to reload. Cheap when conflicts are rare.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: UPDATE', url: PG + 'sql-update.html' },
+      { label: 'MySQL: UPDATE', url: MY + 'update.html' },
+    ],
+  },
+  {
+    id: 'lahman-050',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for closers',
+    prompt: 'Saves leaderboards only look at pitching rows with at least one save (about a fifth of them). Create an index for "most saves in year X".',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'pitching' and indexdef like '%sv%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'pitching' and column_name = 'sv'`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index pitching_saves_idx on pitching (year_id, sv desc) where sv > 0;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: '2,782 of 13,610 rows have a save; the rest never appear on a saves leaderboard and stay out of the index.',
+      },
+      {
+        approach: 'Composite index',
+        postgres: `create index pitching_year_sv_idx on pitching (year_id, sv desc);`,
+        mysql: `create index pitching_year_sv_idx on pitching (year_id, sv desc);`,
+        explanation: 'Covers every row; "year X, highest saves first" reads straight from the index.',
+      },
+    ],
+    comparison: 'Both serve the leaderboard. The partial one is a fifth of the size; the composite one also answers "pitchers with 0 saves".',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
+  {
+    id: 'lahman-051',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['triggers', 'strings'],
+    title: 'Clean names on the way in',
+    prompt: 'Create a trigger that trims spaces around name_first and name_last whenever a people row is inserted. Test it by inserting player \'testpl01\' named "  Pat " "  Rookie  ".',
+    orderMatters: false,
+    checkSql: `insert into people (player_id, name_first, name_last) values ('testpl01', '  Pat ', '  Rookie  ');
+select player_id, name_first, name_last, length(name_last) as last_len from people where player_id = 'testpl01'`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger that edits NEW',
+        postgres: `create function trim_names() returns trigger
+language plpgsql
+as $$
+begin
+  new.name_first := trim(new.name_first);
+  new.name_last  := trim(new.name_last);
+  return new;
+end;
+$$;
+
+create trigger people_trim_names
+before insert on people
+for each row execute function trim_names();`,
+        mysql: `create trigger people_trim_names
+before insert on people
+for each row
+begin
+  set new.name_first = trim(new.name_first);
+  set new.name_last  = trim(new.name_last);
+end;`,
+        mysqlNote: `In the mysql client, wrap it in DELIMITER $$ … $$.`,
+        explanation: 'A BEFORE trigger can change NEW before the row is written, so the stored names are clean whatever the application sent. AFTER triggers see the row already written and cannot change it.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' },
+      { label: 'MySQL: Trigger syntax', url: MY + 'trigger-syntax.html' },
+    ],
+  },
+  {
+    id: 'lahman-052',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['arrays'],
+    title: 'Seasons as an array',
+    prompt: 'For the 5 players with the most distinct teams since 2010, show player_id, the array of distinct teams (alphabetical) and its length.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array_agg(DISTINCT) + cardinality',
+        postgres: `select player_id,
+       array_agg(distinct team_id order by team_id) as teams,
+       cardinality(array_agg(distinct team_id)) as n
+from batting
+group by player_id
+order by n desc, player_id
+limit 5;`,
+        mysql: `select player_id,
+       cast(concat('["', group_concat(distinct team_id order by team_id separator '", "'), '"]') as json) as teams,
+       count(distinct team_id) as n
+from batting
+group by player_id
+order by n desc, player_id
+limit 5;`,
+        mysqlNote: 'A JSON array built with GROUP_CONCAT stands in for the array.',
+        explanation: 'Journeymen: these players changed teams most often. An array keeps the list in one cell, handy for display or for @> tests ("played for both NYA and BOS").',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Arrays', url: PG + 'arrays.html' }],
+  },
 ]

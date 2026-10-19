@@ -1889,4 +1889,115 @@ order by id;`,
     ],
     docs: [{ label: 'PostgreSQL: Mathematical functions', url: PG + 'functions-math.html' }],
   },
+  {
+    id: 'delivery-052',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['text-aggregation', 'distinct'],
+    title: 'Cuisines in each city',
+    prompt: 'For each restaurant city, list the cuisines available there, alphabetical and each once, as one text separated by ", ".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg(DISTINCT …)',
+        postgres: `select city, string_agg(distinct cuisine, ', ' order by cuisine) as cuisines
+from restaurants
+group by city
+order by city;`,
+        mysql: `select city, group_concat(distinct cuisine order by cuisine separator ', ') as cuisines
+from restaurants
+group by city
+order by city;`,
+        explanation: 'DISTINCT inside the aggregate drops repeated cuisines; with DISTINCT, PostgreSQL requires the ORDER BY to use the same expression.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate expressions', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'delivery-053',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['pivot', 'dates-advanced'],
+    title: 'Revenue by weekday and cuisine',
+    prompt: 'Show delivered revenue per cuisine as rows and Monday to Sunday as columns (ISO weekdays 1–7), rounded to 0 decimals.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional sums by weekday',
+        postgres: `select r.cuisine,
+       round(sum(o.total) filter (where extract(isodow from o.created_at) = 1)) as mon,
+       round(sum(o.total) filter (where extract(isodow from o.created_at) = 2)) as tue,
+       round(sum(o.total) filter (where extract(isodow from o.created_at) = 3)) as wed,
+       round(sum(o.total) filter (where extract(isodow from o.created_at) = 4)) as thu,
+       round(sum(o.total) filter (where extract(isodow from o.created_at) = 5)) as fri,
+       round(sum(o.total) filter (where extract(isodow from o.created_at) = 6)) as sat,
+       round(sum(o.total) filter (where extract(isodow from o.created_at) = 7)) as sun
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered'
+group by r.cuisine
+order by r.cuisine;`,
+        mysql: `select r.cuisine,
+       round(sum(case when weekday(o.created_at) = 0 then o.total end)) as mon,
+       round(sum(case when weekday(o.created_at) = 1 then o.total end)) as tue,
+       round(sum(case when weekday(o.created_at) = 2 then o.total end)) as wed,
+       round(sum(case when weekday(o.created_at) = 3 then o.total end)) as thu,
+       round(sum(case when weekday(o.created_at) = 4 then o.total end)) as fri,
+       round(sum(case when weekday(o.created_at) = 5 then o.total end)) as sat,
+       round(sum(case when weekday(o.created_at) = 6 then o.total end)) as sun
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered'
+group by r.cuisine
+order by r.cuisine;`,
+        mysqlNote: 'WEEKDAY() counts Monday = 0, so the numbers are shifted by one compared with ISODOW.',
+        explanation: 'Seven conditional sums turn weekdays into columns. Random data spreads orders evenly, so each row is nearly flat; real delivery data would peak at weekends.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: EXTRACT', url: PG + 'functions-datetime.html#FUNCTIONS-DATETIME-EXTRACT' }],
+  },
+  {
+    id: 'delivery-054',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['date-series', 'dates-advanced'],
+    title: 'Orders per hour of 1 March 2025',
+    prompt: 'Show every hour of 2025-03-01 (00–23) with its number of orders, including hours with none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Series of timestamps',
+        postgres: `select to_char(h, 'HH24') as hour, count(o.id) as orders
+from generate_series(timestamp '2025-03-01 00:00', timestamp '2025-03-01 23:00', interval '1 hour') as h
+left join orders o on o.created_at >= h and o.created_at < h + interval '1 hour'
+group by h
+order by h;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation: 'generate_series also steps through timestamps; here by one hour.',
+      },
+      {
+        approach: 'Recursive hours',
+        postgres: `with recursive hours (h) as (
+  select timestamp '2025-03-01 00:00' union all select h + interval '1 hour' from hours where h < timestamp '2025-03-01 23:00'
+)
+select to_char(h, 'HH24') as hour, count(o.id) as orders
+from hours
+left join orders o on o.created_at >= h and o.created_at < h + interval '1 hour'
+group by h
+order by h;`,
+        mysql: `with recursive hours (h) as (
+  select cast('2025-03-01 00:00:00' as datetime) union all select h + interval 1 hour from hours where h < '2025-03-01 23:00:00'
+)
+select date_format(h, '%H') as hour, count(o.id) as orders
+from hours
+left join orders o on o.created_at >= h and o.created_at < h + interval 1 hour
+group by h
+order by h;`,
+        explanation: 'The anchor is cast to DATETIME in MySQL so the recursive column has a date-time type, not a string.',
+      },
+    ],
+    comparison: 'Same 24 rows.',
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
 ]

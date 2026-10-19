@@ -1300,4 +1300,120 @@ where shipped_date > required_date;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
   },
+  {
+    id: 'northwind-066',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['lateral'],
+    title: 'Top 3 products per category',
+    prompt: 'For every category, show its three most expensive products: category_name, product_name and unit_price. Ties by product_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL … LIMIT 3',
+        postgres: `select c.category_name, p.product_name, p.unit_price
+from categories c
+cross join lateral (
+  select product_name, unit_price, product_id from products
+  where category_id = c.category_id
+  order by unit_price desc, product_id
+  limit 3
+) p
+order by c.category_id, p.unit_price desc, p.product_id;`,
+        mysql: `select c.category_name, p.product_name, p.unit_price
+from categories c
+cross join lateral (
+  select product_name, unit_price, product_id from products
+  where category_id = c.category_id
+  order by unit_price desc, product_id
+  limit 3
+) p
+order by c.category_id, p.unit_price desc, p.product_id;`,
+        explanation: 'For each category the inner query sorts its products and keeps three, with access to c.category_id.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'northwind-067',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['materialized-views'],
+    title: 'Product sales, stored',
+    prompt: 'Store per product: units sold and revenue (rounded to 2 decimals), for a buyer\'s report refreshed nightly.',
+    hint: 'Revenue of an order line is unit_price × quantity × (1 − discount).',
+    orderMatters: true,
+    checkSql: `select product_id, units, revenue from product_sales order by revenue desc, product_id limit 3`,
+    solutions: [
+      {
+        approach: 'Materialized view',
+        postgres: `create materialized view product_sales as
+select product_id, sum(quantity) as units, round(sum(unit_price * quantity * (1 - discount)), 2) as revenue
+from order_details
+group by product_id;`,
+        mysql: `create table product_sales as
+select product_id, sum(quantity) as units, round(sum(unit_price * quantity * (1 - discount)), 2) as revenue
+from order_details
+group by product_id;`,
+        mysqlNote: 'A table rebuilt nightly replaces the materialized view.',
+        explanation: '77 stored rows; the nightly REFRESH MATERIALIZED VIEW product_sales brings in the day\'s orders.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Materialized views', url: PG + 'rules-materializedviews.html' }],
+  },
+  {
+    id: 'northwind-068',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Customers by country and city, with totals',
+    prompt: 'Count customers by country and city, with a subtotal per country and a grand total (labels "All cities", "All countries"). Only countries starting with A to F.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP',
+        postgres: `select coalesce(country, 'All countries') as country, coalesce(city, 'All cities') as city, count(*) as customers
+from customers
+where country < 'G'
+group by rollup (country, city)
+order by grouping(country), country, grouping(city), city collate "C";`,
+        mysql: `select coalesce(country, 'All countries') as country, coalesce(city, 'All cities') as city, count(*) as customers
+from customers
+where country < 'G'
+group by country, city with rollup
+order by grouping(country), country, grouping(city), city collate utf8mb4_bin;`,
+        mysqlNote: 'utf8mb4_bin sorts by bytes like PostgreSQL\'s "C"; with the default accent-insensitive collation Århus would sort before Kobenhavn.',
+        explanation: 'country < \'G\' keeps Argentina to France. ROLLUP adds one subtotal per country and the grand total, GROUPING() puts them after their details. The cities are sorted byte-wise in both databases, so "Kobenhavn" comes before "Århus".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'northwind-069',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['conditions', 'dates-basics'],
+    title: 'How fast did it ship',
+    prompt: 'Count orders by shipping speed: "same week" within 7 days of ordering, "slow" after more than 7, "not shipped" if shipped_date is NULL.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'CASE with a NULL check first',
+        postgres: `select case when shipped_date is null then 'not shipped'
+            when shipped_date <= order_date + interval '7 days' then 'same week'
+            else 'slow' end as speed,
+       count(*) as orders
+from orders
+group by speed;`,
+        mysql: `select case when shipped_date is null then 'not shipped'
+            when shipped_date <= order_date + interval 7 day then 'same week'
+            else 'slow' end as speed,
+       count(*) as orders
+from orders
+group by speed;`,
+        explanation: 'The NULL test comes first: a comparison with NULL is neither true nor false, so without it unshipped orders would fall into ELSE and be counted as "slow".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CASE', url: PG + 'functions-conditional.html#FUNCTIONS-CASE' }],
+  },
 ]

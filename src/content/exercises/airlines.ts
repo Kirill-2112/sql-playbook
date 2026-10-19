@@ -2665,4 +2665,82 @@ from (
       { label: 'MySQL: Index merge optimization', url: MY + 'index-merge-optimization.html' },
     ],
   },
+  {
+    id: 'airlines-066',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['conditions', 'dates-basics'],
+    title: 'Punctuality classes',
+    prompt: 'Classify arrived flights by departure delay: "on time" up to 15 minutes, "late" up to 2 hours, "very late" beyond. Count the flights in each class.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'CASE on the delay',
+        postgres: `select case when actual_departure <= scheduled_departure + interval '15 minutes' then 'on time'
+            when actual_departure <= scheduled_departure + interval '2 hours' then 'late'
+            else 'very late' end as class,
+       count(*) as flights
+from flights
+where status = 'Arrived'
+group by class;`,
+        mysql: `select case when actual_departure <= scheduled_departure + interval 15 minute then 'on time'
+            when actual_departure <= scheduled_departure + interval 2 hour then 'late'
+            else 'very late' end as class,
+       count(*) as flights
+from flights
+where status = 'Arrived'
+group by class;`,
+        explanation: 'Delays in this data are almost always either short or more than two hours: only 3 arrived flights fall in between. A class with no flights at all would not appear as a row, because GROUP BY only shows groups that have rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CASE', url: PG + 'functions-conditional.html#FUNCTIONS-CASE' }],
+  },
+  {
+    id: 'airlines-067',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['generated-columns'],
+    title: 'Delay in minutes, always up to date',
+    prompt: 'Add a stored generated column delay_minutes to flights: whole minutes between scheduled and actual departure (NULL until it departs).',
+    orderMatters: true,
+    checkSql: `select flight_id, delay_minutes from flights where flight_id in (1, 2, 11052) order by flight_id`,
+    solutions: [
+      {
+        approach: 'Generated column from two timestamps',
+        postgres: `alter table flights add column delay_minutes integer
+generated always as (floor(extract(epoch from actual_departure - scheduled_departure) / 60)::integer) stored;`,
+        mysql: `alter table flights add column delay_minutes int
+generated always as (timestampdiff(minute, scheduled_departure, actual_departure)) stored;`,
+        explanation:
+          'timestamptz − timestamptz does not depend on the time zone, so it is IMMUTABLE and allowed (unlike casting a timestamptz to date). A NULL actual_departure gives a NULL delay, which is what "not departed yet" should look like.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'airlines-068',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['distinct'],
+    title: 'Airplanes used on each route number',
+    prompt: 'Over the four months, on how many different airplane types did each route number fly? Show the route numbers that used more than one type, with that number.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'count(DISTINCT) with HAVING',
+        postgres: `select route_no, count(distinct airplane_code) as airplane_types
+from routes
+group by route_no
+having count(distinct airplane_code) > 1
+order by airplane_types desc, route_no;`,
+        mysql: `select route_no, count(distinct airplane_code) as airplane_types
+from routes
+group by route_no
+having count(distinct airplane_code) > 1
+order by airplane_types desc, route_no;`,
+        explanation: 'routes has one row per route number and month; the same number may get another airplane next month, or even mean a different route entirely.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
 ]

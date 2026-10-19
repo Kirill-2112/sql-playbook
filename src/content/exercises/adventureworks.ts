@@ -2358,4 +2358,97 @@ end;`,
       { label: 'MySQL: CREATE TRIGGER', url: MY + 'create-trigger.html' },
     ],
   },
+  {
+    id: 'adventureworks-063',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['lateral'],
+    title: 'Two priciest products per subcategory',
+    prompt: 'For the subcategories of category 1 (Bikes), show the two most expensive products of each: subcategory name, product name and list_price.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL … LIMIT 2',
+        postgres: `select s.name as subcategory, p.name as product, p.list_price
+from product_subcategory s
+cross join lateral (
+  select name, list_price, product_id from product
+  where product_subcategory_id = s.product_subcategory_id
+  order by list_price desc, product_id
+  limit 2
+) p
+where s.product_category_id = 1
+order by s.name, p.list_price desc, p.product_id;`,
+        mysql: `select s.name as subcategory, p.name as product, p.list_price
+from product_subcategory s
+cross join lateral (
+  select name, list_price, product_id from product
+  where product_subcategory_id = s.product_subcategory_id
+  order by list_price desc, product_id
+  limit 2
+) p
+where s.product_category_id = 1
+order by s.name, p.list_price desc, p.product_id;`,
+        explanation: 'Bikes has three subcategories (Mountain, Road, Touring); each contributes its two top prices.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'adventureworks-064',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Sales by group and territory, with totals',
+    prompt: 'Sum 2024 sales (sub_total, rounded to 0 decimals) by territory group and territory, with a subtotal per group and a grand total (labels "All").',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP',
+        postgres: `select coalesce(t.territory_group, 'All') as territory_group, coalesce(t.name, 'All') as territory, round(sum(h.sub_total)) as sales
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+where h.order_date >= '2024-01-01' and h.order_date < '2025-01-01'
+group by rollup (t.territory_group, t.name)
+order by grouping(t.territory_group), t.territory_group, grouping(t.name), t.name;`,
+        mysql: `select coalesce(t.territory_group, 'All') as territory_group, coalesce(t.name, 'All') as territory, round(sum(h.sub_total)) as sales
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+where h.order_date >= '2024-01-01' and h.order_date < '2025-01-01'
+group by t.territory_group, t.name with rollup
+order by grouping(t.territory_group), t.territory_group, grouping(t.name), t.name;`,
+        explanation: 'Three groups (Europe, North America, Pacific), their territories, a subtotal for each group and the total.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'adventureworks-065',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['limit'],
+    title: 'Page 3 of the catalog',
+    prompt: 'The catalog lists products by name, 20 per page. Show page 3: product_id and name. Same name: by product_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LIMIT … OFFSET',
+        postgres: `select product_id, name
+from product
+order by name collate "C", product_id
+limit 20 offset 40;`,
+        mysql: `select product_id, name
+from product
+order by name collate utf8mb4_bin, product_id
+limit 20 offset 40;`,
+        mysqlNote: 'utf8mb4_bin compares bytes, like PostgreSQL\'s "C" collation, so both databases sort the names identically.',
+        explanation:
+          'Page n starts after (n − 1) × 20 rows. Sorting text depends on the collation (case, accents, punctuation); naming the same byte-wise collation in both makes the pages match. Without it, each database could put different names on page 3.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Collation support', url: PG + 'collation.html' },
+      { label: 'MySQL: COLLATE in SQL statements', url: MY + 'charset-collate.html' },
+    ],
+  },
 ]

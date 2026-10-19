@@ -2230,4 +2230,78 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
   },
+  {
+    id: 'lahman-062',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['text-aggregation'],
+    title: 'A franchise\'s names over time',
+    prompt: 'For franchises that played under more than one name, list the distinct names in order of first use as one text, separated by " → ".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'First year per name, then aggregate',
+        postgres: `select franch_id, string_agg(name, ' → ' order by first_year) as names
+from (select franch_id, name, min(year_id) as first_year from teams group by franch_id, name) n
+group by franch_id
+having count(*) > 1
+order by franch_id;`,
+        mysql: `select franch_id, group_concat(name order by first_year separator ' → ') as names
+from (select franch_id, name, min(year_id) as first_year from teams group by franch_id, name) n
+group by franch_id
+having count(*) > 1
+order by franch_id;`,
+        mysqlNote: 'GROUP_CONCAT stops at group_concat_max_len (1,024 bytes by default); enough here.',
+        explanation: 'Aggregate names to their first year first, so each appears once; a name that came back later (a franchise returning to an old name) keeps its first position.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'lahman-063',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['full-join'],
+    title: 'All-Stars and award winners in 2024',
+    prompt: 'Compare 2024 All-Stars with 2024 award winners (any award): count players in both lists, only All-Star, only award winner.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two player lists',
+        postgres: `with stars as (select distinct player_id from allstar_full where year_id = 2024),
+     winners as (select distinct player_id from awards_players where year_id = 2024)
+select count(*) filter (where s.player_id is not null and w.player_id is not null) as both_lists,
+       count(*) filter (where w.player_id is null) as only_all_star,
+       count(*) filter (where s.player_id is null) as only_award
+from stars s full join winners w on w.player_id = s.player_id;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'Many awards (Player of the Week, Gold Gloves) go to non-All-Stars too, so all three counts are substantial.',
+      },
+      {
+        approach: 'UNION of players, then flags',
+        postgres: `select sum(case when s and w then 1 else 0 end) as both_lists,
+       sum(case when s and not w then 1 else 0 end) as only_all_star,
+       sum(case when w and not s then 1 else 0 end) as only_award
+from (
+  select p.player_id,
+         exists (select 1 from allstar_full a where a.player_id = p.player_id and a.year_id = 2024) as s,
+         exists (select 1 from awards_players a where a.player_id = p.player_id and a.year_id = 2024) as w
+  from (select player_id from allstar_full where year_id = 2024
+        union select player_id from awards_players where year_id = 2024) p
+) f;`,
+        mysql: `select sum(s and w) as both_lists, sum(s and not w) as only_all_star, sum(w and not s) as only_award
+from (
+  select p.player_id,
+         exists (select 1 from allstar_full a where a.player_id = p.player_id and a.year_id = 2024) as s,
+         exists (select 1 from awards_players a where a.player_id = p.player_id and a.year_id = 2024) as w
+  from (select player_id from allstar_full where year_id = 2024
+        union select player_id from awards_players where year_id = 2024) p
+) f;`,
+        explanation: 'The UNION builds the combined list of players; two EXISTS flags place each one.',
+      },
+    ],
+    comparison: 'Same counts.',
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
 ]

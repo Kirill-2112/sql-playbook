@@ -1846,4 +1846,154 @@ insert into staff_note (staff_id, note) values (1, 'Training on the new till');`
     ],
     docs: [{ label: 'PostgreSQL: CREATE TABLE', url: PG + 'sql-createtable.html' }],
   },
+  {
+    id: 'sakila-075',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['recursive', 'self-cross-join'],
+    title: 'Degrees of Penelope Guiness',
+    prompt:
+      'Two actors are connected if they appeared in the same film. Starting from actor 1, count how many other actors are at distance 1 and at distance 2 (each actor counted once, at the smallest distance).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive walk with a depth limit',
+        postgres: `with recursive reach (actor_id, depth) as (
+  select 1, 0
+  union
+  select b.actor_id, r.depth + 1
+  from reach r
+  join film_actor a on a.actor_id = r.actor_id
+  join film_actor b on b.film_id = a.film_id and b.actor_id <> a.actor_id
+  where r.depth < 2
+)
+select depth, count(*) as actors
+from (select actor_id, min(depth) as depth from reach group by actor_id) best
+where depth > 0
+group by depth
+order by depth;`,
+        mysql: `with recursive reach (actor_id, depth) as (
+  select 1, 0
+  union
+  select b.actor_id, r.depth + 1
+  from reach r
+  join film_actor a on a.actor_id = r.actor_id
+  join film_actor b on b.film_id = a.film_id and b.actor_id <> a.actor_id
+  where r.depth < 2
+)
+select depth, count(*) as actors
+from (select actor_id, min(depth) as depth from reach group by actor_id) best
+where depth > 0
+group by depth
+order by depth;`,
+        explanation:
+          'Each step goes actor → film → co-star. UNION removes repeated (actor, depth) pairs so the walk does not explode, and min(depth) keeps the shortest distance. In Sakila everyone is at most two films away from Penelope: 79 direct co-stars, the other 120 one step further.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH RECURSIVE', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'sakila-076',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['pivot'],
+    title: 'Ratings by category',
+    prompt: 'For each film category, count its films per rating (G, PG, PG-13, R, NC-17) as five columns, ordered by category name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts',
+        postgres: `select c.name as category,
+       count(*) filter (where f.rating = 'G')     as g,
+       count(*) filter (where f.rating = 'PG')    as pg,
+       count(*) filter (where f.rating = 'PG-13') as pg_13,
+       count(*) filter (where f.rating = 'R')     as r,
+       count(*) filter (where f.rating = 'NC-17') as nc_17
+from film f
+join film_category fc on fc.film_id = f.film_id
+join category c on c.category_id = fc.category_id
+group by c.name
+order by c.name;`,
+        mysql: `select c.name as category,
+       sum(f.rating = 'G')     as g,
+       sum(f.rating = 'PG')    as pg,
+       sum(f.rating = 'PG-13') as pg_13,
+       sum(f.rating = 'R')     as r,
+       sum(f.rating = 'NC-17') as nc_17
+from film f
+join film_category fc on fc.film_id = f.film_id
+join category c on c.category_id = fc.category_id
+group by c.name
+order by c.name;`,
+        mysqlNote: 'rating is an ENUM in MySQL; comparing it with a string works as usual.',
+        explanation: 'Each rating value becomes a column; the column names must be valid identifiers, so PG-13 becomes pg_13.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'sakila-077',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'Return a film, charge a late fee',
+    prompt:
+      'Write a procedure return_film(p_rental_id, p_returned_at) that sets the return date and, if the film is returned after rental_duration days, inserts a late-fee payment of 1.00 per extra full day. Return rental 1 on 2005-06-05 12:00.',
+    orderMatters: false,
+    checkSql: `call return_film(1, '2005-06-05 12:00:00');
+select r.return_date, (select sum(amount) from payment p where p.rental_id = 1) as paid_for_rental
+from rental r where r.rental_id = 1`,
+    solutions: [
+      {
+        approach: 'Compute the fee, then decide',
+        postgres: `create procedure return_film(p_rental_id integer, p_returned_at timestamp)
+language plpgsql
+as $$
+declare
+  v_days_late integer;
+  v_customer integer;
+begin
+  select floor(extract(epoch from p_returned_at - (r.rental_date + make_interval(days => f.rental_duration))) / 86400)::int,
+         r.customer_id
+    into v_days_late, v_customer
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f on f.film_id = i.film_id
+  where r.rental_id = p_rental_id;
+
+  update rental set return_date = p_returned_at where rental_id = p_rental_id;
+
+  if v_days_late > 0 then
+    insert into payment (customer_id, staff_id, rental_id, amount, payment_date)
+    values (v_customer, 1, p_rental_id, v_days_late * 1.00, p_returned_at);
+  end if;
+end;
+$$;`,
+        mysql: `create procedure return_film(p_rental_id int, p_returned_at datetime)
+begin
+  declare v_days_late int;
+  declare v_customer int;
+
+  select floor(timestampdiff(second, r.rental_date + interval f.rental_duration day, p_returned_at) / 86400),
+         r.customer_id
+    into v_days_late, v_customer
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f on f.film_id = i.film_id
+  where r.rental_id = p_rental_id;
+
+  update rental set return_date = p_returned_at where rental_id = p_rental_id;
+
+  if v_days_late > 0 then
+    insert into payment (customer_id, staff_id, rental_id, amount, payment_date)
+    values (v_customer, 1, p_rental_id, v_days_late * 1.00, p_returned_at);
+  end if;
+end;`,
+        mysqlNote: 'In the mysql client, wrap it in DELIMITER $$ … $$.',
+        explanation:
+          'Rental 1 started on 2005-05-24 22:53 for a film rented for 7 days, so it was due on 31 May 22:53. Returned on 5 June 12:00 it is 4 full days late: a 4.00 fee joins the 2.99 already paid, 6.99 in total. (In the real data it came back on 26 May; the exercise pretends otherwise.)',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: PL/pgSQL', url: PG + 'plpgsql.html' }],
+  },
 ]

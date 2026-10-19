@@ -1653,4 +1653,83 @@ where r <= 5;`,
     comparison: 'Same rows. WITH TIES is the compact standard form; RANK works everywhere.',
     docs: [{ label: 'PostgreSQL: SELECT … FETCH', url: PG + 'sql-select.html#SQL-LIMIT' }],
   },
+  {
+    id: 'chinook-071',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['json', 'joins'],
+    title: 'A playlist as a JSON document',
+    prompt: 'Return playlist 18 as one JSON object: {"name": …, "tracks": [{"id": …, "title": …}, …]} with tracks in track_id order.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Nested object with an ordered array',
+        postgres: `select jsonb_build_object(
+         'name', p.name,
+         'tracks', jsonb_agg(jsonb_build_object('id', t.track_id, 'title', t.name) order by t.track_id)
+       ) as playlist
+from playlist p
+join playlist_track pt on pt.playlist_id = p.playlist_id
+join track t on t.track_id = pt.track_id
+where p.playlist_id = 18
+group by p.playlist_id, p.name;`,
+        mysql: `select json_object(
+         'name', p.name,
+         'tracks', cast(concat('[', group_concat(json_object('id', t.track_id, 'title', t.name) order by t.track_id), ']') as json)
+       ) as playlist
+from playlist p
+join playlist_track pt on pt.playlist_id = p.playlist_id
+join track t on t.track_id = pt.track_id
+where p.playlist_id = 18
+group by p.playlist_id, p.name;`,
+        mysqlNote: 'JSON_ARRAYAGG cannot order its elements; an ordered GROUP_CONCAT of JSON objects, cast to JSON, can.',
+        explanation: 'One row, one document: the shape an API returns. Playlist 18 is short, so the whole document stays readable.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: jsonb_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'chinook-072',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['date-series'],
+    title: 'Invoices every week of January 2025',
+    prompt: 'Show the 5 weeks starting Monday 2024-12-30 with the number of invoices each, including weeks with none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Weekly series',
+        postgres: `select w::date as week_start, count(i.invoice_id) as invoices
+from generate_series(date '2024-12-30', date '2024-12-30' + 28, interval '7 days') as w
+left join invoice i on i.invoice_date >= w and i.invoice_date < w + interval '7 days'
+group by w
+order by w;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation: 'Chinook issues invoices on a fixed rhythm, a few per week, so some weeks are empty and show 0.',
+      },
+      {
+        approach: 'Recursive weeks',
+        postgres: `with recursive weeks (w, n) as (
+  select date '2024-12-30', 1 union all select (w + 7)::date, n + 1 from weeks where n < 5
+)
+select w as week_start, count(i.invoice_id) as invoices
+from weeks
+left join invoice i on i.invoice_date >= w and i.invoice_date < w + 7
+group by w
+order by w;`,
+        mysql: `with recursive weeks (w, n) as (
+  select date('2024-12-30'), 1 union all select w + interval 7 day, n + 1 from weeks where n < 5
+)
+select w as week_start, count(i.invoice_id) as invoices
+from weeks
+left join invoice i on i.invoice_date >= w and i.invoice_date < w + interval 7 day
+group by w
+order by w;`,
+        explanation: 'Five week starts built by recursion.',
+      },
+    ],
+    comparison: 'Same 5 rows.',
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
 ]

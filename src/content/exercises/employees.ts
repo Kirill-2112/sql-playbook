@@ -2294,4 +2294,65 @@ select year, round(salary) as salary from proj order by year;`,
     ],
     docs: [{ label: 'PostgreSQL: WITH RECURSIVE', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
   },
+  {
+    id: 'employees-061',
+    dataset: 'employees',
+    level: 4,
+    topics: ['json', 'aggregates'],
+    title: 'Departments as one JSON object',
+    prompt: 'Return one JSON object mapping each department name to its number of current employees.',
+    hint: 'Current assignments have to_date = 9999-01-01.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Object aggregate',
+        postgres: `select jsonb_object_agg(d.dept_name, c.n) as headcount
+from departments d
+join (select dept_no, count(*) as n from dept_emp where to_date = '9999-01-01' group by dept_no) c
+  on c.dept_no = d.dept_no;`,
+        mysql: `select json_objectagg(d.dept_name, c.n) as headcount
+from departments d
+join (select dept_no, count(*) as n from dept_emp where to_date = '9999-01-01' group by dept_no) c
+  on c.dept_no = d.dept_no;`,
+        explanation: 'A single object instead of nine rows, the format a dashboard\'s chart often expects. Keys come out sorted by length and name in both databases, whatever order the rows had.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: jsonb_object_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'employees-062',
+    dataset: 'employees',
+    level: 3,
+    topics: ['lateral'],
+    title: 'The last two salaries',
+    prompt: 'For employees 10050, 10100 and 10150, show their two most recent salaries: emp_no, from_date and salary.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL … LIMIT 2',
+        postgres: `select e.emp_no, s.from_date, s.salary
+from employees e
+cross join lateral (
+  select from_date, salary from salaries
+  where emp_no = e.emp_no
+  order by from_date desc
+  limit 2
+) s
+where e.emp_no in (10050, 10100, 10150)
+order by e.emp_no, s.from_date desc;`,
+        mysql: `select e.emp_no, s.from_date, s.salary
+from employees e
+cross join lateral (
+  select from_date, salary from salaries
+  where emp_no = e.emp_no
+  order by from_date desc
+  limit 2
+) s
+where e.emp_no in (10050, 10100, 10150)
+order by e.emp_no, s.from_date desc;`,
+        explanation: 'The primary key (emp_no, from_date) serves the inner query directly: one short backwards index scan per employee.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
 ]

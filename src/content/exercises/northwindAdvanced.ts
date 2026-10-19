@@ -1232,4 +1232,72 @@ on duplicate key update category_name = new.category_name;`,
     ],
     docs: [{ label: 'PostgreSQL: Identity columns', url: PG + 'ddl-identity-columns.html' }],
   },
+  {
+    id: 'northwind-064',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['pivot'],
+    title: 'Category sales by quarter of 1997',
+    prompt: 'Show 1997 revenue (rounded to 0 decimals) per category as rows and the four quarters as columns.',
+    hint: 'Revenue of an order line is unit_price × quantity × (1 − discount).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional sums by quarter',
+        postgres: `select c.category_name,
+       round(sum(od.unit_price * od.quantity * (1 - od.discount)) filter (where extract(quarter from o.order_date) = 1)) as q1,
+       round(sum(od.unit_price * od.quantity * (1 - od.discount)) filter (where extract(quarter from o.order_date) = 2)) as q2,
+       round(sum(od.unit_price * od.quantity * (1 - od.discount)) filter (where extract(quarter from o.order_date) = 3)) as q3,
+       round(sum(od.unit_price * od.quantity * (1 - od.discount)) filter (where extract(quarter from o.order_date) = 4)) as q4
+from order_details od
+join orders o     on o.order_id = od.order_id
+join products p   on p.product_id = od.product_id
+join categories c on c.category_id = p.category_id
+where o.order_date >= '1997-01-01' and o.order_date < '1998-01-01'
+group by c.category_id, c.category_name
+order by c.category_id;`,
+        mysql: `select c.category_name,
+       round(sum(case when quarter(o.order_date) = 1 then od.unit_price * od.quantity * (1 - od.discount) end)) as q1,
+       round(sum(case when quarter(o.order_date) = 2 then od.unit_price * od.quantity * (1 - od.discount) end)) as q2,
+       round(sum(case when quarter(o.order_date) = 3 then od.unit_price * od.quantity * (1 - od.discount) end)) as q3,
+       round(sum(case when quarter(o.order_date) = 4 then od.unit_price * od.quantity * (1 - od.discount) end)) as q4
+from order_details od
+join orders o     on o.order_id = od.order_id
+join products p   on p.product_id = od.product_id
+join categories c on c.category_id = p.category_id
+where o.order_date >= '1997-01-01' and o.order_date < '1998-01-01'
+group by c.category_id, c.category_name
+order by c.category_id;`,
+        explanation: 'One conditional sum per quarter; the year filter in WHERE keeps the work to 1997.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'northwind-065',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['views', 'dates-basics'],
+    title: 'A view of late shipments',
+    prompt: 'Create a view late_orders (order_id, customer_id, required_date, shipped_date, days_late) of orders shipped after their required date.',
+    orderMatters: true,
+    checkSql: `select order_id, customer_id, days_late from late_orders order by days_late desc, order_id limit 5`,
+    solutions: [
+      {
+        approach: 'View with a date difference',
+        postgres: `create view late_orders as
+select order_id, customer_id, required_date, shipped_date,
+       shipped_date::date - required_date::date as days_late
+from orders
+where shipped_date > required_date;`,
+        mysql: `create view late_orders as
+select order_id, customer_id, required_date, shipped_date,
+       datediff(shipped_date, required_date) as days_late
+from orders
+where shipped_date > required_date;`,
+        explanation: 'Unshipped orders (NULL shipped_date) fail the comparison and stay out. The columns are timestamps, so they are cast to date before subtracting to get whole days.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
 ]

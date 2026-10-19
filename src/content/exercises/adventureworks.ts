@@ -2255,4 +2255,107 @@ insert into po_by_status select purchase_order_id, status, order_date, total_due
     ],
     docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
   },
+  {
+    id: 'adventureworks-061',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['date-series'],
+    title: 'Orders week by week',
+    prompt: 'For the 13 weeks starting Monday 2024-12-30, show each week\'s start date and its number of sales orders.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'generate_series by week',
+        postgres: `select w::date as week_start, count(h.sales_order_id) as orders
+from generate_series(date '2024-12-30', date '2024-12-30' + 84, interval '7 days') as w
+left join sales_order_header h on h.order_date >= w and h.order_date < w + interval '7 days'
+group by w
+order by w;`,
+        mysql: null,
+        mysqlNote: 'No generate_series in MySQL; see solution B.',
+        explanation: '84 days after the first Monday is the start of week 13. Weeks starting on Monday match ISO weeks.',
+      },
+      {
+        approach: 'Recursive weeks',
+        postgres: `with recursive weeks (w, n) as (
+  select date '2024-12-30', 1
+  union all
+  select (w + 7)::date, n + 1 from weeks where n < 13
+)
+select w as week_start, count(h.sales_order_id) as orders
+from weeks
+left join sales_order_header h on h.order_date >= w and h.order_date < w + 7
+group by w
+order by w;`,
+        mysql: `with recursive weeks (w, n) as (
+  select date('2024-12-30'), 1
+  union all
+  select w + interval 7 day, n + 1 from weeks where n < 13
+)
+select w as week_start, count(h.sales_order_id) as orders
+from weeks
+left join sales_order_header h on h.order_date >= w and h.order_date < w + interval 7 day
+group by w
+order by w;`,
+        explanation: 'A counter stops the recursion after 13 weeks.',
+      },
+    ],
+    comparison: 'Same 13 rows.',
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'adventureworks-062',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['triggers'],
+    title: 'Keep a price history automatically',
+    prompt:
+      'When a product\'s list_price changes, a trigger should close the product\'s open row in product_list_price_history (end_date NULL) and add a new open row with the new price. Test it with product 707.',
+    orderMatters: false,
+    checkSql: `update product set list_price = list_price + 1 where product_id = 707;
+select count(*) as history_rows,
+       sum(case when end_date is null then 1 else 0 end) as open_rows,
+       max(case when end_date is null then list_price end) = (select list_price from product where product_id = 707) as open_matches
+from product_list_price_history where product_id = 707`,
+    solutions: [
+      {
+        approach: 'AFTER UPDATE trigger with a condition',
+        postgres: `create function track_price() returns trigger
+language plpgsql
+as $$
+begin
+  if new.list_price <> old.list_price then
+    update product_list_price_history set end_date = now()
+    where product_id = new.product_id and end_date is null;
+    insert into product_list_price_history (product_id, start_date, end_date, list_price)
+    values (new.product_id, now(), null, new.list_price);
+  end if;
+  return new;
+end;
+$$;
+
+create trigger product_track_price
+after update of list_price on product
+for each row execute function track_price();`,
+        mysql: `create trigger product_track_price
+after update on product
+for each row
+begin
+  if new.list_price <> old.list_price then
+    update product_list_price_history set end_date = now()
+    where product_id = new.product_id and end_date is null;
+    insert into product_list_price_history (product_id, start_date, end_date, list_price)
+    values (new.product_id, now(), null, new.list_price);
+  end if;
+end;`,
+        mysqlNote: 'MySQL triggers fire on any UPDATE of the row (no "OF column"), hence the IF. In the mysql client, wrap it in DELIMITER $$ … $$.',
+        explanation:
+          'UPDATE OF list_price fires only when that column is in the SET list, and the IF skips "updates" to the same value. The history then always has exactly one open row holding the current price.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE TRIGGER … UPDATE OF', url: PG + 'sql-createtrigger.html' },
+      { label: 'MySQL: CREATE TRIGGER', url: MY + 'create-trigger.html' },
+    ],
+  },
 ]

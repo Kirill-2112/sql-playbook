@@ -1560,4 +1560,97 @@ on duplicate key update name = new.name;`,
     ],
     docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
   },
+  {
+    id: 'chinook-068',
+    dataset: 'chinook',
+    level: 1,
+    topics: ['conditions'],
+    title: 'Price tiers',
+    prompt: 'Count tracks by price tier: "standard" for 0.99, "premium" for 1.99, anything else "other".',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'CASE on exact values',
+        postgres: `select case unit_price when 0.99 then 'standard' when 1.99 then 'premium' else 'other' end as tier,
+       count(*) as tracks
+from track
+group by tier;`,
+        mysql: `select case unit_price when 0.99 then 'standard' when 1.99 then 'premium' else 'other' end as tier,
+       count(*) as tracks
+from track
+group by tier;`,
+        explanation: 'unit_price is numeric, so comparing it with 0.99 is exact; with floating-point columns, equality tests on prices are a trap. Video tracks cost 1.99.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CASE', url: PG + 'functions-conditional.html#FUNCTIONS-CASE' }],
+  },
+  {
+    id: 'chinook-069',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['lateral'],
+    title: 'Two longest tracks of each album',
+    prompt: 'For albums 1 to 5, show album_id, and the two longest tracks of each (name and milliseconds).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL … LIMIT 2',
+        postgres: `select a.album_id, t.name, t.milliseconds
+from album a
+cross join lateral (
+  select name, milliseconds from track
+  where album_id = a.album_id
+  order by milliseconds desc, track_id
+  limit 2
+) t
+where a.album_id between 1 and 5
+order by a.album_id, t.milliseconds desc;`,
+        mysql: `select a.album_id, t.name, t.milliseconds
+from album a
+cross join lateral (
+  select name, milliseconds from track
+  where album_id = a.album_id
+  order by milliseconds desc, track_id
+  limit 2
+) t
+where a.album_id between 1 and 5
+order by a.album_id, t.milliseconds desc;`,
+        explanation: 'Album 2 has a single track, so it contributes one row: LIMIT 2 is "up to two".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'chinook-070',
+    dataset: 'chinook',
+    level: 1,
+    topics: ['limit', 'ranking'],
+    title: 'Top 5, ties included',
+    prompt: 'Show the 5 invoices with the highest totals, plus every invoice tied with the 5th: invoice_id, customer_id, total.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FETCH FIRST … WITH TIES',
+        postgres: `select invoice_id, customer_id, total
+from invoice
+order by total desc
+fetch first 5 rows with ties;`,
+        mysql: null,
+        mysqlNote: 'MySQL has no WITH TIES; see solution B.',
+        explanation: 'WITH TIES keeps adding rows as long as they equal the last one by the ORDER BY key, so the cut never splits a tie. Note the ORDER BY must not include a tie-breaker, or nothing would ever tie.',
+      },
+      {
+        approach: 'RANK',
+        postgres: `select invoice_id, customer_id, total
+from (select invoice_id, customer_id, total, rank() over (order by total desc) as r from invoice) x
+where r <= 5;`,
+        mysql: `select invoice_id, customer_id, total
+from (select invoice_id, customer_id, total, rank() over (order by total desc) as r from invoice) x
+where r <= 5;`,
+        explanation: 'RANK gives tied rows the same rank, so r <= 5 keeps the whole tie at fifth place.',
+      },
+    ],
+    comparison: 'Same rows. WITH TIES is the compact standard form; RANK works everywhere.',
+    docs: [{ label: 'PostgreSQL: SELECT … FETCH', url: PG + 'sql-select.html#SQL-LIMIT' }],
+  },
 ]

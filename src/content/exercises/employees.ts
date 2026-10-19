@@ -2193,4 +2193,105 @@ group by y;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
   },
+  {
+    id: 'employees-058',
+    dataset: 'employees',
+    level: 5,
+    topics: ['control-flow', 'functions'],
+    title: 'A raise that depends on the title',
+    prompt:
+      'Write raise_pct(p_title) returning the yearly raise in percent: 5 for Senior Engineer and Technique Leader, 4 for Engineer and Senior Staff, 2 for Manager, 3 otherwise.',
+    orderMatters: true,
+    checkSql: `select title, raise_pct(title) as pct from (select distinct title from titles) t order by title`,
+    solutions: [
+      {
+        approach: 'CASE statement in a function',
+        postgres: `create function raise_pct(p_title text) returns integer
+language plpgsql
+immutable
+as $$
+begin
+  case
+    when p_title in ('Senior Engineer', 'Technique Leader') then return 5;
+    when p_title in ('Engineer', 'Senior Staff') then return 4;
+    when p_title = 'Manager' then return 2;
+    else return 3;
+  end case;
+end;
+$$;`,
+        mysql: `create function raise_pct(p_title varchar(50)) returns int
+deterministic
+begin
+  case
+    when p_title in ('Senior Engineer', 'Technique Leader') then return 5;
+    when p_title in ('Engineer', 'Senior Staff') then return 4;
+    when p_title = 'Manager' then return 2;
+    else return 3;
+  end case;
+end;`,
+        mysqlNote: 'Same CASE statement syntax. In the mysql client, wrap it in DELIMITER $$ … $$.',
+        explanation:
+          'A CASE statement (with END CASE) chooses which statements to run; the CASE expression used in queries chooses a value. Without ELSE, a PL/pgSQL CASE statement that matches nothing raises an error, unlike the expression, which returns NULL.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Conditionals (CASE)', url: PG + 'plpgsql-control-structures.html#PLPGSQL-CONDITIONALS' }],
+  },
+  {
+    id: 'employees-059',
+    dataset: 'employees',
+    level: 4,
+    topics: ['normalization', 'self-cross-join'],
+    title: 'No overlapping titles',
+    prompt:
+      'An employee should never hold two titles at the same time. Count the pairs of title rows of the same employee whose periods overlap.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Self join on overlapping periods',
+        postgres: `select count(*) as overlapping_pairs
+from titles a
+join titles b on b.emp_no = a.emp_no
+             and a.from_date < b.from_date
+             and b.from_date < a.to_date;`,
+        mysql: `select count(*) as overlapping_pairs
+from titles a
+join titles b on b.emp_no = a.emp_no
+             and a.from_date < b.from_date
+             and b.from_date < a.to_date;`,
+        explanation:
+          'Two periods overlap when the later one starts before the earlier one ends. None do here. The table\'s key (emp_no, title, from_date) cannot prevent overlaps; PostgreSQL could with an exclusion constraint over a daterange, which is how temporal data is protected properly.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Exclusion constraints', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-EXCLUSION' }],
+  },
+  {
+    id: 'employees-060',
+    dataset: 'employees',
+    level: 3,
+    topics: ['recursive', 'numbers'],
+    title: 'Five years of raises',
+    prompt: 'Project employee 10050\'s current salary 5 years ahead with a 3% raise each year, rounded to whole units: year 0 (today) to 5.',
+    hint: 'The current salary has to_date = 9999-01-01.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE that compounds',
+        postgres: `with recursive proj (year, salary) as (
+  select 0, salary::numeric from salaries where emp_no = 10050 and to_date = '9999-01-01'
+  union all
+  select year + 1, salary * 1.03 from proj where year < 5
+)
+select year, round(salary) as salary from proj order by year;`,
+        mysql: `with recursive proj (year, salary) as (
+  select 0, cast(salary as decimal(14, 4)) from salaries where emp_no = 10050 and to_date = '9999-01-01'
+  union all
+  select year + 1, salary * 1.03 from proj where year < 5
+)
+select year, round(salary) as salary from proj order by year;`,
+        mysqlNote: 'The recursive column takes its type from the first SELECT: cast to a decimal with room for decimals, or every step would be rounded to an integer.',
+        explanation: 'Each step multiplies the previous value, so the raises compound. Rounding only at the end avoids accumulating rounding errors.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH RECURSIVE', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
 ]

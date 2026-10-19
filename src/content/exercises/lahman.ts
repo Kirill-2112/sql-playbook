@@ -2199,4 +2199,35 @@ order by depth;`,
       { label: 'MySQL: Recursive CTEs', url: MY + 'with.html#common-table-expressions-recursive' },
     ],
   },
+  {
+    id: 'lahman-061',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['procedures', 'dml'],
+    title: 'Record a game result',
+    prompt:
+      'Write a procedure record_game(p_year, p_winner, p_loser) that adds a win to the winning team\'s season and a loss to the loser\'s. Record a 2025 game won by NYA against BOS.',
+    orderMatters: true,
+    checkSql: `call record_game(2025, 'NYA', 'BOS');
+select team_id, w, l from teams where year_id = 2025 and team_id in ('NYA', 'BOS') order by team_id`,
+    solutions: [
+      {
+        approach: 'Two updates in a procedure',
+        postgres: `create procedure record_game(p_year integer, p_winner text, p_loser text)
+language sql
+as $$
+  update teams set w = w + 1, g = g + 1 where year_id = p_year and team_id = p_winner;
+  update teams set l = l + 1, g = g + 1 where year_id = p_year and team_id = p_loser;
+$$;`,
+        mysql: `create procedure record_game(p_year int, p_winner char(3), p_loser char(3))
+begin
+  update teams set w = w + 1, g = g + 1 where year_id = p_year and team_id = p_winner;
+  update teams set l = l + 1, g = g + 1 where year_id = p_year and team_id = p_loser;
+end;`,
+        mysqlNote: 'In the mysql client, wrap it in DELIMITER $$ … $$.',
+        explanation: 'One call keeps the two sides of the game consistent: games, wins and losses all move together.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
+  },
 ]

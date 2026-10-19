@@ -2622,4 +2622,47 @@ on duplicate key update fare_conditions = new.fare_conditions;`,
     comparison: 'Same layout. Scoping matters in both: a MERGE … NOT MATCHED BY SOURCE against the whole seats table would delete every other seat of every airplane.',
     docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
   },
+  {
+    id: 'airlines-065',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['query-plans', 'set-operations'],
+    title: 'OR across two indexed columns',
+    prompt: 'Count the segments that belong to ticket 0005432000395 or to flight 77 (a segment matching both counts once).',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'OR',
+        postgres: `select count(*) as segments
+from segments
+where ticket_no = '0005432000395' or flight_id = 77;`,
+        mysql: `select count(*) as segments
+from segments
+where ticket_no = '0005432000395' or flight_id = 77;`,
+        explanation: 'Both columns have an index (the primary key starts with ticket_no; flight_id has its own). PostgreSQL can combine them with a BitmapOr; MySQL can do an index merge union.',
+      },
+      {
+        approach: 'UNION of two indexed lookups',
+        postgres: `select count(*) as segments
+from (
+  select ticket_no, flight_id from segments where ticket_no = '0005432000395'
+  union
+  select ticket_no, flight_id from segments where flight_id = 77
+) s;`,
+        mysql: `select count(*) as segments
+from (
+  select ticket_no, flight_id from segments where ticket_no = '0005432000395'
+  union
+  select ticket_no, flight_id from segments where flight_id = 77
+) s;`,
+        explanation: 'Each half uses its own index; UNION (not UNION ALL) removes the segment that matches both conditions.',
+      },
+    ],
+    comparison:
+      'Same count. When OR across different columns makes the planner give up and scan the table, rewriting as a UNION of two indexed lookups is the classic fix; here PostgreSQL handles the OR well itself, as the plans show.',
+    docs: [
+      { label: 'PostgreSQL: Combining multiple indexes', url: PG + 'indexes-bitmap-scans.html' },
+      { label: 'MySQL: Index merge optimization', url: MY + 'index-merge-optimization.html' },
+    ],
+  },
 ]

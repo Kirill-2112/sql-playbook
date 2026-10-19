@@ -1488,4 +1488,130 @@ order by order_1, order_2;`,
     comparison: 'Same pairs. The array version reads like the question; the self join is the relational way and works in MySQL with a JSON array.',
     docs: [{ label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' }],
   },
+  {
+    id: 'northwind-072',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Categories about bread',
+    prompt: 'Make category descriptions searchable by word and find the categories whose description contains "breads": category_id and category_name.',
+    orderMatters: true,
+    checkSql: `select category_id, category_name from categories
+where to_tsvector('simple', description) @@ to_tsquery('simple', 'breads')
+order by category_id`,
+    checkSqlMysql: `select category_id, category_name from categories
+where match(description) against ('+breads' in boolean mode)
+order by category_id`,
+    solutions: [
+      {
+        approach: 'Full-text index on a text column',
+        postgres: `create index categories_description_fts on categories using gin (to_tsvector('simple', description));`,
+        mysql: `create fulltext index categories_description_ft on categories (description);`,
+        explanation: 'Two categories mention "breads" ("sweet breads" and "Breads, crackers"). With \'english\', "bread" would find them too, since both reduce to the stem "bread".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Full text search', url: PG + 'textsearch-intro.html' }],
+  },
+  {
+    id: 'northwind-073',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['query-plans', 'subqueries'],
+    title: 'NOT IN and its NULL trap',
+    prompt: 'Which customers have never placed an order? Count them in two ways and compare.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'NOT EXISTS',
+        postgres: `select count(*) as no_orders
+from customers c
+where not exists (select 1 from orders o where o.customer_id = c.customer_id);`,
+        mysql: `select count(*) as no_orders
+from customers c
+where not exists (select 1 from orders o where o.customer_id = c.customer_id);`,
+        explanation: 'Planned as an anti-join, and correct whatever NULLs orders.customer_id might contain.',
+      },
+      {
+        approach: 'NOT IN with the NULLs filtered out',
+        postgres: `select count(*) as no_orders
+from customers
+where customer_id not in (select customer_id from orders where customer_id is not null);`,
+        mysql: `select count(*) as no_orders
+from customers
+where customer_id not in (select customer_id from orders where customer_id is not null);`,
+        explanation:
+          'orders.customer_id is nullable in Northwind. If a single order had a NULL customer, "x NOT IN (…, NULL)" could never be true and the count would drop to 0; the IS NOT NULL filter makes NOT IN safe.',
+      },
+    ],
+    comparison: 'Same count (2). NOT EXISTS needs no special care and plans as an anti-join; NOT IN is correct only with the NULL filter.',
+    docs: [{ label: 'PostgreSQL: NOT IN', url: PG + 'functions-subquery.html#FUNCTIONS-SUBQUERY-NOTIN' }],
+  },
+  {
+    id: 'northwind-074',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['cte', 'query-plans'],
+    title: 'A CTE used twice',
+    prompt:
+      'Using one CTE of revenue per customer, show the customers whose revenue is more than twice the average customer revenue: customer_id and revenue (rounded to 2 decimals).',
+    hint: 'Revenue of an order line is unit_price × quantity × (1 − discount).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CTE referenced twice',
+        postgres: `with revenue as (
+  select o.customer_id, sum(od.unit_price * od.quantity * (1 - od.discount)) as total
+  from orders o join order_details od on od.order_id = o.order_id
+  group by o.customer_id
+)
+select customer_id, round(total, 2) as revenue
+from revenue
+where total > 2 * (select avg(total) from revenue)
+order by total desc;`,
+        mysql: `with revenue as (
+  select o.customer_id, sum(od.unit_price * od.quantity * (1 - od.discount)) as total
+  from orders o join order_details od on od.order_id = o.order_id
+  group by o.customer_id
+)
+select customer_id, round(total, 2) as revenue
+from revenue
+where total > 2 * (select avg(total) from revenue)
+order by total desc;`,
+        explanation:
+          'A CTE referenced more than once is computed once and reused (PostgreSQL "materializes" it). A CTE used once is inlined into the query like a subquery; WITH … AS MATERIALIZED / NOT MATERIALIZED overrides that choice.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CTE materialization', url: PG + 'queries-with.html#QUERIES-WITH-CTE-MATERIALIZATION' }],
+  },
+  {
+    id: 'northwind-075',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['ddl', 'constraints'],
+    title: 'What happens on delete',
+    prompt:
+      'Add a column preferred_shipper_id to customers referencing shippers, so that deleting a shipper sets it to NULL rather than failing. Set ALFKI\'s preferred shipper to 3, then delete shipper 3.',
+    orderMatters: false,
+    checkSql: `delete from order_details where order_id in (select order_id from orders where ship_via = 3);
+delete from orders where ship_via = 3;
+delete from shippers where shipper_id = 3;
+select customer_id, preferred_shipper_id from customers where customer_id = 'ALFKI'`,
+    solutions: [
+      {
+        approach: 'Foreign key with ON DELETE SET NULL',
+        postgres: `alter table customers add column preferred_shipper_id integer
+  references shippers (shipper_id) on delete set null;
+
+update customers set preferred_shipper_id = 3 where customer_id = 'ALFKI';`,
+        mysql: `alter table customers add column preferred_shipper_id int,
+  add foreign key (preferred_shipper_id) references shippers (shipper_id) on delete set null;
+
+update customers set preferred_shipper_id = 3 where customer_id = 'ALFKI';`,
+        mysqlNote: 'The FK column type must match shippers.shipper_id exactly.',
+        explanation:
+          'The default action, NO ACTION, refuses to delete a shipper still referenced. SET NULL clears the reference instead, CASCADE would delete the referencing rows. (The check first removes shipper 3\'s orders and their lines, whose own foreign keys would otherwise block the delete.)',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Foreign keys (ON DELETE)', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-FK' }],
+  },
 ]

@@ -2407,4 +2407,177 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: RAISE', url: PG + 'plpgsql-errors-and-messages.html' }],
   },
+  {
+    id: 'employees-064',
+    dataset: 'employees',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'The longest wait for a raise',
+    prompt: 'For employees still employed (a current salary row), find the longest time in days between two consecutive salary changes. Show the 5 longest: emp_no and days.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Days between consecutive from_dates',
+        postgres: `select emp_no, max(gap) as longest_days
+from (
+  select emp_no, from_date - lag(from_date) over (partition by emp_no order by from_date) as gap
+  from salaries
+  where emp_no in (select emp_no from salaries where to_date = '9999-01-01')
+) g
+group by emp_no
+order by longest_days desc, emp_no
+limit 5;`,
+        mysql: `select emp_no, max(gap) as longest_days
+from (
+  select emp_no, datediff(from_date, lag(from_date) over (partition by emp_no order by from_date)) as gap
+  from salaries
+  where emp_no in (select emp_no from salaries where to_date = '9999-01-01')
+) g
+group by emp_no
+order by longest_days desc, emp_no
+limit 5;`,
+        explanation: 'Salaries normally change once a year; the longest gaps reveal employees whose pay stayed the same for several years.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LAG', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'employees-065',
+    dataset: 'employees',
+    level: 5,
+    topics: ['query-plans', 'ranking'],
+    title: 'Current salaries: filter or rank',
+    prompt: 'Sum the current salaries of department d005. Compare filtering on to_date with ranking each employee\'s salaries.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Filter on the sentinel date',
+        postgres: `select count(*) as staff, sum(s.salary) as payroll
+from dept_emp de
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+where de.dept_no = 'd005' and de.to_date = '9999-01-01';`,
+        mysql: `select count(*) as staff, sum(s.salary) as payroll
+from dept_emp de
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+where de.dept_no = 'd005' and de.to_date = '9999-01-01';`,
+        explanation: 'Uses the "9999-01-01 means current" convention: one equality per table.',
+      },
+      {
+        approach: 'Latest salary by ROW_NUMBER',
+        postgres: `select count(*) as staff, sum(salary) as payroll
+from (
+  select s.salary, row_number() over (partition by s.emp_no order by s.from_date desc) as n
+  from dept_emp de
+  join salaries s on s.emp_no = de.emp_no
+  where de.dept_no = 'd005' and de.to_date = '9999-01-01'
+) r
+where n = 1;`,
+        mysql: `select count(*) as staff, sum(salary) as payroll
+from (
+  select s.salary, row_number() over (partition by s.emp_no order by s.from_date desc) as n
+  from dept_emp de
+  join salaries s on s.emp_no = de.emp_no
+  where de.dept_no = 'd005' and de.to_date = '9999-01-01'
+) r
+where n = 1;`,
+        explanation: 'Does not rely on the sentinel, but reads every salary row of every current employee and sorts them.',
+      },
+    ],
+    comparison: 'Same totals here, because every current employee has a current salary row. The sentinel filter is much less work; the ranking survives data where "current" is not marked.',
+    docs: [{ label: 'PostgreSQL: Using EXPLAIN', url: PG + 'using-explain.html' }],
+  },
+  {
+    id: 'employees-066',
+    dataset: 'employees',
+    level: 3,
+    topics: ['cte'],
+    title: 'A report in three steps',
+    prompt:
+      'With a chain of CTEs: current staff per department, the company-wide average department size, and the departments larger than that average. Show dept_name and staff.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CTEs building on each other',
+        postgres: `with staff as (
+  select dept_no, count(*) as n from dept_emp where to_date = '9999-01-01' group by dept_no
+),
+average as (
+  select avg(n) as avg_n from staff
+),
+large as (
+  select s.dept_no, s.n from staff s, average a where s.n > a.avg_n
+)
+select d.dept_name, l.n as staff
+from large l join departments d on d.dept_no = l.dept_no
+order by l.n desc, d.dept_name;`,
+        mysql: `with staff as (
+  select dept_no, count(*) as n from dept_emp where to_date = '9999-01-01' group by dept_no
+),
+average as (
+  select avg(n) as avg_n from staff
+),
+large as (
+  select s.dept_no, s.n from staff s, average a where s.n > a.avg_n
+)
+select d.dept_name, l.n as staff
+from large l join departments d on d.dept_no = l.dept_no
+order by l.n desc, d.dept_name;`,
+        explanation: 'Each CTE may use the ones before it, so a report reads top to bottom in named steps instead of nested subqueries.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'employees-067',
+    dataset: 'employees',
+    level: 1,
+    topics: ['null', 'lag-lead'],
+    title: 'No previous salary',
+    prompt: 'For employee 10050, show each salary row with the previous salary; where there is none, show 0 instead of NULL.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LAG with a default',
+        postgres: `select from_date, salary, lag(salary, 1, 0) over (order by from_date) as previous_salary
+from salaries
+where emp_no = 10050
+order by from_date;`,
+        mysql: `select from_date, salary, lag(salary, 1, 0) over (order by from_date) as previous_salary
+from salaries
+where emp_no = 10050
+order by from_date;`,
+        explanation: 'LAG(value, offset, default) returns the default when there is no previous row. coalesce(lag(salary) over …, 0) does the same, but would also replace a previous salary that is itself NULL.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'employees-068',
+    dataset: 'employees',
+    level: 4,
+    topics: ['materialized-views'],
+    title: 'Title counts per year, stored',
+    prompt: 'Store, for each year 1990–2000, the number of people holding each title on 1 January of that year (year, title, holders).',
+    orderMatters: true,
+    checkSql: `select year, title, holders from title_counts where year = 2000 order by holders desc, title`,
+    solutions: [
+      {
+        approach: 'Materialized view over a year series',
+        postgres: `create materialized view title_counts as
+select y as year, t.title, count(*) as holders
+from generate_series(1990, 2000) as y
+join titles t on t.from_date <= make_date(y, 1, 1) and t.to_date > make_date(y, 1, 1)
+group by y, t.title;`,
+        mysql: `create table title_counts as
+with recursive years (y) as (select 1990 union all select y + 1 from years where y < 2000)
+select y as year, t.title, count(*) as holders
+from years
+join titles t on t.from_date <= makedate(y, 1) and t.to_date > makedate(y, 1)
+group by y, t.title;`,
+        mysqlNote: 'MAKEDATE(y, 1) is 1 January; a table stands in for the materialized view.',
+        explanation: 'History tables make "as of a date" questions expensive; storing the yearly snapshot once makes the trend chart cheap.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Materialized views', url: PG + 'rules-materializedviews.html' }],
+  },
 ]

@@ -2788,4 +2788,130 @@ order by day;`,
     ],
     docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
   },
+  {
+    id: 'airlines-070',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'Quiet hours at Frankfurt',
+    prompt: 'On 2025-12-01 (UTC), find the gaps of at least 2 hours between consecutive scheduled departures from FRA: the departure before the gap, the next one and the gap in minutes.',
+    hint: 'A flight belongs to the route row whose valid_from ≤ scheduled_departure < valid_to.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEAD over the day\'s departures',
+        postgres: `with deps as (
+  select f.scheduled_departure as dep
+  from flights f
+  join routes r on r.route_no = f.route_no
+               and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+  where r.departure_airport = 'FRA' and f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2025-12-02'
+)
+select dep as before_gap, next_dep as after_gap, (extract(epoch from next_dep - dep) / 60)::int as gap_minutes
+from (select dep, lead(dep) over (order by dep) as next_dep from deps) d
+where next_dep - dep >= interval '2 hours'
+order by dep;`,
+        mysql: `with deps as (
+  select f.scheduled_departure as dep
+  from flights f
+  join routes r on r.route_no = f.route_no
+               and f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to
+  where r.departure_airport = 'FRA' and f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2025-12-02'
+)
+select dep as before_gap, next_dep as after_gap, timestampdiff(minute, dep, next_dep) as gap_minutes
+from (select dep, lead(dep) over (order by dep) as next_dep from deps) d
+where timestampdiff(minute, dep, next_dep) >= 120
+order by dep;`,
+        explanation: 'Scheduled times are whole minutes, so the minute count is exact in both databases.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LEAD', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'airlines-071',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['functions'],
+    title: 'Flight time as a function',
+    prompt: 'Write a function flight_minutes(p_flight_id) returning the scheduled flight time in minutes, or NULL for an unknown flight.',
+    orderMatters: false,
+    checkSql: `select flight_minutes(1) as first, flight_minutes(11052) as other, flight_minutes(999999) as unknown`,
+    solutions: [
+      {
+        approach: 'SQL function',
+        postgres: `create function flight_minutes(p_flight_id integer) returns integer
+language sql
+stable
+as $$
+  select (extract(epoch from scheduled_arrival - scheduled_departure) / 60)::int
+  from flights where flight_id = p_flight_id;
+$$;`,
+        mysql: `create function flight_minutes(p_flight_id int) returns int
+reads sql data
+begin
+  return (select timestampdiff(minute, scheduled_departure, scheduled_arrival) from flights where flight_id = p_flight_id);
+end;`,
+        mysqlNote: 'In the mysql client, wrap it in DELIMITER $$ … $$.',
+        explanation: 'A query that finds no row returns NULL from a SQL function, which is a good answer for "unknown flight".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SQL functions', url: PG + 'xfunc-sql.html' }],
+  },
+  {
+    id: 'airlines-072',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['full-join'],
+    title: 'Passenger countries, October vs November',
+    prompt: 'For passenger country codes (first two letters of passenger_id), compare passengers flying in October 2025 with those in November: count countries seen in both months, only October and only November.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two country lists',
+        postgres: `with oct as (
+  select distinct left(t.passenger_id, 2) as c from tickets t
+  join segments s on s.ticket_no = t.ticket_no join flights f on f.flight_id = s.flight_id
+  where f.scheduled_departure >= '2025-10-01' and f.scheduled_departure < '2025-11-01'
+),
+nov as (
+  select distinct left(t.passenger_id, 2) as c from tickets t
+  join segments s on s.ticket_no = t.ticket_no join flights f on f.flight_id = s.flight_id
+  where f.scheduled_departure >= '2025-11-01' and f.scheduled_departure < '2025-12-01'
+)
+select count(*) filter (where o.c is not null and n.c is not null) as both_months,
+       count(*) filter (where n.c is null) as only_october,
+       count(*) filter (where o.c is null) as only_november
+from oct o full join nov n on n.c = o.c;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'Small countries may appear in one month only, simply because the sample has few of their passengers.',
+      },
+      {
+        approach: 'Flags per country',
+        postgres: `select sum(case when o = 1 and n = 1 then 1 else 0 end) as both_months,
+       sum(case when o = 1 and n = 0 then 1 else 0 end) as only_october,
+       sum(case when o = 0 and n = 1 then 1 else 0 end) as only_november
+from (
+  select left(t.passenger_id, 2) as c,
+         max(case when f.scheduled_departure < '2025-11-01' then 1 else 0 end) as o,
+         max(case when f.scheduled_departure >= '2025-11-01' then 1 else 0 end) as n
+  from tickets t join segments s on s.ticket_no = t.ticket_no join flights f on f.flight_id = s.flight_id
+  where f.scheduled_departure >= '2025-10-01' and f.scheduled_departure < '2025-12-01'
+  group by left(t.passenger_id, 2)
+) x;`,
+        mysql: `select sum(o = 1 and n = 1) as both_months, sum(o = 1 and n = 0) as only_october, sum(o = 0 and n = 1) as only_november
+from (
+  select left(t.passenger_id, 2) as c,
+         max(f.scheduled_departure < '2025-11-01') as o,
+         max(f.scheduled_departure >= '2025-11-01') as n
+  from tickets t join segments s on s.ticket_no = t.ticket_no join flights f on f.flight_id = s.flight_id
+  where f.scheduled_departure >= '2025-10-01' and f.scheduled_departure < '2025-12-01'
+  group by left(t.passenger_id, 2)
+) x;`,
+        explanation: 'One pass over both months with a flag per month.',
+      },
+    ],
+    comparison: 'Same counts.',
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
 ]

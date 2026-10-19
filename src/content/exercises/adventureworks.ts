@@ -2609,4 +2609,52 @@ order by month;`,
     ],
     docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
   },
+  {
+    id: 'adventureworks-071',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Aluminum alloy',
+    prompt: 'Make product descriptions searchable and count the descriptions that mention both "aluminum" and "alloy".',
+    orderMatters: false,
+    checkSql: `select count(*) as descriptions from product_description
+where to_tsvector('simple', description) @@ to_tsquery('simple', 'aluminum & alloy')`,
+    checkSqlMysql: `select count(*) as descriptions from product_description
+where match(description) against ('+aluminum +alloy' in boolean mode)`,
+    solutions: [
+      {
+        approach: 'AND query on a full-text index',
+        postgres: `create index product_description_fts on product_description using gin (to_tsvector('simple', description));`,
+        mysql: `create fulltext index product_description_ft on product_description (description);`,
+        explanation: 'Two required words anywhere in the text. The descriptions include translations; words in other languages simply never match this query.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Text search operators', url: PG + 'functions-textsearch.html' }],
+  },
+  {
+    id: 'adventureworks-072',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['normalization'],
+    title: 'Does the subcategory decide the category?',
+    prompt:
+      'product stores only product_subcategory_id, and the category comes from the subcategory. Check the design: how many subcategories, and how many of them belong to more than one category?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Count categories per subcategory',
+        postgres: `select count(*) as subcategories,
+       count(*) filter (where categories > 1) as in_several_categories
+from (select product_subcategory_id, count(distinct product_category_id) as categories
+      from product_subcategory group by product_subcategory_id) s;`,
+        mysql: `select count(*) as subcategories,
+       sum(categories > 1) as in_several_categories
+from (select product_subcategory_id, count(distinct product_category_id) as categories
+      from product_subcategory group by product_subcategory_id) s;`,
+        explanation:
+          'Each subcategory has exactly one category, so storing the category on product as well would be redundant: product → subcategory → category is a chain of dependencies, and 3NF keeps each fact at its own level.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUP BY', url: PG + 'queries-table-expressions.html#QUERIES-GROUP' }],
+  },
 ]

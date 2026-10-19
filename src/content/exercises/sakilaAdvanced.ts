@@ -2105,4 +2105,51 @@ insert into customer_by_store select customer_id, store_id, first_name, last_nam
     ],
     docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
   },
+  {
+    id: 'sakila-081',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['full-text', 'text-search'],
+    title: 'Love and hearts in titles',
+    prompt:
+      'LIKE \'%LOVE%\' or \'%HEART%\' finds 17 film titles, some only because the letters appear inside another word. Make titles searchable by word and count the films with the word LOVE or the word HEART.',
+    orderMatters: false,
+    checkSql: `select count(*) as films from film where to_tsvector('simple', title) @@ to_tsquery('simple', 'love | heart')`,
+    checkSqlMysql: `select count(*) as films from film where match(title) against ('love heart' in boolean mode)`,
+    solutions: [
+      {
+        approach: 'Full-text index on titles',
+        postgres: `create index film_title_fts on film using gin (to_tsvector('simple', title));`,
+        mysql: `create fulltext index film_title_ft on film (title);`,
+        explanation: 'Whole words only: GLOVES no longer counts as LOVE. Searches are case-insensitive, because both databases lower-case the words when indexing.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Full text search', url: PG + 'textsearch-intro.html' }],
+  },
+  {
+    id: 'sakila-082',
+    dataset: 'sakila',
+    level: 1,
+    topics: ['limit'],
+    title: 'Customers ranked 6 to 10',
+    prompt: 'Rank customers by total payments and show places 6 to 10: customer_id and total (ties by customer_id).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LIMIT … OFFSET after GROUP BY',
+        postgres: `select customer_id, sum(amount) as total
+from payment
+group by customer_id
+order by total desc, customer_id
+limit 5 offset 5;`,
+        mysql: `select customer_id, sum(amount) as total
+from payment
+group by customer_id
+order by total desc, customer_id
+limit 5 offset 5;`,
+        explanation: 'LIMIT and OFFSET apply last, after grouping and sorting: they cut the finished, ordered result.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
 ]

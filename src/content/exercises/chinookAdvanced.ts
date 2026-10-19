@@ -1849,4 +1849,162 @@ left join genre g on g.genre_id = t.genre_id;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
   },
+  {
+    id: 'chinook-077',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'The longest pause between purchases',
+    prompt: 'For each customer, find the longest gap in days between two consecutive invoices. Show the 5 customers with the longest gaps.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LAG, then MAX per customer',
+        postgres: `select customer_id, max(gap_days) as longest_gap_days
+from (
+  select customer_id,
+         invoice_date::date - (lag(invoice_date) over (partition by customer_id order by invoice_date))::date as gap_days
+  from invoice
+) g
+group by customer_id
+order by longest_gap_days desc, customer_id
+limit 5;`,
+        mysql: `select customer_id, max(gap_days) as longest_gap_days
+from (
+  select customer_id,
+         datediff(invoice_date, lag(invoice_date) over (partition by customer_id order by invoice_date)) as gap_days
+  from invoice
+) g
+group by customer_id
+order by longest_gap_days desc, customer_id
+limit 5;`,
+        explanation: 'The first invoice of each customer has no previous one (NULL gap), which MAX ignores. Chinook\'s invoices follow a fixed generated cycle: many customers share exactly the same longest gap, 584 days, so the tie-breaker on customer_id decides the list.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LAG', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'chinook-078',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['query-plans', 'group-by'],
+    title: 'Group by id or by name',
+    prompt: 'Count tracks per genre name. Compare grouping by the name directly with grouping by genre_id first and joining the names afterwards.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Join, then group by name',
+        postgres: `select g.name, count(*) as tracks
+from track t join genre g on g.genre_id = t.genre_id
+group by g.name
+order by tracks desc, g.name;`,
+        mysql: `select g.name, count(*) as tracks
+from track t join genre g on g.genre_id = t.genre_id
+group by g.name
+order by tracks desc, g.name;`,
+        explanation: 'Joins 3,503 tracks to their genres, then groups by the text.',
+      },
+      {
+        approach: 'Group by id, then join',
+        postgres: `select g.name, c.tracks
+from (select genre_id, count(*) as tracks from track group by genre_id) c
+join genre g on g.genre_id = c.genre_id
+order by c.tracks desc, g.name;`,
+        mysql: `select g.name, c.tracks
+from (select genre_id, count(*) as tracks from track group by genre_id) c
+join genre g on g.genre_id = c.genre_id
+order by c.tracks desc, g.name;`,
+        explanation: 'Groups by a small integer first, then joins only 25 rows to the genre names.',
+      },
+    ],
+    comparison:
+      'Same rows. "Aggregate early, join late" usually does less work, and grouping by the key also stays correct if two genres ever shared a name. Compare the measured timings; at this size both are fast.',
+    docs: [{ label: 'PostgreSQL: Using EXPLAIN', url: PG + 'using-explain.html' }],
+  },
+  {
+    id: 'chinook-079',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['ddl', 'constraints'],
+    title: 'Followers of playlists',
+    prompt:
+      'Create playlist_follow (customer_id, playlist_id, followed_at): one row per customer and playlist, both foreign keys, and deleting a playlist removes its follows automatically. Add two follows, then delete playlist 18.',
+    orderMatters: true,
+    checkSql: `delete from playlist_track where playlist_id = 18;
+delete from playlist where playlist_id = 18;
+select customer_id, playlist_id from playlist_follow order by customer_id, playlist_id`,
+    solutions: [
+      {
+        approach: 'Composite key and ON DELETE CASCADE',
+        postgres: `create table playlist_follow (
+  customer_id integer   not null references customer (customer_id),
+  playlist_id integer   not null references playlist (playlist_id) on delete cascade,
+  followed_at timestamp not null default current_timestamp,
+  primary key (customer_id, playlist_id)
+);
+
+insert into playlist_follow (customer_id, playlist_id) values (1, 1), (1, 18);`,
+        mysql: `create table playlist_follow (
+  customer_id int      not null,
+  playlist_id int      not null,
+  followed_at datetime not null default current_timestamp,
+  primary key (customer_id, playlist_id),
+  foreign key (customer_id) references customer (customer_id),
+  foreign key (playlist_id) references playlist (playlist_id) on delete cascade
+);
+
+insert into playlist_follow (customer_id, playlist_id) values (1, 1), (1, 18);`,
+        explanation: 'When playlist 18 is deleted, its follow row goes with it; the follow of playlist 1 stays. (playlist_track has no CASCADE, so the check empties playlist 18 first.)',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Foreign keys', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-FK' }],
+  },
+  {
+    id: 'chinook-080',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['merge'],
+    title: 'Sync a playlist with a list of tracks',
+    prompt:
+      'Playlist 18 must contain exactly the tracks in wanted (track_id): 1, 2 and 3. Add the missing ones and remove the others from playlist 18 in one statement.',
+    orderMatters: true,
+    checkSql: `select track_id from playlist_track where playlist_id = 18 order by track_id`,
+    solutions: [
+      {
+        approach: 'MERGE into a view of one playlist',
+        postgres: `create table wanted (track_id integer primary key);
+insert into wanted values (1), (2), (3);
+
+create view playlist_18 as select * from playlist_track where playlist_id = 18;
+
+merge into playlist_18 p
+using wanted w on w.track_id = p.track_id
+when not matched then insert (playlist_id, track_id) values (18, w.track_id)
+when not matched by source then delete;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation: 'The view limits the target to playlist 18, so NOT MATCHED BY SOURCE removes only its extra tracks, never those of other playlists.',
+      },
+      {
+        approach: 'DELETE the extras, INSERT the missing',
+        postgres: `create table wanted (track_id integer primary key);
+insert into wanted values (1), (2), (3);
+
+delete from playlist_track where playlist_id = 18 and track_id not in (select track_id from wanted);
+insert into playlist_track (playlist_id, track_id)
+select 18, track_id from wanted
+on conflict do nothing;`,
+        mysql: `create table wanted (track_id int primary key);
+insert into wanted values (1), (2), (3);
+
+delete from playlist_track where playlist_id = 18 and track_id not in (select track_id from wanted);
+insert ignore into playlist_track (playlist_id, track_id)
+select 18, track_id from wanted;`,
+        mysqlNote: 'INSERT IGNORE is acceptable here because the only possible error is the duplicate key.',
+        explanation: 'Two statements: remove what should not be there, add what is missing.',
+      },
+    ],
+    comparison: 'Same final playlist. A "make it exactly this list" sync is MERGE\'s strongest use case.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
 ]

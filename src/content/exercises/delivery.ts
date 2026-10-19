@@ -2098,4 +2098,62 @@ on duplicate key update orders = new.orders, revenue = new.revenue;`,
     ],
     docs: [{ label: 'PostgreSQL: INSERT … ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
   },
+  {
+    id: 'delivery-058',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['null', 'joins'],
+    title: 'Never ordered, shown as text',
+    prompt: 'For customers 1 to 20, show id, name and the date of their last order, or the text "never" if they have none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEFT JOIN + coalesce',
+        postgres: `select c.id, c.name, coalesce(max(o.created_at)::date::text, 'never') as last_order
+from customers c
+left join orders o on o.customer_id = c.id
+where c.id between 1 and 20
+group by c.id, c.name
+order by c.id;`,
+        mysql: `select c.id, c.name, coalesce(cast(date(max(o.created_at)) as char), 'never') as last_order
+from customers c
+left join orders o on o.customer_id = c.id
+where c.id between 1 and 20
+group by c.id, c.name
+order by c.id;`,
+        explanation: 'max() over no matching orders is NULL. coalesce needs both arguments of one type, so the date is turned into text before "never" can stand in for it.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: COALESCE', url: PG + 'functions-conditional.html#FUNCTIONS-COALESCE-NVL-IFNULL' }],
+  },
+  {
+    id: 'delivery-059',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['functions', 'conditions'],
+    title: 'A delivery fee function',
+    prompt: 'Write delivery_fee(p_total): 15 under 50, 10 under 100, 5 under 150, free from 150. The check sums the fees of all delivered orders.',
+    orderMatters: false,
+    checkSql: `select delivery_fee(49.99) as a, delivery_fee(100) as b, delivery_fee(150) as c,
+       (select sum(delivery_fee(total)) from orders where status = 'delivered') as all_fees`,
+    solutions: [
+      {
+        approach: 'Immutable function with CASE',
+        postgres: `create function delivery_fee(p_total numeric) returns integer
+language sql
+immutable
+as $$
+  select case when p_total < 50 then 15 when p_total < 100 then 10 when p_total < 150 then 5 else 0 end;
+$$;`,
+        mysql: `create function delivery_fee(p_total decimal(8, 2)) returns int
+deterministic
+begin
+  return case when p_total < 50 then 15 when p_total < 100 then 10 when p_total < 150 then 5 else 0 end;
+end;`,
+        mysqlNote: 'In the mysql client, wrap it in DELIMITER $$ … $$.',
+        explanation: 'IMMUTABLE lets PostgreSQL inline the CASE into the query and use the function in an index. The boundaries are half-open: exactly 100 pays 5, exactly 150 pays nothing.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Function volatility', url: PG + 'xfunc-volatility.html' }],
+  },
 ]

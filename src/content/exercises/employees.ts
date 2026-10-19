@@ -1994,4 +1994,64 @@ insert into employees_hashed select * from employees;`,
       { label: 'MySQL: HASH partitioning', url: MY + 'partitioning-hash.html' },
     ],
   },
+  {
+    id: 'employees-051',
+    dataset: 'employees',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for current assignments',
+    prompt: 'Most queries ask "who is in department X now" (to_date = 9999-01-01). Create an index on dept_emp that serves exactly that.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'dept_emp' and indexdef like '%to_date%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'dept_emp' and column_name = 'to_date'`,
+    solutions: [
+      {
+        approach: 'Partial index on current rows',
+        postgres: `create index dept_emp_current_idx on dept_emp (dept_no) where to_date = '9999-01-01';`,
+        mysql: null,
+        mysqlNote: 'No partial indexes; index (dept_no, to_date) instead (solution B).',
+        explanation: 'Only current assignments are indexed, so the index is small and maps each department directly to its present staff.',
+      },
+      {
+        approach: 'Composite index',
+        postgres: `create index dept_emp_dept_to_idx on dept_emp (dept_no, to_date);`,
+        mysql: `create index dept_emp_dept_to_idx on dept_emp (dept_no, to_date);`,
+        explanation: 'Covers all rows; "dept_no = X and to_date = 9999-01-01" is one exact key range.',
+      },
+    ],
+    comparison: 'Both serve the query. The partial index is smaller and specific; the composite one also answers questions about the past.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
+  {
+    id: 'employees-052',
+    dataset: 'employees',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Current staff by department and gender',
+    prompt:
+      'Count current employees by department and gender, with a subtotal per department and a grand total (labels "All" for rolled-up values). Departments in order, each subtotal after its genders.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP',
+        postgres: `select coalesce(de.dept_no, 'All') as dept_no, coalesce(e.gender, 'All') as gender, count(*) as staff
+from dept_emp de
+join employees e on e.emp_no = de.emp_no
+where de.to_date = '9999-01-01'
+group by rollup (de.dept_no, e.gender)
+order by grouping(de.dept_no), de.dept_no, grouping(e.gender), e.gender;`,
+        mysql: `select coalesce(de.dept_no, 'All') as dept_no, coalesce(e.gender, 'All') as gender, count(*) as staff
+from dept_emp de
+join employees e on e.emp_no = de.emp_no
+where de.to_date = '9999-01-01'
+group by de.dept_no, e.gender with rollup
+order by grouping(de.dept_no), de.dept_no, grouping(e.gender), cast(e.gender as char);`,
+        mysqlNote: 'gender is an ENUM(\'M\', \'F\') in MySQL, and ORDER BY on an ENUM uses the definition order (M before F); CAST(… AS CHAR) sorts it as text, like PostgreSQL.',
+        explanation: 'ROLLUP adds a per-department subtotal and a grand total. GROUPING() keeps the totals after the detail rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
 ]

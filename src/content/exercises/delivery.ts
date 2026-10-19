@@ -1729,4 +1729,132 @@ on duplicate key update orders = new.orders;`,
     comparison: 'Same table. MERGE … NOT MATCHED BY SOURCE derives what to delete from the source itself, so it stays right even when the source is a complex query.',
     docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
   },
+  {
+    id: 'delivery-047',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['json', 'arrays'],
+    title: 'A filter passed as JSON',
+    prompt: 'A dashboard passes the selected restaurants as a JSON array, [3, 7, 42]. Count delivered orders per selected restaurant using that one parameter.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Expand the JSON array',
+        postgres: `select o.restaurant_id, count(*) as delivered
+from orders o
+where o.status = 'delivered'
+  and o.restaurant_id in (select value::int from jsonb_array_elements_text('[3, 7, 42]'::jsonb))
+group by o.restaurant_id
+order by o.restaurant_id;`,
+        mysql: `select o.restaurant_id, count(*) as delivered
+from orders o
+where o.status = 'delivered'
+  and o.restaurant_id member of ('[3, 7, 42]')
+group by o.restaurant_id
+order by o.restaurant_id;`,
+        mysqlNote: 'MEMBER OF tests a value against a JSON array directly.',
+        explanation: 'jsonb_array_elements_text turns the array into rows of text; cast them and use IN. One parameter, any number of ids, no SQL built from strings.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: JSON processing functions', url: PG + 'functions-json.html#FUNCTIONS-JSON-PROCESSING' },
+      { label: 'MySQL: MEMBER OF', url: MY + 'json-search-functions.html#operator_member-of' },
+    ],
+  },
+  {
+    id: 'delivery-048',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['arrays'],
+    title: 'The last three orders in one cell',
+    prompt: 'For customers 1 to 5, show the ids of their three most recent orders as an array, newest first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array_agg, then slice',
+        postgres: `select customer_id,
+       (array_agg(id order by created_at desc, id desc))[1:3] as last_orders
+from orders
+where customer_id between 1 and 5
+group by customer_id
+order by customer_id;`,
+        mysql: `select customer_id,
+       cast(concat('[', substring_index(group_concat(id order by created_at desc, id desc), ',', 3), ']') as json) as last_orders
+from orders
+where customer_id between 1 and 5
+group by customer_id
+order by customer_id;`,
+        mysqlNote: 'No arrays or slices: SUBSTRING_INDEX keeps the text up to the third comma, then it is cast to a JSON array.',
+        explanation: 'array[1:3] is a slice: elements 1 to 3. Built in the aggregate\'s order, it holds the three newest ids.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Array slices', url: PG + 'arrays.html#ARRAYS-ACCESSING' }],
+  },
+  {
+    id: 'delivery-049',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['triggers', 'strings'],
+    title: 'Emails in lower case',
+    prompt: 'Create a trigger that stores customers\' emails in lower case and without surrounding spaces on insert. Test it with customer 50001, "Test User", " Test.User@Mail.com ", Haifa, signed up 2025-09-01.',
+    orderMatters: false,
+    checkSql: `insert into customers (id, name, email, city, signed_up_at) values (50001, 'Test User', ' Test.User@Mail.com ', 'Haifa', '2025-09-01');
+select id, email from customers where id = 50001`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger',
+        postgres: `create function normalize_email() returns trigger
+language plpgsql
+as $$
+begin
+  new.email := lower(trim(new.email));
+  return new;
+end;
+$$;
+
+create trigger customers_normalize_email
+before insert on customers
+for each row execute function normalize_email();`,
+        mysql: `create trigger customers_normalize_email
+before insert on customers
+for each row
+  set new.email = lower(trim(new.email));`,
+        mysqlNote: 'A one-statement trigger body needs no BEGIN … END.',
+        explanation: 'Normalizing on the way in means a unique index on email really prevents duplicates like "A@x.com" and "a@x.com", and lookups need no lower().',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
+  },
+  {
+    id: 'delivery-050',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'Quiet days for one restaurant',
+    prompt: 'For restaurant 1 in 2025, find the gaps without any order: the last day with an order before each gap, the next day with an order and the number of empty days between.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEAD over distinct days',
+        postgres: `with days as (
+  select distinct created_at::date as day from orders
+  where restaurant_id = 1 and created_at >= '2025-01-01' and created_at < '2026-01-01'
+)
+select day as last_order_day, next_day, next_day - day - 1 as empty_days
+from (select day, lead(day) over (order by day) as next_day from days) d
+where next_day - day - 1 >= 1
+order by day;`,
+        mysql: `with days as (
+  select distinct date(created_at) as day from orders
+  where restaurant_id = 1 and created_at >= '2025-01-01' and created_at < '2026-01-01'
+)
+select day as last_order_day, next_day, datediff(next_day, day) - 1 as empty_days
+from (select day, lead(day) over (order by day) as next_day from days) d
+where datediff(next_day, day) - 1 >= 1
+order by day;`,
+        explanation: 'With about 3.7 orders a day on average, empty days are rare and never two in a row in 2025: random data has few long gaps.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
 ]

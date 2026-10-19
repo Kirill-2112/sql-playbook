@@ -2024,4 +2024,137 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: Looping through query results', url: PG + 'plpgsql-control-structures.html#PLPGSQL-RECORDS-ITERATING' }],
   },
+  {
+    id: 'lahman-056',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['json'],
+    title: 'Read a JSON array as rows',
+    prompt:
+      'An API sends a JSON array of player ids with a bonus each: [{"id": "judgeaa01", "bonus": 500000}, {"id": "ohtansh01", "bonus": 750000}]. Turn it into rows and join it to people: player_id, name_last and bonus.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'jsonb_to_recordset / JSON_TABLE',
+        postgres: `select j.id as player_id, p.name_last, j.bonus
+from jsonb_to_recordset('[{"id": "judgeaa01", "bonus": 500000}, {"id": "ohtansh01", "bonus": 750000}]'::jsonb)
+       as j(id text, bonus int)
+join people p on p.player_id = j.id
+order by j.bonus desc;`,
+        mysql: `select j.id as player_id, p.name_last, j.bonus
+from json_table('[{"id": "judgeaa01", "bonus": 500000}, {"id": "ohtansh01", "bonus": 750000}]',
+                '$[*]' columns (id varchar(9) path '$.id', bonus int path '$.bonus')) as j
+join people p on p.player_id = j.id collate utf8mb4_0900_ai_ci
+order by j.bonus desc;`,
+        mysqlNote: 'JSON_TABLE maps each array element ($[*]) to a row and each path to a typed column. Its text columns get a different collation than the table, and MySQL refuses to compare the two; COLLATE on one side settles it.',
+        explanation:
+          'jsonb_to_recordset turns an array of objects into rows, with the column names and types given after AS. Handy for passing a whole list as one parameter instead of building SQL text. PostgreSQL 17+ also has JSON_TABLE.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: jsonb_to_recordset', url: PG + 'functions-json.html#FUNCTIONS-JSON-PROCESSING' },
+      { label: 'MySQL: JSON_TABLE', url: MY + 'json-table-functions.html' },
+    ],
+  },
+  {
+    id: 'lahman-057',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['lateral'],
+    title: 'Each franchise\'s best season',
+    prompt: 'For the 10 active franchises (teams_franchises.active = Y) with the lowest franch_id, show their best season by wins: franch_id, year_id, w and l. Ties: the earlier year.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL … LIMIT 1',
+        postgres: `select fr.franch_id, best.year_id, best.w, best.l
+from teams_franchises fr
+cross join lateral (
+  select t.year_id, t.w, t.l from teams t
+  where t.franch_id = fr.franch_id
+  order by t.w desc, t.year_id
+  limit 1
+) best
+where fr.active = 'Y'
+order by fr.franch_id
+limit 10;`,
+        mysql: `select fr.franch_id, best.year_id, best.w, best.l
+from teams_franchises fr
+cross join lateral (
+  select t.year_id, t.w, t.l from teams t
+  where t.franch_id = fr.franch_id
+  order by t.w desc, t.year_id
+  limit 1
+) best
+where fr.active = 'Y'
+order by fr.franch_id
+limit 10;`,
+        mysqlNote: 'LATERAL exists since MySQL 8.0.14.',
+        explanation: 'For each franchise the subquery sorts its seasons and keeps the top one, returning three columns at once.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'lahman-058',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['pivot'],
+    title: 'Wins by league and division',
+    prompt: 'For 2025, show each league as a row with the total wins of its East, Central and West divisions as columns.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional sums',
+        postgres: `select lg_id,
+       sum(w) filter (where div_id = 'E') as east,
+       sum(w) filter (where div_id = 'C') as central,
+       sum(w) filter (where div_id = 'W') as west
+from teams
+where year_id = 2025
+group by lg_id
+order by lg_id;`,
+        mysql: `select lg_id,
+       sum(case when div_id = 'E' then w end) as east,
+       sum(case when div_id = 'C' then w end) as central,
+       sum(case when div_id = 'W' then w end) as west
+from teams
+where year_id = 2025
+group by lg_id
+order by lg_id;`,
+        explanation: 'Each division becomes a column. Games between divisions of the same league give one team a win and the other a loss, so the three totals tell which division beat up on the others.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'lahman-059',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['date-series'],
+    title: 'Debuts every month of 2025',
+    prompt: 'Show every month of 2025 (1–12) with the number of major-league debuts, including months with none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Series of month numbers',
+        postgres: `select m as month, count(p.player_id) as debuts
+from generate_series(1, 12) as m
+left join people p on p.debut >= '2025-01-01' and p.debut < '2026-01-01'
+                  and extract(month from p.debut) = m
+group by m
+order by m;`,
+        mysql: `with recursive months (m) as (select 1 union all select m + 1 from months where m < 12)
+select m as month, count(p.player_id) as debuts
+from months
+left join people p on p.debut >= '2025-01-01' and p.debut < '2026-01-01'
+                  and month(p.debut) = m
+group by m
+order by m;`,
+        mysqlNote: 'A recursive CTE counts 1 to 12 in place of generate_series.',
+        explanation: 'Debuts happen in the season, late March to September; the off-season months still appear, with 0.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
 ]

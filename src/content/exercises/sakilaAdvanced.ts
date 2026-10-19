@@ -1526,4 +1526,107 @@ insert into film_views values (2, 1) on duplicate key update views = views + 1;`
       { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
     ],
   },
+  {
+    id: 'sakila-066',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['full-text'],
+    title: 'A phrase, not two words',
+    prompt:
+      'Make film descriptions searchable and count the films whose description contains the phrase "mad scientist" (the two words next to each other), and for comparison those with both words anywhere.',
+    orderMatters: false,
+    checkSql: `select count(*) filter (where to_tsvector('simple', description) @@ phraseto_tsquery('simple', 'mad scientist')) as phrase,
+       count(*) filter (where to_tsvector('simple', description) @@ to_tsquery('simple', 'mad & scientist')) as both_words
+from film`,
+    checkSqlMysql: `select sum(match(description) against ('"mad scientist"' in boolean mode) > 0) as phrase,
+       sum(match(description) against ('+mad +scientist' in boolean mode) > 0) as both_words
+from film`,
+    solutions: [
+      {
+        approach: 'Phrase query',
+        postgres: `create index film_description_fts on film using gin (to_tsvector('simple', description));
+
+-- phrase: phraseto_tsquery('simple', 'mad scientist')   both words: to_tsquery('simple', 'mad & scientist')`,
+        mysql: `create fulltext index film_description_ft on film (description);
+
+-- phrase: against ('"mad scientist"' in boolean mode)   both words: against ('+mad +scientist' in boolean mode)`,
+        mysqlNote: 'Double quotes inside the boolean search string mark a phrase. MATCH returns a relevance score; > 0 means it matched.',
+        explanation:
+          'phraseto_tsquery requires the words in that order, next to each other (internally: mad <-> scientist). Here both counts are 97: Sakila\'s generated descriptions only ever use the two words together, as "a Mad Scientist". On real text the phrase count would usually be the smaller one.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Phrase search', url: PG + 'textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES' },
+      { label: 'MySQL: Boolean full-text searches', url: MY + 'fulltext-boolean.html' },
+    ],
+  },
+  {
+    id: 'sakila-067',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['triggers'],
+    title: 'Touch last_update on every change',
+    prompt:
+      'film.last_update should change whenever a film row is updated. Make sure it does, then raise film 1\'s rental rate and check that last_update moved past 2006-02-15 (the original load date).',
+    orderMatters: false,
+    checkSql: `update film set rental_rate = rental_rate + 1 where film_id = 1;
+select film_id, last_update > timestamp '2006-02-16' as touched from film where film_id = 1`,
+    checkSqlMysql: `update film set rental_rate = rental_rate + 1 where film_id = 1;
+select film_id, last_update > '2006-02-16' as touched from film where film_id = 1`,
+    solutions: [
+      {
+        approach: 'BEFORE UPDATE trigger / ON UPDATE',
+        postgres: `create function touch_last_update() returns trigger
+language plpgsql
+as $$
+begin
+  new.last_update := now();
+  return new;
+end;
+$$;
+
+create trigger film_touch_last_update
+before update on film
+for each row execute function touch_last_update();`,
+        mysql: `-- Nothing to do: the column is already defined as
+-- last_update timestamp not null default current_timestamp on update current_timestamp
+show create table film;`,
+        mysqlNote: 'MySQL\'s ON UPDATE CURRENT_TIMESTAMP keeps the column current automatically; Sakila\'s MySQL schema uses it on every table.',
+        explanation:
+          'PostgreSQL has no ON UPDATE clause for columns; a small BEFORE UPDATE trigger that sets NEW.last_update does the same job. The same trigger function can be attached to every table that has the column.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' },
+      { label: 'MySQL: Automatic initialization and updating for TIMESTAMP', url: MY + 'timestamp-initialization.html' },
+    ],
+  },
+  {
+    id: 'sakila-068',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['views'],
+    title: 'A view without personal data',
+    prompt:
+      'Analysts may see customers but not their email or address. Create a view customer_public (customer_id, store_id, first_name, active, create_date) and show how many active customers each store has through it.',
+    orderMatters: true,
+    checkSql: `select store_id, sum(active) as active_customers from customer_public group by store_id order by store_id`,
+    solutions: [
+      {
+        approach: 'A view that leaves columns out',
+        postgres: `create view customer_public as
+select customer_id, store_id, first_name, active, create_date
+from customer;`,
+        mysql: `create view customer_public as
+select customer_id, store_id, first_name, active, create_date
+from customer;`,
+        explanation:
+          'Grant analysts SELECT on the view and nothing on the table, and they cannot read the hidden columns. A view is the classic tool for column-level access control.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' },
+      { label: 'MySQL: Access control for views', url: MY + 'view-restrictions.html' },
+    ],
+  },
 ]

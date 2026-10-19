@@ -1056,4 +1056,30 @@ where p.discontinued = 0 and p.units_in_stock + p.units_on_order < p.reorder_lev
     ],
     docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
   },
+  {
+    id: 'northwind-058',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['normalization', 'subqueries'],
+    title: 'Territories nobody covers',
+    prompt:
+      'employee_territories links employees and territories (many-to-many). Which territories have no employee assigned? Show territory_id and territory_description.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'NOT EXISTS on the junction table',
+        postgres: `select t.territory_id, t.territory_description
+from territories t
+where not exists (select 1 from employee_territories et where et.territory_id = t.territory_id)
+order by t.territory_id;`,
+        mysql: `select t.territory_id, t.territory_description
+from territories t
+where not exists (select 1 from employee_territories et where et.territory_id = t.territory_id)
+order by t.territory_id;`,
+        explanation:
+          'A many-to-many relationship needs a junction table with one row per pair; its primary key (employee_id, territory_id) stops a pair being stored twice. Putting a list of territories into the employees table instead would break first normal form.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: EXISTS', url: PG + 'functions-subquery.html#FUNCTIONS-SUBQUERY-EXISTS' }],
+  },
 ]

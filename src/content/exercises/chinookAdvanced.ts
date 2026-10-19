@@ -1183,4 +1183,95 @@ order by m;`,
     comparison: 'Same 12 rows. Note sum(coalesce(sum(…), 0)) over (…): the inner sum is per month, the outer one runs across months.',
     docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'tutorial-window.html' }],
   },
+  {
+    id: 'chinook-056',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Greatest hits',
+    prompt: 'Make album titles searchable by word and find the albums whose title contains both "greatest" and "hits": album_id and title.',
+    orderMatters: true,
+    checkSql: `select album_id, title from album
+where to_tsvector('simple', title) @@ to_tsquery('simple', 'greatest & hits')
+order by album_id`,
+    checkSqlMysql: `select album_id, title from album
+where match(title) against ('+greatest +hits' in boolean mode)
+order by album_id`,
+    solutions: [
+      {
+        approach: 'Full-text index on titles',
+        postgres: `create index album_title_fts on album using gin (to_tsvector('simple', title));`,
+        mysql: `create fulltext index album_title_ft on album (title);`,
+        explanation: 'Both words must be present, in any order and with anything between, which matches titles like "Greatest Hits II" and "The Best Of … Greatest Hits".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Full text search', url: PG + 'textsearch-intro.html' }],
+  },
+  {
+    id: 'chinook-057',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['normalization', 'joins'],
+    title: 'The price at the time of sale',
+    prompt:
+      'invoice_line.unit_price repeats track.unit_price. Is that redundant? Count the invoice lines whose price differs from the track\'s current price.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Join and compare',
+        postgres: `select count(*) as invoice_lines,
+       count(*) filter (where il.unit_price <> t.unit_price) as price_differs
+from invoice_line il
+join track t on t.track_id = il.track_id;`,
+        mysql: `select count(*) as invoice_lines,
+       sum(il.unit_price <> t.unit_price) as price_differs
+from invoice_line il
+join track t on t.track_id = il.track_id;`,
+        explanation:
+          'Today they match, but this copy is not redundant: an invoice must keep the price actually charged. When a track\'s price changes, old invoices must not change with it. Copying a value to freeze it in time is deliberate denormalization.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joins', url: PG + 'tutorial-join.html' }],
+  },
+  {
+    id: 'chinook-058',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['pivot'],
+    title: 'Media types by year',
+    prompt: 'Show sales (unit_price × quantity) per media type as rows and the years 2021 to 2025 as columns.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional sums',
+        postgres: `select m.name as media_type,
+       sum(il.unit_price * il.quantity) filter (where extract(year from i.invoice_date) = 2021) as y2021,
+       sum(il.unit_price * il.quantity) filter (where extract(year from i.invoice_date) = 2022) as y2022,
+       sum(il.unit_price * il.quantity) filter (where extract(year from i.invoice_date) = 2023) as y2023,
+       sum(il.unit_price * il.quantity) filter (where extract(year from i.invoice_date) = 2024) as y2024,
+       sum(il.unit_price * il.quantity) filter (where extract(year from i.invoice_date) = 2025) as y2025
+from invoice_line il
+join invoice i    on i.invoice_id = il.invoice_id
+join track t      on t.track_id = il.track_id
+join media_type m on m.media_type_id = t.media_type_id
+group by m.media_type_id, m.name
+order by m.media_type_id;`,
+        mysql: `select m.name as media_type,
+       sum(case when year(i.invoice_date) = 2021 then il.unit_price * il.quantity end) as y2021,
+       sum(case when year(i.invoice_date) = 2022 then il.unit_price * il.quantity end) as y2022,
+       sum(case when year(i.invoice_date) = 2023 then il.unit_price * il.quantity end) as y2023,
+       sum(case when year(i.invoice_date) = 2024 then il.unit_price * il.quantity end) as y2024,
+       sum(case when year(i.invoice_date) = 2025 then il.unit_price * il.quantity end) as y2025
+from invoice_line il
+join invoice i    on i.invoice_id = il.invoice_id
+join track t      on t.track_id = il.track_id
+join media_type m on m.media_type_id = t.media_type_id
+group by m.media_type_id, m.name
+order by m.media_type_id;`,
+        mysqlNote: 'CASE without ELSE instead of FILTER, so a year without sales shows NULL as in PostgreSQL.',
+        explanation: 'With FILTER, a year without sales gives NULL (a sum over no rows); use coalesce(…, 0) if a report needs zeros.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
 ]

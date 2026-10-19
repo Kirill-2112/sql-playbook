@@ -2368,4 +2368,78 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
   },
+  {
+    id: 'airlines-058',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['lateral', 'dates-advanced'],
+    title: 'The next two departures',
+    prompt: 'For each December route from FRA, show the next two scheduled departures after the snapshot (2025-12-01 00:00 UTC): route_no, flight_id and scheduled_departure.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL … LIMIT 2',
+        postgres: `select r.route_no, nxt.flight_id, nxt.scheduled_departure
+from routes r
+cross join lateral (
+  select f.flight_id, f.scheduled_departure from flights f
+  where f.route_no = r.route_no
+    and f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < r.valid_to
+  order by f.scheduled_departure
+  limit 2
+) nxt
+where r.departure_airport = 'FRA' and r.valid_from = '2025-12-01'
+order by r.route_no, nxt.scheduled_departure;`,
+        mysql: `select r.route_no, nxt.flight_id, nxt.scheduled_departure
+from routes r
+cross join lateral (
+  select f.flight_id, f.scheduled_departure from flights f
+  where f.route_no = r.route_no
+    and f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < r.valid_to
+  order by f.scheduled_departure
+  limit 2
+) nxt
+where r.departure_airport = 'FRA' and r.valid_from = '2025-12-01'
+order by r.route_no, nxt.scheduled_departure;`,
+        explanation: 'The inner query is limited to the December route row (before valid_to), because the same route_no may mean a different route in January.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'airlines-059',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['subtotals', 'aggregates'],
+    title: 'Totals by class and by month, separately',
+    prompt:
+      'In one result, show segment revenue per travel class (all months) and per flight month (all classes), plus the grand total. No class × month detail rows.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'GROUPING SETS',
+        postgres: `select s.fare_conditions, to_char(f.scheduled_departure, 'YYYY-MM') as month, sum(s.price) as revenue
+from segments s
+join flights f on f.flight_id = s.flight_id
+group by grouping sets ((s.fare_conditions), (to_char(f.scheduled_departure, 'YYYY-MM')), ())
+order by grouping(s.fare_conditions), s.fare_conditions,
+         grouping(to_char(f.scheduled_departure, 'YYYY-MM')), month;`,
+        mysql: `select fare_conditions, month, revenue from (
+  select s.fare_conditions, null as month, sum(s.price) as revenue, 0 as g1, 1 as g2
+  from segments s group by s.fare_conditions
+  union all
+  select null, date_format(f.scheduled_departure, '%Y-%m'), sum(s.price), 1, 0
+  from segments s join flights f on f.flight_id = s.flight_id
+  group by date_format(f.scheduled_departure, '%Y-%m')
+  union all
+  select null, null, sum(price), 1, 1 from segments
+) x
+order by g1, fare_conditions, g2, month;`,
+        mysqlNote: 'No GROUPING SETS in MySQL (only WITH ROLLUP, which always nests): one SELECT per grouping, glued with UNION ALL.',
+        explanation:
+          'GROUPING SETS lists exactly the groupings you want. ROLLUP (a, b) is shorthand for ((a, b), (a), ()), and CUBE for every combination; here neither fits, because the (class, month) detail is not wanted.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUPING SETS', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
 ]

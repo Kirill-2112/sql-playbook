@@ -54,7 +54,7 @@ Audit of 2026-10-15:
   (PGlite uses C collation, MySQL utf8mb4_0900_ai_ci: "USA" vs "United Kingdom", accents, case).
 - PG sorts NULLs last, MySQL first; MySQL ORDER BY on ENUM uses definition order.
 - Always ROUND averages and ratios (PG numeric vs MySQL decimal precision). Use `100.0 *` to avoid integer division in PG.
-- Avoid MySQL reserved words as aliases/columns: change, lines, rank, group, rows, key, order…
+- Avoid MySQL reserved words as aliases/columns: change, lines, empty, rank, group, rows, key, order…
 - MySQL: no FILTER, FULL JOIN, MERGE, RETURNING, DISTINCT ON, generate_series, ::, partial indexes, bool_and;
   `||` is OR; `/` is decimal (use DIV); temp tables can't be referenced twice in one query.
 - When a learner-visible claim mentions a number (counts, percentages), check it against the data first.
@@ -72,7 +72,7 @@ Audit of 2026-10-15:
   AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
   every 200th booking), Lahman (SABR CSVs, CC BY-SA, major leagues only, player data from 2010), Delivery (own,
   generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
-  441 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
+  460 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
 - Next: go deep on existing datasets (topics with few exercises first), two replacement datasets with commercial licenses,
   a functions reference section; a licenses/credits page;

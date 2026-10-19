@@ -1274,4 +1274,91 @@ order by m.media_type_id;`,
     ],
     docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
   },
+  {
+    id: 'chinook-059',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['constraints'],
+    title: 'Sane tracks',
+    prompt: 'Add CHECK constraints to track: milliseconds must be positive and unit_price must not be negative.',
+    orderMatters: false,
+    checkSql: `select count(*) as check_constraints from pg_constraint where conrelid = 'track'::regclass and contype = 'c'`,
+    checkSqlMysql: `select count(*) as check_constraints
+from information_schema.table_constraints
+where table_schema = database() and table_name = 'track' and constraint_type = 'CHECK'`,
+    solutions: [
+      {
+        approach: 'Two CHECKs',
+        postgres: `alter table track
+  add constraint track_length_positive check (milliseconds > 0),
+  add constraint track_price_not_negative check (unit_price >= 0);`,
+        mysql: `alter table track
+  add constraint track_length_positive check (milliseconds > 0),
+  add constraint track_price_not_negative check (unit_price >= 0);`,
+        explanation: 'Free tracks (price 0) stay allowed; a negative price or a zero-length track is rejected from now on.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Check constraints', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS' }],
+  },
+  {
+    id: 'chinook-060',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Add a line and fix the total, safely',
+    prompt:
+      'Add track 3 (0.99, quantity 1) to invoice 1 as line 2241, and raise the invoice total by the same amount, so that two clerks doing this at once cannot lose an update. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select invoice_id, total, (select count(*) from invoice_line where invoice_id = 1) as lines_count from invoice where invoice_id = 1`,
+    solutions: [
+      {
+        approach: 'Lock the invoice row first',
+        postgres: `select invoice_id from invoice where invoice_id = 1 for update;
+
+insert into invoice_line (invoice_line_id, invoice_id, track_id, unit_price, quantity) values (2241, 1, 3, 0.99, 1);
+update invoice set total = total + 0.99 where invoice_id = 1;`,
+        mysql: `start transaction;
+
+select invoice_id from invoice where invoice_id = 1 for update;
+
+insert into invoice_line (invoice_line_id, invoice_id, track_id, unit_price, quantity) values (2241, 1, 3, 0.99, 1);
+update invoice set total = total + 0.99 where invoice_id = 1;
+
+commit;`,
+        explanation:
+          'Locking the invoice makes a second clerk wait until this transaction commits. "total = total + 0.99" is itself safe, because it reads the latest value; the lock matters when the new total is computed from a value read earlier, in application code.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Row-level locks', url: PG + 'explicit-locking.html#LOCKING-ROWS' }],
+  },
+  {
+    id: 'chinook-061',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['casting', 'dates-basics'],
+    title: 'Quarter labels',
+    prompt: 'Count invoices per quarter of 2024, labelled like "2024 Q1".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Format the date',
+        postgres: `select to_char(invoice_date, 'YYYY "Q"Q') as quarter, count(*) as invoices
+from invoice
+where invoice_date >= '2024-01-01' and invoice_date < '2025-01-01'
+group by quarter
+order by quarter;`,
+        mysql: `select concat(year(invoice_date), ' Q', quarter(invoice_date)) as quarter, count(*) as invoices
+from invoice
+where invoice_date >= '2024-01-01' and invoice_date < '2025-01-01'
+group by quarter
+order by quarter;`,
+        mysqlNote: 'DATE_FORMAT has no quarter code; QUARTER() returns 1–4 and concat() turns it into text.',
+        explanation: 'In to_char, text in double quotes is copied literally and Q is the quarter number. The label sorts correctly because the year comes first.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: to_char patterns', url: PG + 'functions-formatting.html' },
+      { label: 'MySQL: QUARTER', url: MY + 'date-and-time-functions.html#function_quarter' },
+    ],
+  },
 ]

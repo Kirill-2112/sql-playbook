@@ -2157,4 +2157,46 @@ order by m;`,
     ],
     docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
   },
+  {
+    id: 'lahman-060',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['recursive'],
+    title: 'Following links without going in circles',
+    prompt:
+      'teams_franchises.na_assoc links some franchises to their National Association counterpart, and the links point both ways (ATL → BNA, BNA → ATL). Starting from ATL, follow the links and list each franchise reached once, with its distance from ATL.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE with a CYCLE clause',
+        postgres: `with recursive chain (franch_id, depth) as (
+  select 'ATL'::varchar, 0
+  union all
+  select f.na_assoc, c.depth + 1
+  from chain c
+  join teams_franchises f on f.franch_id = c.franch_id
+  where f.na_assoc is not null
+) cycle franch_id set is_cycle using path
+select franch_id, depth from chain where not is_cycle
+order by depth;`,
+        mysql: `with recursive chain (franch_id, depth, path) as (
+  select cast('ATL' as char(3)) collate utf8mb4_0900_ai_ci, 0, cast('ATL' as char(200)) collate utf8mb4_0900_ai_ci
+  union all
+  select f.na_assoc, c.depth + 1, concat(c.path, ',', f.na_assoc)
+  from chain c
+  join teams_franchises f on f.franch_id = c.franch_id
+  where f.na_assoc is not null and find_in_set(f.na_assoc, c.path) = 0
+)
+select franch_id, depth from chain
+order by depth;`,
+        mysqlNote: 'No CYCLE clause in MySQL: keep the visited ids in a path string and stop when the next id is already in it. The COLLATE makes the CAST strings use the table\'s collation; with a different connection collation MySQL refuses to compare them (Illegal mix of collations).',
+        explanation:
+          'Without a guard, ATL → BNA → ATL → … would never end. CYCLE (PostgreSQL 14+) tracks the path for you and marks the row that closes a loop; filtering it out leaves each franchise once.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Cycle detection', url: PG + 'queries-with.html#QUERIES-WITH-CYCLE' },
+      { label: 'MySQL: Recursive CTEs', url: MY + 'with.html#common-table-expressions-recursive' },
+    ],
+  },
 ]

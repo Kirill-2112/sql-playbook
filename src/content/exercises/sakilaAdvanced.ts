@@ -1629,4 +1629,92 @@ from customer;`,
       { label: 'MySQL: Access control for views', url: MY + 'view-restrictions.html' },
     ],
   },
+  {
+    id: 'sakila-069',
+    dataset: 'sakila',
+    level: 2,
+    topics: ['full-join'],
+    title: 'Films rented in July, August or both',
+    prompt: 'Count the films rented in July 2005 and in August 2005, only in July, and only in August, in one row.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two months',
+        postgres: `with jul as (
+  select distinct i.film_id from rental r join inventory i on i.inventory_id = r.inventory_id
+  where r.rental_date >= '2005-07-01' and r.rental_date < '2005-08-01'
+),
+aug as (
+  select distinct i.film_id from rental r join inventory i on i.inventory_id = r.inventory_id
+  where r.rental_date >= '2005-08-01' and r.rental_date < '2005-09-01'
+)
+select count(*) filter (where j.film_id is not null and a.film_id is not null) as both_months,
+       count(*) filter (where a.film_id is null) as only_july,
+       count(*) filter (where j.film_id is null) as only_august
+from jul j
+full join aug a on a.film_id = j.film_id;`,
+        mysql: null,
+        mysqlNote: 'No FULL JOIN in MySQL; see solution B.',
+        explanation: 'Each side is the set of films rented that month; FULL JOIN pairs them up and keeps films found on one side only.',
+      },
+      {
+        approach: 'One flag per month',
+        postgres: `select sum(case when jul = 1 and aug = 1 then 1 else 0 end) as both_months,
+       sum(case when jul = 1 and aug = 0 then 1 else 0 end) as only_july,
+       sum(case when jul = 0 and aug = 1 then 1 else 0 end) as only_august
+from (
+  select i.film_id,
+         max(case when r.rental_date >= '2005-07-01' and r.rental_date < '2005-08-01' then 1 else 0 end) as jul,
+         max(case when r.rental_date >= '2005-08-01' and r.rental_date < '2005-09-01' then 1 else 0 end) as aug
+  from rental r join inventory i on i.inventory_id = r.inventory_id
+  where r.rental_date >= '2005-07-01' and r.rental_date < '2005-09-01'
+  group by i.film_id
+) f;`,
+        mysql: `select sum(jul = 1 and aug = 1) as both_months,
+       sum(jul = 1 and aug = 0) as only_july,
+       sum(jul = 0 and aug = 1) as only_august
+from (
+  select i.film_id,
+         max(r.rental_date >= '2005-07-01' and r.rental_date < '2005-08-01') as jul,
+         max(r.rental_date >= '2005-08-01' and r.rental_date < '2005-09-01') as aug
+  from rental r join inventory i on i.inventory_id = r.inventory_id
+  where r.rental_date >= '2005-07-01' and r.rental_date < '2005-09-01'
+  group by i.film_id
+) f;`,
+        explanation: 'Group both months together and keep a 0/1 flag per month for every film.',
+      },
+    ],
+    comparison: 'Same counts. Most films rent in both busy months; the FULL JOIN version reads like a Venn diagram.',
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'sakila-070',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['temp-tables', 'self-cross-join'],
+    title: 'A temp table joined to itself',
+    prompt:
+      'Put each actor\'s number of films into a temporary table actor_films (actor_id, films). Then count the pairs of different actors with exactly the same number of films, which needs the temp table twice in one query.',
+    orderMatters: false,
+    checkSql: `select count(*) as pairs from actor_films a join actor_films b on b.films = a.films and b.actor_id > a.actor_id`,
+    checkSqlMysql: `select count(*) as pairs from actor_films a join actor_films_copy b on b.films = a.films and b.actor_id > a.actor_id`,
+    solutions: [
+      {
+        approach: 'Temp table (and a copy in MySQL)',
+        postgres: `create temp table actor_films as
+select actor_id, count(*) as films from film_actor group by actor_id;`,
+        mysql: `create temporary table actor_films as
+select actor_id, count(*) as films from film_actor group by actor_id;
+
+create temporary table actor_films_copy as select * from actor_films;`,
+        mysqlNote:
+          'A MySQL temporary table can be referenced only once per query: a self-join fails with "Can\'t reopen table". The usual fix is a second copy, as here, or a CTE instead of the temp table.',
+        explanation: 'In PostgreSQL a temporary table behaves like any table, so joining it to itself is fine.',
+      },
+    ],
+    docs: [
+      { label: 'MySQL: Temporary table problems', url: MY + 'temporary-table-problems.html' },
+      { label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' },
+    ],
+  },
 ]

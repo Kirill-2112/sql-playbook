@@ -1857,4 +1857,36 @@ order by day;`,
     ],
     docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
   },
+  {
+    id: 'delivery-051',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['casting', 'numbers'],
+    title: 'Whole shekels, three ways',
+    prompt: 'For orders 1 to 5, show total and the total as a whole number three ways: rounded, rounded down and cast to an integer.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'round / floor / cast',
+        postgres: `select id, total,
+       round(total)    as rounded,
+       floor(total)    as rounded_down,
+       total::integer  as cast_int
+from orders
+where id between 1 and 5
+order by id;`,
+        mysql: `select id, total,
+       round(total)             as rounded,
+       floor(total)             as rounded_down,
+       cast(total as signed)    as cast_int
+from orders
+where id between 1 and 5
+order by id;`,
+        mysqlNote: 'CAST(… AS SIGNED) of a DECIMAL rounds as well.',
+        explanation:
+          'Casting a numeric to integer rounds (half away from zero), it does not cut off the decimals, so cast_int equals rounded here. floor() always goes down. Pick the one the business rule asks for, and write it out.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Mathematical functions', url: PG + 'functions-math.html' }],
+  },
 ]

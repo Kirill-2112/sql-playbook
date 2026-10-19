@@ -2054,4 +2054,89 @@ order by grouping(de.dept_no), de.dept_no, grouping(e.gender), cast(e.gender as 
     ],
     docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
   },
+  {
+    id: 'employees-053',
+    dataset: 'employees',
+    level: 2,
+    topics: ['casting', 'dates-basics'],
+    title: 'Dates as readable text',
+    prompt: 'For employees 10050 and 10100, show emp_no and the hire date written as text in two formats: "1990-12-25" and "25 Dec 1990".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'to_char / DATE_FORMAT',
+        postgres: `select emp_no,
+       hire_date::text as iso,
+       to_char(hire_date, 'DD Mon YYYY') as readable
+from employees
+where emp_no in (10050, 10100)
+order by emp_no;`,
+        mysql: `select emp_no,
+       cast(hire_date as char) as iso,
+       date_format(hire_date, '%d %b %Y') as readable
+from employees
+where emp_no in (10050, 10100)
+order by emp_no;`,
+        mysqlNote: '%d day, %b short month name, %Y year: the same pattern idea with different codes.',
+        explanation: 'A plain cast gives the ISO form; to_char formats with a pattern. Formatting belongs at the very end of a query: compare and sort dates as dates, never as "25 Dec" text.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Data type formatting', url: PG + 'functions-formatting.html' },
+      { label: 'MySQL: DATE_FORMAT', url: MY + 'date-and-time-functions.html#function_date-format' },
+    ],
+  },
+  {
+    id: 'employees-054',
+    dataset: 'employees',
+    level: 1,
+    topics: ['distinct', 'joins'],
+    title: 'Titles managers have held',
+    prompt: 'List the different job titles ever held by people who were department managers at some point.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'DISTINCT over a join',
+        postgres: `select distinct t.title
+from titles t
+where t.emp_no in (select emp_no from dept_manager);`,
+        mysql: `select distinct t.title
+from titles t
+where t.emp_no in (select emp_no from dept_manager);`,
+        explanation: 'Managers also held other titles before becoming managers, so the list is longer than just "Manager".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SELECT DISTINCT', url: PG + 'sql-select.html#SQL-DISTINCT' }],
+  },
+  {
+    id: 'employees-055',
+    dataset: 'employees',
+    level: 4,
+    topics: ['views', 'lag-lead'],
+    title: 'A view of salary changes',
+    prompt:
+      'Create a view salary_changes (emp_no, from_date, salary, previous_salary, change_pct) where change_pct is the change from the previous salary in percent, 1 decimal (NULL for the first salary).',
+    orderMatters: true,
+    checkSql: `select emp_no, from_date, salary, previous_salary, change_pct from salary_changes where emp_no = 10050 order by from_date`,
+    solutions: [
+      {
+        approach: 'View with LAG',
+        postgres: `create view salary_changes as
+select emp_no, from_date, salary,
+       lag(salary) over w as previous_salary,
+       round(100.0 * (salary - lag(salary) over w) / lag(salary) over w, 1) as change_pct
+from salaries
+window w as (partition by emp_no order by from_date);`,
+        mysql: `create view salary_changes as
+select emp_no, from_date, salary,
+       lag(salary) over w as previous_salary,
+       round(100.0 * (salary - lag(salary) over w) / lag(salary) over w, 1) as change_pct
+from salaries
+window w as (partition by emp_no order by from_date);`,
+        explanation:
+          'A WINDOW clause names the window once and reuses it. Careful when filtering this view: a WHERE on from_date outside the view runs after LAG, so the first visible row still knows its real previous salary; inside the view it would not.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window function calls', url: PG + 'sql-select.html#SQL-WINDOW' }],
+  },
 ]

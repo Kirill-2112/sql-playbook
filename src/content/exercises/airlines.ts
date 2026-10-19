@@ -2442,4 +2442,37 @@ order by g1, fare_conditions, g2, month;`,
     ],
     docs: [{ label: 'PostgreSQL: GROUPING SETS', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
   },
+  {
+    id: 'airlines-060',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['procedures', 'transactions'],
+    title: 'Rebook a passenger',
+    prompt:
+      'Write a procedure rebook(p_ticket_no, p_from_flight, p_to_flight) that moves a ticket\'s segment to another flight and removes the boarding pass of the old flight. Rebook ticket 0005432000395 from flight 77 to flight 78.',
+    orderMatters: true,
+    checkSql: `call rebook('0005432000395', 77, 78);
+select s.flight_id, (select count(*) from boarding_passes b where b.ticket_no = s.ticket_no and b.flight_id = s.flight_id) as passes
+from segments s where s.ticket_no = '0005432000395' order by s.flight_id`,
+    solutions: [
+      {
+        approach: 'Delete the pass, then move the segment',
+        postgres: `create procedure rebook(p_ticket_no text, p_from_flight integer, p_to_flight integer)
+language sql
+as $$
+  delete from boarding_passes where ticket_no = p_ticket_no and flight_id = p_from_flight;
+  update segments set flight_id = p_to_flight where ticket_no = p_ticket_no and flight_id = p_from_flight;
+$$;`,
+        mysql: `create procedure rebook(p_ticket_no char(13), p_from_flight int, p_to_flight int)
+begin
+  delete from boarding_passes where ticket_no = p_ticket_no and flight_id = p_from_flight;
+  update segments set flight_id = p_to_flight where ticket_no = p_ticket_no and flight_id = p_from_flight;
+end;`,
+        mysqlNote: 'In the mysql client, wrap it in DELIMITER $$ … $$.',
+        explanation:
+          'The order matters: the boarding pass references the segment (ticket_no, flight_id), so it must go before the segment\'s flight_id changes, or the foreign key would block the update.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
+  },
 ]

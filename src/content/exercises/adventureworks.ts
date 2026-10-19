@@ -2095,4 +2095,33 @@ commit;`,
       { label: 'MySQL: SAVEPOINT', url: MY + 'savepoint.html' },
     ],
   },
+  {
+    id: 'adventureworks-057',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['locks-isolation'],
+    title: 'Workers pulling purchase orders',
+    prompt:
+      'Several workers approve pending purchase orders (status 1) in parallel. Write the query a worker runs to take the 5 oldest pending orders that no other worker has taken: purchase_order_id and order_date.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FOR UPDATE SKIP LOCKED',
+        postgres: `select purchase_order_id, order_date
+from purchase_order_header
+where status = 1
+order by order_date, purchase_order_id
+limit 5
+for update skip locked;`,
+        mysql: `select purchase_order_id, order_date
+from purchase_order_header
+where status = 1
+order by order_date, purchase_order_id
+limit 5
+for update skip locked;`,
+        explanation: 'Each worker gets a different batch: rows locked by others are skipped rather than waited for. The worker then sets the status and commits, releasing the locks.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: The locking clause', url: PG + 'sql-select.html#SQL-FOR-UPDATE-SHARE' }],
+  },
 ]

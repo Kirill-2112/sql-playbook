@@ -1082,4 +1082,87 @@ order by t.territory_id;`,
     ],
     docs: [{ label: 'PostgreSQL: EXISTS', url: PG + 'functions-subquery.html#FUNCTIONS-SUBQUERY-EXISTS' }],
   },
+  {
+    id: 'northwind-059',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'Orders of 1997, with and without the index',
+    prompt: 'Count the orders of 1997. order_date has an index: compare a range condition with extract(year …).',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Range on order_date',
+        postgres: `select count(*) as orders
+from orders
+where order_date >= '1997-01-01' and order_date < '1998-01-01';`,
+        mysql: `select count(*) as orders
+from orders
+where order_date >= '1997-01-01' and order_date < '1998-01-01';`,
+        explanation: 'The index on order_date can answer the range directly.',
+      },
+      {
+        approach: 'Function on the column',
+        postgres: `select count(*) as orders
+from orders
+where extract(year from order_date) = 1997;`,
+        mysql: `select count(*) as orders
+from orders
+where year(order_date) = 1997;`,
+        explanation: 'Correct, but the index is on order_date, not on its year, so every row is read and the function applied to each.',
+      },
+    ],
+    comparison:
+      'Same count. With only 830 orders the planner may read the whole table even for the range (it is just a few pages), so check the "uses index" column rather than expecting a big time difference; on a large table the range form wins clearly.',
+    docs: [{ label: 'PostgreSQL: Using EXPLAIN', url: PG + 'using-explain.html' }],
+  },
+  {
+    id: 'northwind-060',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['distinct', 'aggregates'],
+    title: 'Countries shipped to each year',
+    prompt: 'For each year, how many different countries received orders?',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'count(DISTINCT) per group',
+        postgres: `select extract(year from order_date)::int as year, count(distinct ship_country) as countries
+from orders
+group by year
+order by year;`,
+        mysql: `select year(order_date) as year, count(distinct ship_country) as countries
+from orders
+group by year
+order by year;`,
+        explanation: 'count(distinct …) counts each country once per year however many orders went there.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'northwind-061',
+    dataset: 'northwind',
+    level: 2,
+    topics: ['casting', 'text-search'],
+    title: 'Postal codes are not numbers',
+    prompt: 'How many customer postal codes start with 0, and how many contain something other than digits?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Pattern tests on the text',
+        postgres: `select count(*) filter (where postal_code like '0%') as leading_zero,
+       count(*) filter (where postal_code !~ '^[0-9]+$') as not_only_digits
+from customers
+where postal_code is not null;`,
+        mysql: `select sum(postal_code like '0%') as leading_zero,
+       sum(postal_code not regexp '^[0-9]+$') as not_only_digits
+from customers
+where postal_code is not null;`,
+        explanation:
+          'Casting to an integer would turn "01307" into 1307 and fail (or, in MySQL, silently stop at the dash) on codes like "02389-673" or "WX1 6LT". Codes, phone numbers and ids that are never added up belong in text columns.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Pattern matching', url: PG + 'functions-matching.html' }],
+  },
 ]

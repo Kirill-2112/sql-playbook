@@ -2148,4 +2148,99 @@ order by customers desc, employees desc, country;`,
     ],
     docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
   },
+  {
+    id: 'chinook-084',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['control-flow', 'functions'],
+    title: 'A loyalty tier from lifetime spend',
+    prompt:
+      'Write a function customer_tier(p_customer_id) that adds up the customer\'s invoices and returns \'gold\' from 45.00, \'silver\' from 40.00, otherwise \'standard\' (and NULL for an unknown customer). Then count customers per tier.',
+    orderMatters: true,
+    checkSql: `select customer_tier(customer_id) as tier, count(*) as customers
+from customer
+group by customer_tier(customer_id)
+order by tier`,
+    solutions: [
+      {
+        approach: 'Query into a variable, then a CASE statement',
+        postgres: `create function customer_tier(p_customer_id integer) returns text
+language plpgsql
+stable
+as $$
+declare
+  v_spend numeric;
+begin
+  if not exists (select 1 from customer where customer_id = p_customer_id) then
+    return null;
+  end if;
+
+  select coalesce(sum(total), 0) into v_spend from invoice where customer_id = p_customer_id;
+
+  case
+    when v_spend >= 45 then return 'gold';
+    when v_spend >= 40 then return 'silver';
+    else return 'standard';
+  end case;
+end;
+$$;`,
+        mysql: `create function customer_tier(p_customer_id int) returns varchar(10)
+reads sql data
+begin
+  declare v_spend decimal(10, 2);
+
+  if not exists (select 1 from customer where customer_id = p_customer_id) then
+    return null;
+  end if;
+
+  select coalesce(sum(total), 0) into v_spend from invoice where customer_id = p_customer_id;
+
+  case
+    when v_spend >= 45 then return 'gold';
+    when v_spend >= 40 then return 'silver';
+    else return 'standard';
+  end case;
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'The CASE statement (not the CASE expression) chooses which RETURN runs; the first true branch wins, so silver only needs its lower bound. The existence check separates "unknown customer" from "customer who never bought". 5 customers are gold, 9 silver, 45 standard.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Conditionals', url: PG + 'plpgsql-control-structures.html#PLPGSQL-CONDITIONALS' },
+      { label: 'MySQL: CASE statement', url: MY + 'case.html' },
+    ],
+  },
+  {
+    id: 'chinook-085',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['date-series', 'set-operations'],
+    title: 'Days in December without a sale',
+    prompt: 'List the days of December 2025 on which no invoice was issued.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Day series EXCEPT invoice days',
+        postgres: `select d::date as day
+from generate_series('2025-12-01'::date, '2025-12-31', interval '1 day') as d
+except
+select invoice_date::date from invoice
+order by day;`,
+        mysql: `with recursive days (day) as (
+  select cast('2025-12-01' as date)
+  union all
+  select day + interval 1 day from days where day < '2025-12-31'
+)
+select day from days
+except
+select date(invoice_date) from invoice
+order by day;`,
+        mysqlNote: 'A recursive CTE stands in for generate_series; EXCEPT needs MySQL 8.0.31 or later.',
+        explanation:
+          'Generate every day that should be there, subtract the days that are: 25 of 31 December days had no invoice. EXCEPT compares whole values, so invoice_date is cut to a date first; otherwise a timestamp never equals a date.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
 ]

@@ -3145,4 +3145,293 @@ where fare_conditions = 'Business';
       { label: 'PostgreSQL: Index-only scans', url: PG + 'indexes-index-only-scans.html' },
     ],
   },
+  {
+    id: 'airlines-078',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['self-cross-join', 'strings'],
+    title: 'Families in one booking',
+    prompt:
+      'How many bookings include at least two different passengers (different passenger_id) with the same last name (the last word of passenger_name)?',
+    hint: SAMPLE_NOTE,
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Self-join tickets within a booking',
+        postgres: `select count(distinct a.book_ref) as bookings
+from tickets a
+join tickets b
+  on b.book_ref = a.book_ref
+ and b.passenger_id > a.passenger_id
+ and split_part(b.passenger_name, ' ', -1) = split_part(a.passenger_name, ' ', -1);`,
+        mysql: `select count(distinct a.book_ref) as bookings
+from tickets a
+join tickets b
+  on b.book_ref = a.book_ref
+ and b.passenger_id > a.passenger_id
+ and substring_index(b.passenger_name, ' ', -1) = substring_index(a.passenger_name, ' ', -1);`,
+        explanation:
+          'A round trip gives each passenger two tickets in the booking, so comparing passenger_id (not ticket_no) is what keeps a person from matching themselves; ">" also keeps each pair once. COUNT(DISTINCT book_ref) counts a family of three once, not three times.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'airlines-079',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['ranking'],
+    title: 'The top airports of each country',
+    prompt:
+      'Rank each country\'s airports by the number of different destinations they serve in December 2025. For countries with at least 3 served airports, show the airports at rank 1 and 2 (ties share a rank): country, airport_code, city, destinations, rank. Order by country, rank, airport_code.',
+    hint: DECEMBER_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'DENSE_RANK per country',
+        postgres: `with served as (
+  select departure_airport as airport_code, count(distinct arrival_airport) as destinations
+  from routes
+  where valid_from = '2025-12-01'
+  group by departure_airport
+),
+ranked as (
+  select a.country, s.airport_code, a.city, s.destinations,
+         dense_rank() over (partition by a.country order by s.destinations desc) as rnk,
+         count(*) over (partition by a.country) as airports_in_country
+  from served s
+  join airports a on a.airport_code = s.airport_code
+)
+select country, airport_code, city, destinations, rnk
+from ranked
+where airports_in_country >= 3 and rnk <= 2
+order by country, rnk, airport_code;`,
+        mysql: `with served as (
+  select departure_airport as airport_code, count(distinct arrival_airport) as destinations
+  from routes
+  where valid_from = '2025-12-01'
+  group by departure_airport
+),
+ranked as (
+  select a.country, s.airport_code, a.city, s.destinations,
+         dense_rank() over (partition by a.country order by s.destinations desc) as rnk,
+         count(*) over (partition by a.country) as airports_in_country
+  from served s
+  join airports a on a.airport_code = s.airport_code
+)
+select country, airport_code, city, destinations, rnk
+from ranked
+where airports_in_country >= 3 and rnk <= 2
+order by country, rnk, airport_code;`,
+        explanation:
+          'DENSE_RANK gives ties the same rank and continues with the next number, so "rank 2" can hold several airports (China has three). RANK would skip numbers after a tie; ROW_NUMBER would pick one airport of a tie arbitrarily. A window COUNT tells each row how many airports its country has, without a second query.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'airlines-080',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['cte', 'joins'],
+    title: 'Cancellations by airplane model',
+    prompt:
+      'For October and November 2025: per airplane model, the number of flights, cancelled flights, and the cancellation rate in percent (2 decimals), next to the overall rate. Highest rate first, then by model.',
+    hint: VALIDITY_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Three CTEs, each one step',
+        postgres: `with done as (
+  select f.flight_id, f.status, r.airplane_code
+  from flights f
+  ${ROUTE_JOIN}
+  where f.scheduled_departure >= '2025-10-01' and f.scheduled_departure < '2025-12-01'
+),
+per_model as (
+  select a.model, count(*) as flights, count(*) filter (where d.status = 'Cancelled') as cancelled
+  from done d
+  join airplanes a on a.airplane_code = d.airplane_code
+  group by a.model
+),
+overall as (
+  select round(100.0 * sum(cancelled) / sum(flights), 2) as overall_pct from per_model
+)
+select m.model, m.flights, m.cancelled, round(100.0 * m.cancelled / m.flights, 2) as cancelled_pct, o.overall_pct
+from per_model m
+cross join overall o
+order by cancelled_pct desc, m.model;`,
+        mysql: `with done as (
+  select f.flight_id, f.status, r.airplane_code
+  from flights f
+  ${ROUTE_JOIN}
+  where f.scheduled_departure >= '2025-10-01' and f.scheduled_departure < '2025-12-01'
+),
+per_model as (
+  select a.model, count(*) as flights, sum(d.status = 'Cancelled') as cancelled
+  from done d
+  join airplanes a on a.airplane_code = d.airplane_code
+  group by a.model
+),
+overall as (
+  select round(100 * sum(cancelled) / sum(flights), 2) as overall_pct from per_model
+)
+select m.model, m.flights, m.cancelled, round(100 * m.cancelled / m.flights, 2) as cancelled_pct, o.overall_pct
+from per_model m
+cross join overall o
+order by cancelled_pct desc, m.model;`,
+        explanation:
+          'Each CTE does one job: pick the flights, count per model, compute the overall rate. The last one reuses per_model instead of scanning flights again. All rates are well under 1%, so no model stands out much.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'airlines-081',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['pivot', 'dates-advanced'],
+    title: 'Departures by local part of day',
+    prompt:
+      'For the 5 airports with the most departures in December 2025: total departures and, in local time at the airport, how many leave at night (0–5 h), morning (6–11), afternoon (12–17) and evening (18–23). Most departures first, then airport_code.',
+    hint: `${VALIDITY_NOTE} ${UTC_NOTE}`,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Local hour, then conditional counts',
+        postgres: `with dec_departures as (
+  select r.departure_airport as airport_code,
+         extract(hour from f.scheduled_departure at time zone a.timezone) as local_hour
+  from flights f
+  ${ROUTE_JOIN}
+  join airports a on a.airport_code = r.departure_airport
+  where f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2026-01-01'
+)
+select airport_code,
+       count(*) as departures,
+       count(*) filter (where local_hour < 6) as night,
+       count(*) filter (where local_hour between 6 and 11) as morning,
+       count(*) filter (where local_hour between 12 and 17) as afternoon,
+       count(*) filter (where local_hour >= 18) as evening
+from dec_departures
+group by airport_code
+order by departures desc, airport_code
+limit 5;`,
+        mysql: `with dec_departures as (
+  select r.departure_airport as airport_code,
+         hour(convert_tz(f.scheduled_departure, 'UTC', a.timezone)) as local_hour
+  from flights f
+  ${ROUTE_JOIN}
+  join airports a on a.airport_code = r.departure_airport
+  where f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2026-01-01'
+)
+select airport_code,
+       count(*) as departures,
+       sum(local_hour < 6) as night,
+       sum(local_hour between 6 and 11) as morning,
+       sum(local_hour between 12 and 17) as afternoon,
+       sum(local_hour >= 18) as evening
+from dec_departures
+group by airport_code
+order by departures desc, airport_code
+limit 5;`,
+        mysqlNote: TZ_NOTE,
+        explanation:
+          'Bucketing by UTC hour would put a 09:00 departure in Atlanta (14:00 UTC) in the afternoon. Converting with each airport\'s own time zone first gives the local picture the question asks about; the pivot itself is just four conditional counts.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: AT TIME ZONE', url: PG + 'functions-datetime.html#FUNCTIONS-DATETIME-ZONECONVERT' }],
+  },
+  {
+    id: 'airlines-082',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['normalization', 'arrays'],
+    title: 'Weekdays out of the array',
+    prompt:
+      'routes.days_of_week packs several values into one column. Normalize it: create route_days (route_no, valid_from, weekday) with one row per route period and weekday, and fill it from routes.',
+    orderMatters: false,
+    checkSql: `select count(*) as total_rows,
+       sum(case when weekday = 7 then 1 else 0 end) as sundays,
+       count(distinct route_no) as routes
+from route_days`,
+    solutions: [
+      {
+        approach: 'unnest / JSON_TABLE',
+        postgres: `create table route_days (
+  route_no   varchar(6)  not null,
+  valid_from timestamptz not null,
+  weekday    smallint    not null check (weekday between 1 and 7),
+  primary key (route_no, valid_from, weekday)
+);
+
+insert into route_days (route_no, valid_from, weekday)
+select r.route_no, r.valid_from, d.weekday
+from routes r
+cross join unnest(r.days_of_week) as d (weekday);`,
+        mysql: `create table route_days (
+  route_no   varchar(6) not null,
+  valid_from datetime   not null,
+  weekday    smallint   not null check (weekday between 1 and 7),
+  primary key (route_no, valid_from, weekday)
+);
+
+insert into route_days (route_no, valid_from, weekday)
+select r.route_no, r.valid_from, d.weekday
+from routes r
+cross join json_table(r.days_of_week, '$[*]' columns (weekday int path '$')) as d;`,
+        mysqlNote: 'In MySQL days_of_week is a JSON array; JSON_TABLE turns its elements into rows.',
+        explanation:
+          'First normal form: one value per column. With a row per weekday, "routes flying on Sunday" is a plain WHERE that an index can serve, the CHECK keeps out an 8th day, and the key forbids listing a day twice. The array version is more compact and fine for reading a timetable at once.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: unnest', url: PG + 'functions-array.html' },
+      { label: 'MySQL: JSON_TABLE', url: MY + 'json-table-functions.html' },
+    ],
+  },
+  {
+    id: 'airlines-083',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['locks-isolation', 'constraints'],
+    title: 'Swap two seats',
+    prompt:
+      'On flight 8, passengers 0005432005883 (seat 10C) and 0005432040368 (seat 9B) want to swap seats. boarding_passes has a unique key on (flight_id, seat_no). Lock both rows, then swap. In PostgreSQL you are already inside a transaction.',
+    orderMatters: true,
+    checkSql: `select ticket_no, seat_no from boarding_passes where flight_id = 8 order by ticket_no`,
+    solutions: [
+      {
+        approach: 'Lock in key order, park one seat, swap',
+        postgres: `select ticket_no, seat_no
+from boarding_passes
+where flight_id = 8 and ticket_no in ('0005432005883', '0005432040368')
+order by ticket_no
+for update;
+
+update boarding_passes set seat_no = '-'   where flight_id = 8 and ticket_no = '0005432005883';
+update boarding_passes set seat_no = '10C' where flight_id = 8 and ticket_no = '0005432040368';
+update boarding_passes set seat_no = '9B'  where flight_id = 8 and ticket_no = '0005432005883';`,
+        mysql: `start transaction;
+
+select ticket_no, seat_no
+from boarding_passes
+where flight_id = 8 and ticket_no in ('0005432005883', '0005432040368')
+order by ticket_no
+for update;
+
+update boarding_passes set seat_no = '-'   where flight_id = 8 and ticket_no = '0005432005883';
+update boarding_passes set seat_no = '10C' where flight_id = 8 and ticket_no = '0005432040368';
+update boarding_passes set seat_no = '9B'  where flight_id = 8 and ticket_no = '0005432005883';
+
+commit;`,
+        explanation:
+          'A single UPDATE with CASE would fail: the unique key is checked row by row, and halfway through both passengers hold 10C. Parking one seat on a placeholder avoids that. Locking both rows first, always in ticket_no order, means two agents swapping the same pair cannot deadlock by locking them in opposite orders.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Deadlocks', url: PG + 'explicit-locking.html#LOCKING-DEADLOCKS' },
+      { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
+    ],
+  },
 ]

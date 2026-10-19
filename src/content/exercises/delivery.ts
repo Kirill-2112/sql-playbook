@@ -2305,4 +2305,381 @@ group by r.city, r.cuisine;`,
       { label: 'PostgreSQL: REFRESH MATERIALIZED VIEW', url: PG + 'sql-refreshmaterializedview.html' },
     ],
   },
+  {
+    id: 'delivery-063',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['text-search'],
+    title: 'Anything at the old port',
+    prompt: 'A user types "port" into the restaurant search. Find restaurants whose name contains it, in any letter case. Show id, name and city, ordered by id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ILIKE / LIKE',
+        postgres: `select id, name, city
+from restaurants
+where name ilike '%port%'
+order by id;`,
+        mysql: `select id, name, city
+from restaurants
+where name like '%port%'
+order by id;`,
+        mysqlNote: 'MySQL\'s default collation (utf8mb4_0900_ai_ci) ignores case, so plain LIKE already matches "Port".',
+        explanation:
+          'In PostgreSQL LIKE is case-sensitive: \'%port%\' would find nothing, because every name has "Port" with a capital P. ILIKE ignores case. A leading % means no ordinary index can help; for search boxes on big tables, see trigram indexes.',
+      },
+      {
+        approach: 'lower() on both sides',
+        postgres: `select id, name, city
+from restaurants
+where lower(name) like '%port%'
+order by id;`,
+        mysql: `select id, name, city
+from restaurants
+where lower(name) like '%port%'
+order by id;`,
+        explanation: 'Portable: lower-case the column and write the pattern in lower case.',
+      },
+    ],
+    comparison: 'Same 10 restaurants. ILIKE is PostgreSQL-only; lower() works everywhere.',
+    docs: [{ label: 'PostgreSQL: LIKE and ILIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'delivery-064',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['full-join'],
+    title: 'Customers and Thai restaurants by city',
+    prompt:
+      'Marketing plans a Thai campaign. For every city that has customers or Thai restaurants: number of customers and number of Thai restaurants (0 when none). Order by city.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two counts',
+        postgres: `with c as (select city, count(*) as customers from customers group by city),
+     t as (select city, count(*) as thai_restaurants from restaurants where cuisine = 'Thai' group by city)
+select coalesce(c.city, t.city) as city,
+       coalesce(c.customers, 0) as customers,
+       coalesce(t.thai_restaurants, 0) as thai_restaurants
+from c
+full join t on t.city = c.city
+order by city;`,
+        mysql: `with c as (select city, count(*) as customers from customers group by city),
+     t as (select city, count(*) as thai_restaurants from restaurants where cuisine = 'Thai' group by city)
+select c.city, c.customers, coalesce(t.thai_restaurants, 0) as thai_restaurants
+from c left join t on t.city = c.city
+union all
+select t.city, 0, t.thai_restaurants
+from t left join c on c.city = t.city
+where c.city is null
+order by city;`,
+        mysqlNote: 'No FULL JOIN in MySQL: LEFT JOIN plus the rows only the right side has.',
+        explanation:
+          'Ramat Gan has about 10,000 customers and no Thai restaurant: the row survives because the join is outer on both sides. A city with Thai restaurants but no customers would show up too, with 0 customers.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'delivery-065',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['self-cross-join', 'dates-basics'],
+    title: 'Two orders within ten minutes',
+    prompt:
+      'Find pairs of orders by the same customer placed at most 10 minutes apart (possible double orders). Show customer_id, both order ids (lower id first) and the seconds between them, ordered by customer_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Self-join on customer and a time window',
+        postgres: `select a.customer_id, a.id as first_id, b.id as second_id,
+       abs(extract(epoch from b.created_at - a.created_at))::int as seconds_apart
+from orders a
+join orders b
+  on b.customer_id = a.customer_id
+ and b.id > a.id
+ and b.created_at between a.created_at - interval '10 minutes' and a.created_at + interval '10 minutes'
+order by a.customer_id, a.id;`,
+        mysql: `select a.customer_id, a.id as first_id, b.id as second_id,
+       abs(timestampdiff(second, a.created_at, b.created_at)) as seconds_apart
+from orders a
+join orders b
+  on b.customer_id = a.customer_id
+ and b.id > a.id
+ and b.created_at between a.created_at - interval 10 minute and a.created_at + interval 10 minute
+order by a.customer_id, a.id;`,
+        explanation:
+          'b.id > a.id keeps each pair once (not as a–b and b–a) and drops an order paired with itself. The window looks both ways, since a higher id is not always the later order. All 8 pairs are from different restaurants, so they look like real separate orders rather than double clicks.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Date/time operators', url: PG + 'functions-datetime.html' }],
+  },
+  {
+    id: 'delivery-066',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['set-operations', 'joins'],
+    title: 'Sushi and pizza people',
+    prompt: 'How many customers have ordered both Sushi and Pizza (any status)?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'INTERSECT of two customer lists',
+        postgres: `select count(*) as customers
+from (
+  select o.customer_id from orders o join restaurants r on r.id = o.restaurant_id where r.cuisine = 'Sushi'
+  intersect
+  select o.customer_id from orders o join restaurants r on r.id = o.restaurant_id where r.cuisine = 'Pizza'
+) both_kinds;`,
+        mysql: `select count(*) as customers
+from (
+  select o.customer_id from orders o join restaurants r on r.id = o.restaurant_id where r.cuisine = 'Sushi'
+  intersect
+  select o.customer_id from orders o join restaurants r on r.id = o.restaurant_id where r.cuisine = 'Pizza'
+) both_kinds;`,
+        mysqlNote: 'INTERSECT exists since MySQL 8.0.31.',
+        explanation: 'INTERSECT keeps the customers found in both lists, each once.',
+      },
+      {
+        approach: 'GROUP BY with a HAVING on distinct cuisines',
+        postgres: `select count(*) as customers
+from (
+  select o.customer_id
+  from orders o
+  join restaurants r on r.id = o.restaurant_id
+  where r.cuisine in ('Sushi', 'Pizza')
+  group by o.customer_id
+  having count(distinct r.cuisine) = 2
+) both_kinds;`,
+        mysql: `select count(*) as customers
+from (
+  select o.customer_id
+  from orders o
+  join restaurants r on r.id = o.restaurant_id
+  where r.cuisine in ('Sushi', 'Pizza')
+  group by o.customer_id
+  having count(distinct r.cuisine) = 2
+) both_kinds;`,
+        explanation: 'One pass: keep orders of either cuisine and require both to appear per customer. It extends easily to "at least 3 of these 4 cuisines".',
+      },
+    ],
+    comparison: 'Same 11,039 customers. INTERSECT reads like the question; GROUP BY … HAVING scans the orders once.',
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'delivery-067',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['window-frames', 'dates-advanced'],
+    title: 'Record days in March',
+    prompt:
+      'Which days of March 2025 had more delivered revenue than each of the 7 days before them? Show the day, its revenue and the best of the previous 7 days.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'MAX over a frame that ends yesterday',
+        postgres: `with daily as (
+  select created_at::date as day, sum(total) as revenue
+  from orders
+  where status = 'delivered' and created_at >= '2025-02-20' and created_at < '2025-04-01'
+  group by created_at::date
+),
+framed as (
+  select day, revenue,
+         max(revenue) over (order by day rows between 7 preceding and 1 preceding) as best_prev_7
+  from daily
+)
+select day, revenue, best_prev_7
+from framed
+where day >= '2025-03-01' and revenue > best_prev_7
+order by day;`,
+        mysql: `with daily as (
+  select date(created_at) as day, sum(total) as revenue
+  from orders
+  where status = 'delivered' and created_at >= '2025-02-20' and created_at < '2025-04-01'
+  group by date(created_at)
+),
+framed as (
+  select day, revenue,
+         max(revenue) over (order by day rows between 7 preceding and 1 preceding) as best_prev_7
+  from daily
+)
+select day, revenue, best_prev_7
+from framed
+where day >= '2025-03-01' and revenue > best_prev_7
+order by day;`,
+        explanation:
+          'The frame "7 preceding and 1 preceding" excludes the current row, so each day is compared only with the week before it. The data starts at 20 February so that 1 March has a full week behind it; the March filter comes after the window, otherwise early March would see fewer previous days. ROWS counts rows: this works because every day has orders.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
+  {
+    id: 'delivery-068',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['gaps-islands'],
+    title: 'Busy streaks for one restaurant',
+    prompt:
+      'For restaurant 36, find the 3 longest runs of consecutive days on which it received at least one order: first day, last day and length in days. Longest first, then earliest.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Day minus row number',
+        postgres: `with days as (
+  select distinct created_at::date as day from orders where restaurant_id = 36
+),
+grouped as (
+  select day, day - (row_number() over (order by day))::int as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from grouped
+group by grp
+order by days desc, first_day
+limit 3;`,
+        mysql: `with days as (
+  select distinct date(created_at) as day from orders where restaurant_id = 36
+),
+grouped as (
+  select day, day - interval (row_number() over (order by day)) day as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from grouped
+group by grp
+order by days desc, first_day
+limit 3;`,
+        mysqlNote: 'date - integer is not date arithmetic in MySQL; subtract an INTERVAL instead.',
+        explanation:
+          'Within a run of consecutive days, both the day and its row number go up by one, so their difference stays constant and labels the island. A missing day breaks the run, and the difference jumps.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'delivery-069',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Orders by city and status, every total',
+    prompt:
+      'Count orders by restaurant city and status, with subtotals per city, per status, and a grand total (label totals "All"). Order: city rows first, then the per-status totals, then the grand total.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'GROUP BY CUBE',
+        postgres: `select coalesce(r.city, 'All') as city, coalesce(o.status, 'All') as status, count(*) as orders
+from orders o
+join restaurants r on r.id = o.restaurant_id
+group by cube (r.city, o.status)
+order by grouping(r.city), r.city, grouping(o.status), o.status;`,
+        mysql: `select city, status, orders
+from (
+  select coalesce(r.city, 'All') as city, coalesce(o.status, 'All') as status, count(*) as orders,
+         grouping(r.city) as g_city, grouping(o.status) as g_status, r.city as c, o.status as s
+  from orders o
+  join restaurants r on r.id = o.restaurant_id
+  group by r.city, o.status with rollup
+  union all
+  select 'All', o.status, count(*), 1, 0, null, o.status
+  from orders o
+  join restaurants r on r.id = o.restaurant_id
+  group by o.status
+) t
+order by g_city, c, g_status, s;`,
+        mysqlNote:
+          'MySQL has WITH ROLLUP but no CUBE. ROLLUP (city, status) gives city × status, the city subtotals and the grand total; the per-status totals across cities are added with UNION ALL.',
+        explanation:
+          'CUBE produces every combination of the listed columns being grouped or totalled: 5 × 3 detail rows, 5 city totals, 3 status totals and 1 grand total, 24 rows. ROLLUP only totals from right to left, which is why it misses the status totals.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUPING SETS, CUBE and ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'delivery-070',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['views', 'constraints'],
+    title: 'A Tel Aviv view that stays in Tel Aviv',
+    prompt:
+      'The Tel Aviv team may only see and add Tel Aviv restaurants. Create a view tel_aviv_restaurants (id, name, cuisine, city) that also refuses inserts or updates leaving Tel Aviv. Then add restaurant 101, "Port Said", Hummus, through the view.',
+    orderMatters: true,
+    checkSql: `select id, name, cuisine, city from restaurants where id > 100 order by id`,
+    solutions: [
+      {
+        approach: 'Updatable view WITH CHECK OPTION',
+        postgres: `create view tel_aviv_restaurants as
+select id, name, cuisine, city
+from restaurants
+where city = 'Tel Aviv'
+with check option;
+
+insert into tel_aviv_restaurants (id, name, cuisine, city) values (101, 'Port Said', 'Hummus', 'Tel Aviv');`,
+        mysql: `create view tel_aviv_restaurants as
+select id, name, cuisine, city
+from restaurants
+where city = 'Tel Aviv'
+with check option;
+
+insert into tel_aviv_restaurants (id, name, cuisine, city) values (101, 'Port Said', 'Hummus', 'Tel Aviv');`,
+        explanation:
+          'A simple view over one table is updatable: the insert goes into restaurants. Without CHECK OPTION the view would accept a Haifa restaurant and then not show it; with it, such a row is rejected ("new row violates check option"). Views like this are a light form of row-level security.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Updatable views', url: PG + 'sql-createview.html#SQL-CREATEVIEW-UPDATABLE-VIEWS' },
+      { label: 'MySQL: WITH CHECK OPTION', url: MY + 'view-check-option.html' },
+    ],
+  },
+  {
+    id: 'delivery-071',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['procedures', 'transactions'],
+    title: 'Archive old refunds',
+    prompt:
+      'Create orders_archive with the structure of orders, and a procedure archive_refunds(p_before, OUT p_moved) that moves refunded orders created before p_before into it and reports how many it moved. Archive everything before 2025-02-01.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from orders_archive) as archived,
+       (select count(*) from orders where status = 'refunded' and created_at < '2025-02-01') as left_behind`,
+    solutions: [
+      {
+        approach: 'INSERT … SELECT, DELETE, row count into an OUT parameter',
+        postgres: `create table orders_archive (like orders including all);
+
+create procedure archive_refunds(p_before date, out p_moved integer)
+language plpgsql
+as $$
+begin
+  insert into orders_archive
+  select * from orders where status = 'refunded' and created_at < p_before;
+
+  delete from orders where status = 'refunded' and created_at < p_before;
+  get diagnostics p_moved = row_count;
+end;
+$$;
+
+call archive_refunds('2025-02-01', null);`,
+        mysql: `create table orders_archive like orders;
+
+create procedure archive_refunds(p_before date, out p_moved int)
+begin
+  insert into orders_archive
+  select * from orders where status = 'refunded' and created_at < p_before;
+
+  delete from orders where status = 'refunded' and created_at < p_before;
+  set p_moved = row_count();
+end;
+
+call archive_refunds('2025-02-01', @moved);
+select @moved;`,
+        mysqlNote: DELIMITER_NOTE + ' An OUT parameter is passed as a user variable (@moved) and read afterwards.',
+        explanation:
+          'In PostgreSQL the CALL returns the OUT value as a result row (447); the NULL in the call is just a placeholder for it. ROW_COUNT after the DELETE is the number of rows it removed. Both statements must succeed together: in PostgreSQL the CALL runs in one transaction, in MySQL wrap the CALL in START TRANSACTION … COMMIT.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: GET DIAGNOSTICS', url: PG + 'plpgsql-statements.html#PLPGSQL-STATEMENTS-DIAGNOSTICS' },
+      { label: 'MySQL: ROW_COUNT', url: MY + 'information-functions.html#function_row-count' },
+    ],
+  },
 ]

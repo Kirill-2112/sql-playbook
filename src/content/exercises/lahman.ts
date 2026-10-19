@@ -2593,4 +2593,322 @@ where f.active = 'Y' and f.franch_name <> t.name;`,
     comparison: 'Same result: three names updated, the others untouched.',
     docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
   },
+  {
+    id: 'lahman-073',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['limit', 'conditions'],
+    title: 'The next page of 2025 debuts',
+    prompt:
+      'An app lists 2025 debuts by debut date, then player_id, 5 per page. The last row on the current page was (2025-03-27, \'johnsry01\'). Fetch the next page without OFFSET: player_id and debut.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Keyset pagination with a row comparison',
+        postgres: `select player_id, debut
+from people
+where debut >= '2025-01-01'
+  and (debut, player_id) > ('2025-03-27', 'johnsry01')
+order by debut, player_id
+limit 5;`,
+        mysql: `select player_id, debut
+from people
+where debut >= '2025-01-01'
+  and (debut, player_id) > ('2025-03-27', 'johnsry01')
+order by debut, player_id
+limit 5;`,
+        explanation:
+          '(a, b) > (x, y) means a > x, or a = x and b > y: exactly "after this row" in the sort order. Unlike OFFSET, it does not read and throw away the earlier pages, and a row inserted meanwhile does not shift the page. The sort key must be unique, which is why player_id breaks ties of the same day.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Row-wise comparison', url: PG + 'functions-comparisons.html#ROW-WISE-COMPARISON' },
+      { label: 'MySQL: Row constructor expressions', url: MY + 'row-constructor-optimization.html' },
+    ],
+  },
+  {
+    id: 'lahman-074',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['conditions', 'null'],
+    title: 'Young lefty hitters from the Caribbean',
+    prompt:
+      'Which players bat left but throw right, were born in 1995 or later, and come from Venezuela or the Dominican Republic (stored as \'D.R.\')? Show player_id, name_first, name_last, birth_country and birth_year, ordered by player_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'AND with IN',
+        postgres: `select player_id, name_first, name_last, birth_country, birth_year
+from people
+where bats = 'L'
+  and throws = 'R'
+  and birth_year >= 1995
+  and birth_country in ('Venezuela', 'D.R.')
+order by player_id;`,
+        mysql: `select player_id, name_first, name_last, birth_country, birth_year
+from people
+where bats = 'L'
+  and throws = 'R'
+  and birth_year >= 1995
+  and birth_country in ('Venezuela', 'D.R.')
+order by player_id;`,
+        explanation:
+          'IN replaces a chain of ORs, and keeps the AND/OR precedence trap away: "country = A or country = B and …" would apply the other conditions to B only. Players with an unknown birth_year are left out, because NULL >= 1995 is not true.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Comparison operators', url: PG + 'functions-comparison.html' }],
+  },
+  {
+    id: 'lahman-075',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['conditional-aggregates'],
+    title: 'Left, right and switch hitters by debut year',
+    prompt:
+      'For debut years 2015 to 2025: how many new players bat left (L), right (R) and both (B), and the share of left-handed batters in percent (1 decimal).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'COUNT with FILTER / SUM(CASE)',
+        postgres: `select extract(year from debut)::int as debut_year,
+       count(*) filter (where bats = 'L') as lefties,
+       count(*) filter (where bats = 'R') as righties,
+       count(*) filter (where bats = 'B') as switch_hitters,
+       round(100.0 * count(*) filter (where bats = 'L') / count(*), 1) as pct_left
+from people
+where debut >= '2015-01-01'
+group by extract(year from debut)
+order by debut_year;`,
+        mysql: `select year(debut) as debut_year,
+       sum(bats = 'L') as lefties,
+       sum(bats = 'R') as righties,
+       sum(bats = 'B') as switch_hitters,
+       round(100 * sum(bats = 'L') / count(*), 1) as pct_left
+from people
+where debut >= '2015-01-01'
+group by year(debut)
+order by debut_year;`,
+        mysqlNote: 'In MySQL a comparison is 1 or 0, so SUM(bats = \'L\') counts the matches.',
+        explanation:
+          'About 10% of people are left-handed, but around 30% of new hitters bat left: from the left side you start a step closer to first base and see most (right-handed) pitchers better.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'lahman-076',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['casting', 'dates-basics'],
+    title: 'Birthdays by day of the week',
+    prompt:
+      'people stores birth dates as three numbers. For players born in 1990 or later with a complete birth date, turn the parts into a real date and count births per ISO day of week (1 = Monday … 7 = Sunday).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Glue the parts into text, cast to date',
+        postgres: `select extract(isodow from (birth_year || '-' || birth_month || '-' || birth_day)::date)::int as weekday,
+       count(*) as players
+from people
+where birth_year >= 1990 and birth_month is not null and birth_day is not null
+group by weekday
+order by weekday;`,
+        mysql: `select weekday(cast(concat_ws('-', birth_year, birth_month, birth_day) as date)) + 1 as weekday,
+       count(*) as players
+from people
+where birth_year >= 1990 and birth_month is not null and birth_day is not null
+group by weekday
+order by weekday;`,
+        mysqlNote: 'WEEKDAY() counts from 0 = Monday, so add 1. CAST accepts \'1994-3-7\' without leading zeros.',
+        explanation:
+          'Both databases read \'1994-3-7\' as a date. Weekends have about a third fewer births: many deliveries are scheduled, and hospitals schedule them on weekdays.',
+      },
+      {
+        approach: 'make_date / MAKEDATE',
+        postgres: `select extract(isodow from make_date(birth_year, birth_month, birth_day))::int as weekday,
+       count(*) as players
+from people
+where birth_year >= 1990 and birth_month is not null and birth_day is not null
+group by weekday
+order by weekday;`,
+        mysql: `select weekday(makedate(birth_year, 1) + interval birth_month - 1 month + interval birth_day - 1 day) + 1 as weekday,
+       count(*) as players
+from people
+where birth_year >= 1990 and birth_month is not null and birth_day is not null
+group by weekday
+order by weekday;`,
+        mysqlNote: 'MAKEDATE(year, day_of_year) takes a day of the year, so add the months and days as intervals.',
+        explanation: 'make_date builds the date from numbers directly, with no text in between, and fails loudly on an impossible date such as 30 February.',
+      },
+    ],
+    comparison: 'Same counts. make_date is the cleaner tool in PostgreSQL; the text-and-cast route works almost everywhere.',
+    docs: [
+      { label: 'PostgreSQL: make_date', url: PG + 'functions-datetime.html' },
+      { label: 'MySQL: CAST', url: MY + 'cast-functions.html' },
+    ],
+  },
+  {
+    id: 'lahman-077',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['temp-tables', 'aggregates'],
+    title: 'Career totals since 2010, once',
+    prompt:
+      'Several reports need batting totals per player since 2010. Build them once in a temporary table career (player_id, seasons, ab, h, hr). Then: the 5 players with the most home runs, with their names.',
+    hint: SEASONS_NOTE,
+    orderMatters: true,
+    checkSql: `select c.player_id, p.name_first, p.name_last, c.seasons, c.hr
+from career c
+join people p on p.player_id = c.player_id
+order by c.hr desc, c.player_id
+limit 5`,
+    solutions: [
+      {
+        approach: 'CREATE TEMPORARY TABLE … AS with a primary key',
+        postgres: `create temporary table career as
+select player_id, count(distinct year_id) as seasons, sum(ab) as ab, sum(h) as h, sum(hr) as hr
+from batting
+group by player_id;
+
+alter table career add primary key (player_id);`,
+        mysql: `create temporary table career as
+select player_id, count(distinct year_id) as seasons, sum(ab) as ab, sum(h) as h, sum(hr) as hr
+from batting
+group by player_id;
+
+alter table career add primary key (player_id);`,
+        explanation:
+          'count(distinct year_id) counts a traded player\'s season once although he has a row per team. The key makes joins to people fast, the same as on a real table.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'lahman-078',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['generated-columns', 'null'],
+    title: 'Body mass index as a column',
+    prompt:
+      'Add a stored generated column bmi to people: 703 × weight (lb) / height (in)², rounded to 1 decimal, NULL when either is missing. Which 3 people have the highest value?',
+    orderMatters: true,
+    checkSql: `select player_id, name_first, name_last, bmi from people where bmi is not null order by bmi desc, player_id limit 3`,
+    solutions: [
+      {
+        approach: 'GENERATED ALWAYS AS … STORED',
+        postgres: `alter table people
+add column bmi numeric(4, 1)
+generated always as (round(703.0 * weight / (height * height), 1)) stored;`,
+        mysql: `alter table people
+add column bmi decimal(4, 1)
+generated always as (round(703 * weight / (height * height), 1)) stored;`,
+        explanation:
+          'Arithmetic with a NULL gives NULL, so missing heights or weights need no special case. In PostgreSQL the 703.0 matters: with only integers the division would be integer division. The top value belongs to John McSherry, whose row has no debut: people also lists people who never played, and he was an umpire.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' },
+      { label: 'MySQL: Generated columns', url: MY + 'create-table-generated-columns.html' },
+    ],
+  },
+  {
+    id: 'lahman-079',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['date-series', 'joins'],
+    title: 'All-Stars every year, even without a game',
+    prompt: 'Count All-Star selections per year from 2010 to 2025, showing every year, also one without any rows.',
+    hint: SEASONS_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Year series LEFT JOIN allstar_full',
+        postgres: `select y.year_id, count(a.player_id) as all_stars
+from generate_series(2010, 2025) as y (year_id)
+left join allstar_full a on a.year_id = y.year_id
+group by y.year_id
+order by y.year_id;`,
+        mysql: `with recursive years (year_id) as (
+  select 2010 union all select year_id + 1 from years where year_id < 2025
+)
+select y.year_id, count(a.player_id) as all_stars
+from years y
+left join allstar_full a on a.year_id = y.year_id
+group by y.year_id
+order by y.year_id;`,
+        mysqlNote: 'No generate_series in MySQL: a recursive CTE counts the years.',
+        explanation:
+          'There was no All-Star Game in 2020 (the season was shortened by the pandemic), so allstar_full has no 2020 rows. Grouping allstar_full alone would silently skip the year; the series makes it visible as 0. count(a.player_id), not count(*), so the empty year counts 0 instead of 1.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'lahman-080',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for champions only',
+    prompt:
+      'The "past champions" page lists World Series winners (ws_win = \'Y\') by year with name and wins. Create an index that holds only the winners and can answer the page from the index alone.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'teams' and indexdef like '%ws_win%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'teams' and column_name = 'ws_win'`,
+    solutions: [
+      {
+        approach: 'Partial covering index',
+        postgres: `create index teams_champions_idx on teams (year_id) include (name, w)
+where ws_win = 'Y';
+
+-- used by: select year_id, name, w from teams where ws_win = 'Y' order by year_id`,
+        mysql: null,
+        mysqlNote: 'No partial indexes or INCLUDE in MySQL; see solution B.',
+        explanation:
+          '126 of 3,105 team seasons won the World Series, so the index is tiny. Its entries are already in year order, and INCLUDE carries name and w, so the page is an index-only scan with no sort.',
+      },
+      {
+        approach: 'Composite covering index',
+        postgres: `create index teams_ws_year_idx on teams (ws_win, year_id, name, w);`,
+        mysql: `create index teams_ws_year_idx on teams (ws_win, year_id, name, w);`,
+        explanation: 'With ws_win first, the winners form one range of the index in year order, and the other columns make it covering. It indexes every team season, though.',
+      },
+    ],
+    comparison: 'Both serve the page without touching the table. The partial index is about 25 times smaller; the composite one works in MySQL.',
+    docs: [
+      { label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' },
+      { label: 'PostgreSQL: Index-only scans', url: PG + 'indexes-index-only-scans.html' },
+    ],
+  },
+  {
+    id: 'lahman-081',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['full-text', 'text-search'],
+    title: 'Ray as a word, not a fragment',
+    prompt:
+      'Find people with "Ray" as a whole word in name_given (not Raymond or Murray). Use full-text search with an index, and return how many there are.',
+    orderMatters: false,
+    checkSql: `select count(*) as people from people where to_tsvector('simple', name_given) @@ to_tsquery('simple', 'ray')`,
+    checkSqlMysql: `select count(*) as people from people where match(name_given) against ('+ray' in boolean mode)`,
+    solutions: [
+      {
+        approach: 'tsvector index / FULLTEXT index',
+        postgres: `create index people_name_given_fts on people using gin (to_tsvector('simple', name_given));
+
+-- search: where to_tsvector('simple', name_given) @@ to_tsquery('simple', 'ray')`,
+        mysql: `create fulltext index people_name_given_ft on people (name_given);
+
+-- search: where match(name_given) against ('+ray' in boolean mode)`,
+        mysqlNote: 'MySQL ignores words shorter than innodb_ft_min_token_size (3 by default), so "Ray" is just long enough.',
+        explanation:
+          'Full-text search splits text into words, so "ray" matches the word Ray but not Raymond or Murray: 29 people, against 76 for LIKE \'%Ray%\'. The \'simple\' configuration only lower-cases; \'english\' would also reduce words to stems, which is wrong for names.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Text search', url: PG + 'textsearch-intro.html' },
+      { label: 'MySQL: Full-text search', url: MY + 'fulltext-search.html' },
+    ],
+  },
 ]

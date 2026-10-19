@@ -1810,4 +1810,233 @@ order by unit_price desc, product_name;`,
     comparison: 'Same 12 products. WITH TIES is shorter and stops early; RANK works everywhere.',
     docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
   },
+  {
+    id: 'northwind-080',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['json', 'joins'],
+    title: 'Price a cart sent as JSON',
+    prompt:
+      'A web shop sends the cart as JSON: [{"product_id": 11, "qty": 12}, {"product_id": 42, "qty": 10}, {"product_id": 72, "qty": 5}]. Turn it into rows and price it: product_name, qty, unit_price and line_total, in cart order.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'JSON_TABLE',
+        postgres: `select p.product_name, c.qty, p.unit_price, c.qty * p.unit_price as line_total
+from json_table(
+       '[{"product_id": 11, "qty": 12}, {"product_id": 42, "qty": 10}, {"product_id": 72, "qty": 5}]',
+       '$[*]' columns (pos for ordinality, product_id integer path '$.product_id', qty integer path '$.qty')
+     ) c
+join products p on p.product_id = c.product_id
+order by c.pos;`,
+        mysql: `select p.product_name, c.qty, p.unit_price, c.qty * p.unit_price as line_total
+from json_table(
+       '[{"product_id": 11, "qty": 12}, {"product_id": 42, "qty": 10}, {"product_id": 72, "qty": 5}]',
+       '$[*]' columns (pos for ordinality, product_id int path '$.product_id', qty int path '$.qty')
+     ) c
+join products p on p.product_id = c.product_id
+order by c.pos;`,
+        explanation:
+          'JSON_TABLE is standard SQL: MySQL has had it since 8.0, PostgreSQL since 17. FOR ORDINALITY numbers the array elements, which keeps the cart order. Prices come from the database, never from the cart, so a client cannot send its own.',
+      },
+      {
+        approach: 'jsonb_to_recordset WITH ORDINALITY',
+        postgres: `select p.product_name, c.qty, p.unit_price, c.qty * p.unit_price as line_total
+from rows from (
+       jsonb_to_recordset('[{"product_id": 11, "qty": 12}, {"product_id": 42, "qty": 10}, {"product_id": 72, "qty": 5}]')
+         as (product_id integer, qty integer)
+     ) with ordinality as c (product_id, qty, pos)
+join products p on p.product_id = c.product_id
+order by c.pos;`,
+        mysql: null,
+        mysqlNote: 'PostgreSQL-only; solution A works in both.',
+        explanation: 'The older PostgreSQL way: jsonb_to_recordset maps object keys to the listed columns by name. A function that needs a column list can only take WITH ORDINALITY inside ROWS FROM ( … ).',
+      },
+    ],
+    comparison: 'Same three lines. JSON_TABLE is portable between the two; jsonb_to_recordset is shorter and works in older PostgreSQL versions.',
+    docs: [
+      { label: 'PostgreSQL: JSON_TABLE', url: PG + 'functions-json.html#FUNCTIONS-SQLJSON-TABLE' },
+      { label: 'MySQL: JSON_TABLE', url: MY + 'json-table-functions.html' },
+    ],
+  },
+  {
+    id: 'northwind-081',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['triggers'],
+    title: 'The catalog price as the default',
+    prompt:
+      'Make the database fill in order_details.unit_price from products.unit_price whenever a line is inserted without a price. Test: add 3 × product 11 to order 11077 without giving a price.',
+    orderMatters: false,
+    checkSql: `insert into order_details (order_id, product_id, quantity, discount) values (11077, 11, 3, 0);
+select order_id, product_id, unit_price, quantity from order_details where order_id = 11077 and product_id = 11`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger',
+        postgres: `create function default_line_price() returns trigger
+language plpgsql
+as $$
+begin
+  if new.unit_price is null then
+    select unit_price into new.unit_price from products where product_id = new.product_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger order_details_default_price
+before insert on order_details
+for each row execute function default_line_price();`,
+        mysql: `create trigger order_details_default_price
+before insert on order_details
+for each row
+begin
+  if new.unit_price is null then
+    set new.unit_price = (select unit_price from products where product_id = new.product_id);
+  end if;
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'A BEFORE trigger may change the row before it is written, and NOT NULL is checked only after it runs, so the insert succeeds. A column DEFAULT could not do this: defaults cannot look up another table.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' },
+      { label: 'MySQL: Trigger syntax', url: MY + 'trigger-syntax.html' },
+    ],
+  },
+  {
+    id: 'northwind-082',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['recursive', 'strings'],
+    title: 'The chain of command, upwards',
+    prompt:
+      'For every employee, show the chain from them up to the top as text, like "Dodsworth > Buchanan > Fuller", and how many levels it has. Order by employee_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE walking up reports_to',
+        postgres: `with recursive chain (employee_id, boss_id, path, levels) as (
+  select employee_id, reports_to, last_name::text, 1
+  from employees
+  union all
+  select c.employee_id, e.reports_to, c.path || ' > ' || e.last_name, c.levels + 1
+  from chain c
+  join employees e on e.employee_id = c.boss_id
+)
+select employee_id, path, levels
+from chain
+where boss_id is null
+order by employee_id;`,
+        mysql: `with recursive chain (employee_id, boss_id, path, levels) as (
+  select employee_id, reports_to, cast(last_name as char(200)), 1
+  from employees
+  union all
+  select c.employee_id, e.reports_to, concat(c.path, ' > ', e.last_name), c.levels + 1
+  from chain c
+  join employees e on e.employee_id = c.boss_id
+)
+select employee_id, path, levels
+from chain
+where boss_id is null
+order by employee_id;`,
+        mysqlNote: 'The anchor CASTs the path wide enough: a recursive CTE takes its column types from the anchor, and a 20-character last_name column would truncate the chain.',
+        explanation:
+          'Every employee starts a walk, and each step moves to the current boss. The walk ends at the person with no boss, so "boss_id is null" keeps exactly one finished row per employee. Fuller\'s own chain is just "Fuller", 1 level.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'northwind-083',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Customers split by continent',
+    prompt:
+      'Create customers_by_region (customer_id, company_name, country) list-partitioned by country into americas (Argentina, Brazil, Canada, Mexico, USA, Venezuela) and europe (every other country in the data), and copy the customers in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from customers_americas) as americas, (select count(*) from customers_europe) as europe`,
+    checkSqlMysql: `select (select count(*) from customers_by_region partition (americas)) as americas,
+       (select count(*) from customers_by_region partition (europe)) as europe`,
+    solutions: [
+      {
+        approach: 'LIST partitions with several values each',
+        postgres: `create table customers_by_region (
+  customer_id  varchar(5)  not null,
+  company_name varchar(40) not null,
+  country      varchar(15) not null,
+  primary key (customer_id, country)
+) partition by list (country);
+
+create table customers_americas partition of customers_by_region
+  for values in ('Argentina', 'Brazil', 'Canada', 'Mexico', 'USA', 'Venezuela');
+create table customers_europe partition of customers_by_region
+  for values in ('Austria', 'Belgium', 'Denmark', 'Finland', 'France', 'Germany', 'Ireland', 'Italy',
+                 'Norway', 'Poland', 'Portugal', 'Spain', 'Sweden', 'Switzerland', 'UK');
+
+insert into customers_by_region select customer_id, company_name, country from customers;`,
+        mysql: `create table customers_by_region (
+  customer_id  varchar(5)  not null,
+  company_name varchar(40) not null,
+  country      varchar(15) not null,
+  primary key (customer_id, country)
+)
+partition by list columns (country) (
+  partition americas values in ('Argentina', 'Brazil', 'Canada', 'Mexico', 'USA', 'Venezuela'),
+  partition europe   values in ('Austria', 'Belgium', 'Denmark', 'Finland', 'France', 'Germany', 'Ireland', 'Italy',
+                                'Norway', 'Poland', 'Portugal', 'Spain', 'Sweden', 'Switzerland', 'UK')
+);
+
+insert into customers_by_region select customer_id, company_name, country from customers;`,
+        mysqlNote: 'A MySQL partition is not a table you can query by name in FROM; use PARTITION (americas) after the table name, or a WHERE on the key.',
+        explanation:
+          'Each partition lists its values; a customer from a country in neither list would be rejected. In PostgreSQL a DEFAULT partition can catch "everything else" instead. 37 customers land in americas and 54 in europe.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: LIST COLUMNS partitioning', url: MY + 'partitioning-columns-list.html' },
+    ],
+  },
+  {
+    id: 'northwind-084',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Keep the product while you sell it',
+    prompt:
+      'Add 2 × product 11 at 21.00 to order 11077, but only if the product is not discontinued, and make sure nobody can discontinue or delete it until your transaction ends. Other sessions may still read it and sell it too. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select order_id, product_id, unit_price, quantity from order_details where order_id = 11077 and product_id = 11`,
+    solutions: [
+      {
+        approach: 'SELECT … FOR SHARE, then insert',
+        postgres: `select discontinued from products where product_id = 11 for share;
+
+insert into order_details (order_id, product_id, unit_price, quantity, discount)
+select 11077, 11, 21.00, 2, 0
+from products
+where product_id = 11 and discontinued = 0;`,
+        mysql: `start transaction;
+
+select discontinued from products where product_id = 11 for share;
+
+insert into order_details (order_id, product_id, unit_price, quantity, discount)
+select 11077, 11, 21.00, 2, 0
+from products
+where product_id = 11 and discontinued = 0;
+
+commit;`,
+        mysqlNote: 'FOR SHARE is the MySQL 8 name; older versions wrote LOCK IN SHARE MODE.',
+        explanation:
+          'FOR SHARE is a read lock: other transactions can also take FOR SHARE (so two salespeople can sell the product at once), but an UPDATE or DELETE of the row waits until both commit. FOR UPDATE would also block the other salesperson. The foreign key from order_details takes a similar share lock on the product by itself; the explicit one also protects the discontinued check.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Row-level locks', url: PG + 'explicit-locking.html#LOCKING-ROWS' },
+      { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
+    ],
+  },
 ]

@@ -2759,4 +2759,301 @@ order by product_subcategory_id;`,
     comparison: 'Same 37 rows. DISTINCT ON is shorter and often faster in PostgreSQL; ROW_NUMBER works everywhere and extends to "top 3 per group".',
     docs: [{ label: 'PostgreSQL: DISTINCT ON', url: PG + 'sql-select.html#SQL-DISTINCT' }],
   },
+  {
+    id: 'adventureworks-075',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['strings', 'group-by'],
+    title: 'Product number prefixes',
+    prompt: 'product_number starts with a code before the first hyphen (BK-R93R-62 → BK). Show the 5 most common codes with their number of products.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'split_part / substring_index',
+        postgres: `select split_part(product_number, '-', 1) as prefix, count(*) as products
+from product
+group by prefix
+order by products desc, prefix
+limit 5;`,
+        mysql: `select substring_index(product_number, '-', 1) as prefix, count(*) as products
+from product
+group by prefix
+order by products desc, prefix
+limit 5;`,
+        mysqlNote: 'substring_index(text, \'-\', 1) returns everything before the first hyphen.',
+        explanation: 'BK is bikes and FR frames: the code is a category hidden inside an identifier. Such "smart keys" are handy for humans but best not relied on in queries when a real column exists.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: split_part', url: PG + 'functions-string.html' }],
+  },
+  {
+    id: 'adventureworks-076',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['distinct', 'null'],
+    title: 'Colour and size combinations',
+    prompt: 'Among products that have both a colour and a size, how many different (colour, size) combinations exist?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'SELECT DISTINCT in a subquery',
+        postgres: `select count(*) as combinations
+from (select distinct color, size from product where color is not null and size is not null) c;`,
+        mysql: `select count(*) as combinations
+from (select distinct color, size from product where color is not null and size is not null) c;`,
+        explanation: 'DISTINCT applies to the whole row, so it removes repeated pairs, not repeated colours.',
+      },
+      {
+        approach: 'COUNT(DISTINCT …) of two columns',
+        postgres: `select count(distinct (color, size)) as combinations
+from product
+where color is not null and size is not null;`,
+        mysql: `select count(distinct color, size) as combinations
+from product
+where color is not null and size is not null;`,
+        mysqlNote: 'MySQL accepts several expressions in COUNT(DISTINCT …) and skips a row if any of them is NULL.',
+        explanation:
+          'PostgreSQL wants one value, so the pair is wrapped in a row (color, size). Without the WHERE the two would disagree: a row value with one NULL inside, like (NULL, \'M\'), still counts in PostgreSQL, while MySQL skips it.',
+      },
+    ],
+    comparison: 'Same 60 combinations. The subquery is the clearest; COUNT(DISTINCT …) is shorter, but its NULL rules differ between the databases.',
+    docs: [{ label: 'PostgreSQL: Aggregate expressions', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'adventureworks-077',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['conditional-aggregates', 'joins'],
+    title: 'Who works in each department',
+    prompt:
+      'For each department, count its current employees (end_date is NULL in employee_department_history): total, women, men, married and single. Order by department_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'COUNT with FILTER / SUM(CASE)',
+        postgres: `select d.department_id, d.name,
+       count(*) as employees,
+       count(*) filter (where e.gender = 'F') as women,
+       count(*) filter (where e.gender = 'M') as men,
+       count(*) filter (where e.marital_status = 'M') as married,
+       count(*) filter (where e.marital_status = 'S') as single
+from employee_department_history h
+join department d on d.department_id = h.department_id
+join employee e on e.business_entity_id = h.business_entity_id
+where h.end_date is null
+group by d.department_id, d.name
+order by d.department_id;`,
+        mysql: `select d.department_id, d.name,
+       count(*) as employees,
+       sum(e.gender = 'F') as women,
+       sum(e.gender = 'M') as men,
+       sum(e.marital_status = 'M') as married,
+       sum(e.marital_status = 'S') as single
+from employee_department_history h
+join department d on d.department_id = h.department_id
+join employee e on e.business_entity_id = h.business_entity_id
+where h.end_date is null
+group by d.department_id, d.name
+order by d.department_id;`,
+        mysqlNote: 'A comparison is 1 or 0 in MySQL, so SUM counts the matches.',
+        explanation: 'Note the two different M\'s: in gender it means male, in marital_status married. Codes like these are why a lookup table or a CHECK constraint with readable values pays off.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'adventureworks-078',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['json', 'text-aggregation'],
+    title: 'A sales order as one document',
+    prompt:
+      'Return sales order 43672 as one JSON object: id, date (YYYY-MM-DD) and lines, an array of {product, qty} in line order.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'jsonb_agg inside jsonb_build_object',
+        postgres: `select jsonb_build_object(
+         'id', h.sales_order_id,
+         'date', to_char(h.order_date, 'YYYY-MM-DD'),
+         'lines', jsonb_agg(jsonb_build_object('product', p.name, 'qty', d.order_qty) order by d.sales_order_detail_id)
+       ) as sales_order
+from sales_order_header h
+join sales_order_detail d on d.sales_order_id = h.sales_order_id
+join product p on p.product_id = d.product_id
+where h.sales_order_id = 43672
+group by h.sales_order_id, h.order_date;`,
+        mysql: `select json_object(
+         'id', h.sales_order_id,
+         'date', date_format(h.order_date, '%Y-%m-%d'),
+         'lines', cast(concat('[',
+                    group_concat(json_object('product', p.name, 'qty', d.order_qty) order by d.sales_order_detail_id),
+                  ']') as json)
+       ) as sales_order
+from sales_order_header h
+join sales_order_detail d on d.sales_order_id = h.sales_order_id
+join product p on p.product_id = d.product_id
+where h.sales_order_id = 43672
+group by h.sales_order_id, h.order_date;`,
+        mysqlNote:
+          'JSON_ARRAYAGG has no ORDER BY in MySQL, so the array would come out in no guaranteed order. GROUP_CONCAT can order its parts; wrapped in [ ] and cast, it becomes a JSON array.',
+        explanation:
+          'The aggregate builds the inner array per order; the outer object adds the header fields. An API can return this as is, instead of reassembling header and lines from two queries.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: JSON functions', url: PG + 'functions-json.html' },
+      { label: 'MySQL: JSON creation functions', url: MY + 'json-creation-functions.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-079',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['functions'],
+    title: 'A margin function for orders',
+    prompt:
+      'Write a function order_margin(p_order_id) that returns the order\'s line totals minus the products\' standard cost (quantity × standard_cost), rounded to 2 decimals.',
+    orderMatters: false,
+    checkSql: `select order_margin(43672) as o43672, order_margin(43844) as o43844, order_margin(1) as missing`,
+    solutions: [
+      {
+        approach: 'SQL function / stored function',
+        postgres: `create function order_margin(p_order_id integer)
+returns numeric
+language sql
+stable
+as $$
+  select round(sum(d.line_total - d.order_qty * p.standard_cost), 2)
+  from sales_order_detail d
+  join product p on p.product_id = d.product_id
+  where d.sales_order_id = p_order_id;
+$$;`,
+        mysql: `create function order_margin(p_order_id integer)
+returns decimal(19, 2)
+reads sql data
+begin
+  return (
+    select round(sum(d.line_total - d.order_qty * p.standard_cost), 2)
+    from sales_order_detail d
+    join product p on p.product_id = d.product_id
+    where d.sales_order_id = p_order_id
+  );
+end;`,
+        mysqlNote: DELIMITER_NOTE + ' READS SQL DATA tells MySQL the function only reads.',
+        explanation:
+          'STABLE promises PostgreSQL the result does not change within one statement, so it may call the function fewer times. A missing order gives NULL, because SUM over no rows is NULL. standard_cost is today\'s cost; an exact margin would use product_cost_history at the order date.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Function volatility', url: PG + 'xfunc-volatility.html' },
+      { label: 'MySQL: CREATE FUNCTION', url: MY + 'create-procedure.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-080',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['materialized-views'],
+    title: 'Product sales, stored',
+    prompt:
+      'Store total quantity and revenue per product (product_id, name, units, revenue rounded to 2 decimals) for a dashboard, refreshable without blocking readers. Then: the top 5 by revenue.',
+    orderMatters: true,
+    checkSql: `select name, units, revenue from product_sales order by revenue desc, product_id limit 5`,
+    solutions: [
+      {
+        approach: 'Materialized view with a unique index',
+        postgres: `create materialized view product_sales as
+select p.product_id, p.name, sum(d.order_qty) as units, round(sum(d.line_total), 2) as revenue
+from sales_order_detail d
+join product p on p.product_id = d.product_id
+group by p.product_id, p.name;
+
+create unique index product_sales_key on product_sales (product_id);
+-- later: refresh materialized view concurrently product_sales;`,
+        mysql: `create table product_sales (
+  product_id int primary key,
+  name       varchar(50),
+  units      int,
+  revenue    decimal(14, 2)
+);
+
+replace into product_sales
+select p.product_id, p.name, sum(d.order_qty), round(sum(d.line_total), 2)
+from sales_order_detail d
+join product p on p.product_id = d.product_id
+group by p.product_id, p.name;`,
+        mysqlNote: 'No materialized views: a table refreshed by REPLACE INTO on a schedule.',
+        explanation:
+          '265 stored rows instead of aggregating every order line on each dashboard load. The Mountain-200 bikes lead. CONCURRENTLY needs the unique index; without it a refresh locks the view and readers wait.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
+  {
+    id: 'adventureworks-081',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['procedures', 'dml'],
+    title: 'Reprice a subcategory with history',
+    prompt:
+      'Write a procedure reprice_subcategory(p_subcategory_id, p_pct, p_date) that raises list_price of every product in the subcategory by p_pct percent (rounded to 2 decimals), closes the open product_list_price_history row the day before p_date, and opens a new one from p_date. Raise Helmets (31) by 10% on 2025-07-01.',
+    orderMatters: true,
+    checkSql: `select h.product_id, h.start_date, h.end_date, h.list_price, p.list_price as current_price
+from product_list_price_history h
+join product p on p.product_id = h.product_id
+where h.product_id = 707 and h.start_date >= '2024-01-01'
+order by h.start_date`,
+    solutions: [
+      {
+        approach: 'Three statements in a procedure',
+        postgres: `create procedure reprice_subcategory(p_subcategory_id integer, p_pct numeric, p_date date)
+language plpgsql
+as $$
+begin
+  update product
+  set list_price = round(list_price * (1 + p_pct / 100), 2)
+  where product_subcategory_id = p_subcategory_id;
+
+  update product_list_price_history h
+  set end_date = p_date - 1
+  from product p
+  where p.product_id = h.product_id and p.product_subcategory_id = p_subcategory_id and h.end_date is null;
+
+  insert into product_list_price_history (product_id, start_date, end_date, list_price)
+  select product_id, p_date, null, list_price
+  from product
+  where product_subcategory_id = p_subcategory_id;
+end;
+$$;
+
+call reprice_subcategory(31, 10, '2025-07-01');`,
+        mysql: `create procedure reprice_subcategory(p_subcategory_id int, p_pct decimal(5, 2), p_date date)
+begin
+  update product
+  set list_price = round(list_price * (1 + p_pct / 100), 2)
+  where product_subcategory_id = p_subcategory_id;
+
+  update product_list_price_history h
+  join product p on p.product_id = h.product_id
+  set h.end_date = p_date - interval 1 day
+  where p.product_subcategory_id = p_subcategory_id and h.end_date is null;
+
+  insert into product_list_price_history (product_id, start_date, end_date, list_price)
+  select product_id, p_date, null, list_price
+  from product
+  where product_subcategory_id = p_subcategory_id;
+end;
+
+call reprice_subcategory(31, 10, '2025-07-01');`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'The price is changed first, so the new history row copies the new price. 34.99 × 1.1 = 38.489 is stored as 38.49. The history keeps the old period closed on 2025-06-30, so "price on a given day" queries keep working.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' },
+      { label: 'MySQL: Multiple-table UPDATE', url: MY + 'update.html' },
+    ],
+  },
 ]

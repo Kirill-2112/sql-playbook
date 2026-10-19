@@ -2195,4 +2195,185 @@ order by bucket;`,
       { label: 'MySQL: Type conversion', url: MY + 'type-conversion.html' },
     ],
   },
+  {
+    id: 'sakila-084',
+    dataset: 'sakila',
+    level: 1,
+    topics: ['null', 'conditions'],
+    title: 'Empty or unknown second lines',
+    prompt:
+      'address2 is the optional second address line. Count addresses where it is NULL, where it is an empty string, and where it is "missing" in either way.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Three conditional counts',
+        postgres: `select count(*) filter (where address2 is null) as is_null,
+       count(*) filter (where address2 = '') as is_empty,
+       count(*) filter (where coalesce(address2, '') = '') as missing
+from address;`,
+        mysql: `select sum(address2 is null) as is_null,
+       sum(address2 = '') as is_empty,
+       sum(coalesce(address2, '') = '') as missing
+from address;`,
+        mysqlNote: 'No FILTER in MySQL; a comparison is 1 or 0, so SUM counts the matches.',
+        explanation:
+          'NULL and \'\' are different values: "address2 = \'\'" does not match NULL, and "address2 is null" does not match \'\'. Data loaded from several sources often mixes both; COALESCE(address2, \'\') = \'\' catches either. Better still, pick one convention and enforce it with a CHECK.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: COALESCE', url: PG + 'functions-conditional.html#FUNCTIONS-COALESCE-NVL-IFNULL' }],
+  },
+  {
+    id: 'sakila-085',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['cte', 'ranking'],
+    title: 'Each customer\'s favourite category',
+    prompt:
+      'For customers 1 to 5: the film category they rented most often, and how many rentals that was. On a tie, take the alphabetically first category. Order by customer_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Count in one CTE, rank in the next',
+        postgres: `with per_category as (
+  select r.customer_id, c.name as category, count(*) as rentals
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film_category fc on fc.film_id = i.film_id
+  join category c on c.category_id = fc.category_id
+  where r.customer_id between 1 and 5
+  group by r.customer_id, c.name
+),
+ranked as (
+  select customer_id, category, rentals,
+         row_number() over (partition by customer_id order by rentals desc, category) as n
+  from per_category
+)
+select customer_id, category, rentals
+from ranked
+where n = 1
+order by customer_id;`,
+        mysql: `with per_category as (
+  select r.customer_id, c.name as category, count(*) as rentals
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film_category fc on fc.film_id = i.film_id
+  join category c on c.category_id = fc.category_id
+  where r.customer_id between 1 and 5
+  group by r.customer_id, c.name
+),
+ranked as (
+  select customer_id, category, rentals,
+         row_number() over (partition by customer_id order by rentals desc, category) as n
+  from per_category
+)
+select customer_id, category, rentals
+from ranked
+where n = 1
+order by customer_id;`,
+        explanation:
+          'The first CTE answers "how many per category", the second "which is first", and the final query only filters. Each step can be run and checked on its own, which is the main reason to write queries this way.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'sakila-086',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['pivot', 'dates-basics'],
+    title: 'Rentals per month, one column per store',
+    prompt: 'For each month with rentals (YYYY-MM): rentals at store 1, at store 2, and in total. Store is the store of the rented inventory item.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts per store',
+        postgres: `select to_char(r.rental_date, 'YYYY-MM') as month,
+       count(*) filter (where i.store_id = 1) as store_1,
+       count(*) filter (where i.store_id = 2) as store_2,
+       count(*) as total
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+group by month
+order by month;`,
+        mysql: `select date_format(r.rental_date, '%Y-%m') as month,
+       sum(i.store_id = 1) as store_1,
+       sum(i.store_id = 2) as store_2,
+       count(*) as total
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+group by month
+order by month;`,
+        explanation:
+          'Five months come out: the data has rentals from May to August 2005 and a few in February 2006, nothing in between. The stores are always close, a sign of generated sample data rather than two real shops.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'sakila-087',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['normalization', 'joins'],
+    title: 'A customer stored twice',
+    prompt:
+      'payment has a customer_id, and so does the rental it pays for. Check whether the two ever disagree, then explain what a design without payment.customer_id would need.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Join and compare the duplicated column',
+        postgres: `select count(*) as payments,
+       count(*) filter (where p.customer_id <> r.customer_id) as mismatches
+from payment p
+join rental r on r.rental_id = p.rental_id;`,
+        mysql: `select count(*) as payments,
+       sum(p.customer_id <> r.customer_id) as mismatches
+from payment p
+join rental r on r.rental_id = p.rental_id;`,
+        explanation:
+          'payment.customer_id can be derived from payment.rental_id → rental.customer_id, so storing it again is redundancy (a transitive dependency, which third normal form removes). Here all 16,044 payments agree, but nothing in the schema guarantees it: one wrong UPDATE would make them disagree. Without the column, "payments per customer" needs a join through rental; the duplicate saves that join, at the cost of a consistency rule you have to enforce yourself.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Constraints', url: PG + 'ddl-constraints.html' }],
+  },
+  {
+    id: 'sakila-088',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['arrays', 'json'],
+    title: 'Films with both actors in the cast',
+    prompt: 'Build each film\'s cast as a list of actor ids, then find the films whose cast contains both actor 1 and actor 10. Show film_id and title.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array_agg and @> / JSON_ARRAYAGG and JSON_CONTAINS',
+        postgres: `with casts as (
+  select film_id, array_agg(actor_id) as actor_ids
+  from film_actor
+  group by film_id
+)
+select f.film_id, f.title
+from casts c
+join film f on f.film_id = c.film_id
+where c.actor_ids @> array[1, 10]
+order by f.film_id;`,
+        mysql: `with casts as (
+  select film_id, json_arrayagg(actor_id) as actor_ids
+  from film_actor
+  group by film_id
+)
+select f.film_id, f.title
+from casts c
+join film f on f.film_id = c.film_id
+where json_contains(c.actor_ids, '[1, 10]')
+order by f.film_id;`,
+        mysqlNote: 'No arrays in MySQL: a JSON array plays the role, and JSON_CONTAINS(target, candidate) checks that every element of the candidate is in it.',
+        explanation:
+          '@> means "contains": the order of elements does not matter. Two films, ACADEMY DINOSAUR and WIZARD COLDBLOODED, have both. A plain join would do the same (film_actor twice); the array form shines when the list to check comes from the user.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' },
+      { label: 'MySQL: JSON_CONTAINS', url: MY + 'json-search-functions.html#function_json-contains' },
+    ],
+  },
 ]

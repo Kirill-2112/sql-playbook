@@ -2728,4 +2728,296 @@ order by d.dept_no;`,
     ],
     docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
   },
+  {
+    id: 'employees-072',
+    dataset: 'employees',
+    level: 1,
+    topics: ['text-search'],
+    title: 'The Sch- family names',
+    prompt: 'Which last names starting with "Sch" are shared by at least 6 employees? Show last_name and the count, most common first, then alphabetically.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LIKE with a prefix',
+        postgres: `select last_name, count(*) as employees
+from employees
+where last_name like 'Sch%'
+group by last_name
+having count(*) >= 6
+order by employees desc, last_name;`,
+        mysql: `select last_name, count(*) as employees
+from employees
+where last_name like 'Sch%'
+group by last_name
+having count(*) >= 6
+order by employees desc, last_name;`,
+        explanation:
+          '% matches any number of characters, so \'Sch%\' means "starts with Sch". A prefix pattern can use an index on last_name; \'%sch%\' (anywhere) cannot. LIKE is case-sensitive in PostgreSQL but not under MySQL\'s default collation; here every name starts with a capital, so both agree.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: LIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' },
+      { label: 'MySQL: LIKE', url: MY + 'string-comparison-functions.html#operator_like' },
+    ],
+  },
+  {
+    id: 'employees-073',
+    dataset: 'employees',
+    level: 1,
+    topics: ['null', 'dates-basics'],
+    title: 'Open-ended periods as NULL',
+    prompt:
+      'For employees 10050, 10100 and 10150, list their titles with from_date and an end_date that is NULL for the current title instead of 9999-01-01. Order by emp_no, from_date.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'NULLIF',
+        postgres: `select emp_no, title, from_date, nullif(to_date, '9999-01-01') as end_date
+from titles
+where emp_no in (10050, 10100, 10150)
+order by emp_no, from_date;`,
+        mysql: `select emp_no, title, from_date, nullif(to_date, '9999-01-01') as end_date
+from titles
+where emp_no in (10050, 10100, 10150)
+order by emp_no, from_date;`,
+        explanation:
+          'NULLIF(a, b) returns NULL when a equals b, otherwise a. 9999-01-01 is a "magic value" that means "no end yet"; NULL says the same thing honestly, and the reverse, COALESCE(end_date, \'9999-01-01\'), turns it back when a query needs a real date to compare with.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: NULLIF', url: PG + 'functions-conditional.html#FUNCTIONS-NULLIF' }],
+  },
+  {
+    id: 'employees-074',
+    dataset: 'employees',
+    level: 2,
+    topics: ['set-operations'],
+    title: 'Former managers',
+    prompt: 'Who has managed a department in the past but is not a department manager now? Show emp_no, first_name and last_name, ordered by emp_no.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'EXCEPT, then join for the names',
+        postgres: `select e.emp_no, e.first_name, e.last_name
+from employees e
+join (
+  select emp_no from dept_manager
+  except
+  select emp_no from dept_manager where to_date = '9999-01-01'
+) former on former.emp_no = e.emp_no
+order by e.emp_no;`,
+        mysql: `select e.emp_no, e.first_name, e.last_name
+from employees e
+join (
+  select emp_no from dept_manager
+  except
+  select emp_no from dept_manager where to_date = '9999-01-01'
+) former on former.emp_no = e.emp_no
+order by e.emp_no;`,
+        mysqlNote: 'EXCEPT exists since MySQL 8.0.31.',
+        explanation:
+          'EXCEPT works on whole rows, so it compares emp_no only; the names are joined afterwards. Someone who managed one department before and manages another now would correctly drop out. 24 people have been managers, 9 are now, 15 are former.',
+      },
+      {
+        approach: 'NOT EXISTS',
+        postgres: `select e.emp_no, e.first_name, e.last_name
+from employees e
+where exists (select 1 from dept_manager m where m.emp_no = e.emp_no)
+  and not exists (select 1 from dept_manager m where m.emp_no = e.emp_no and m.to_date = '9999-01-01')
+order by e.emp_no;`,
+        mysql: `select e.emp_no, e.first_name, e.last_name
+from employees e
+where exists (select 1 from dept_manager m where m.emp_no = e.emp_no)
+  and not exists (select 1 from dept_manager m where m.emp_no = e.emp_no and m.to_date = '9999-01-01')
+order by e.emp_no;`,
+        explanation: 'The same rule written per employee: has a manager row, and has no current one.',
+      },
+    ],
+    comparison: 'Same 15 people. EXCEPT reads like the question; NOT EXISTS lets you return any columns without the extra join.',
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'employees-075',
+    dataset: 'employees',
+    level: 4,
+    topics: ['upsert', 'ddl'],
+    title: 'A headcount table you can re-run',
+    prompt:
+      'Create dept_headcount (dept_no primary key, headcount). Write one statement that fills it with the current headcount per department, and that can be run again later to update the numbers instead of failing on duplicates. Run it twice.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    checkSql: `select dept_no, headcount from dept_headcount order by dept_no`,
+    solutions: [
+      {
+        approach: 'INSERT … SELECT with ON CONFLICT / ON DUPLICATE KEY',
+        postgres: `create table dept_headcount (dept_no varchar(4) primary key, headcount integer not null);
+
+insert into dept_headcount (dept_no, headcount)
+select dept_no, count(*) from dept_emp where to_date = '9999-01-01' group by dept_no
+on conflict (dept_no) do update set headcount = excluded.headcount;
+
+insert into dept_headcount (dept_no, headcount)
+select dept_no, count(*) from dept_emp where to_date = '9999-01-01' group by dept_no
+on conflict (dept_no) do update set headcount = excluded.headcount;`,
+        mysql: `create table dept_headcount (dept_no varchar(4) primary key, headcount int not null);
+
+insert into dept_headcount (dept_no, headcount)
+select * from (select dept_no, count(*) as n from dept_emp where to_date = '9999-01-01' group by dept_no) as cur
+on duplicate key update headcount = cur.n;
+
+insert into dept_headcount (dept_no, headcount)
+select * from (select dept_no, count(*) as n from dept_emp where to_date = '9999-01-01' group by dept_no) as cur
+on duplicate key update headcount = cur.n;`,
+        mysqlNote:
+          'With INSERT … SELECT … GROUP BY, MySQL cannot refer to the selected values in ON DUPLICATE KEY UPDATE directly; selecting from a derived table (cur) gives them a name.',
+        explanation:
+          'The second run finds every dept_no already there and updates instead of failing. Such idempotent loads ("run it again and get the same result") make scheduled jobs safe to retry.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: INSERT … ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' },
+      { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
+    ],
+  },
+  {
+    id: 'employees-076',
+    dataset: 'employees',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'Sync a stale summary, deletions included',
+    prompt:
+      'A summary table dept_stats (dept_no, headcount) is out of date: run the setup below, then bring it in line with the current headcount in one statement: update changed rows, add missing departments, and delete rows for departments that do not exist.\n\nSetup: create table dept_stats (dept_no varchar(4) primary key, headcount int); insert into dept_stats values (\'d001\', 1), (\'d002\', 235), (\'d099\', 7);',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    checkSql: `select dept_no, headcount from dept_stats order by dept_no`,
+    solutions: [
+      {
+        approach: 'MERGE … WHEN NOT MATCHED BY SOURCE',
+        postgres: `create table dept_stats (dept_no varchar(4) primary key, headcount int);
+insert into dept_stats values ('d001', 1), ('d002', 235), ('d099', 7);
+
+merge into dept_stats s
+using (select dept_no, count(*) as headcount from dept_emp where to_date = '9999-01-01' group by dept_no) cur
+on cur.dept_no = s.dept_no
+when matched and s.headcount <> cur.headcount then
+  update set headcount = cur.headcount
+when not matched by target then
+  insert (dept_no, headcount) values (cur.dept_no, cur.headcount)
+when not matched by source then
+  delete;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          'NOT MATCHED BY SOURCE (PostgreSQL 17+) catches target rows with no partner in the source: d099 is deleted. d001 is updated, d002 is already right and untouched, d003–d009 are inserted.',
+      },
+      {
+        approach: 'Upsert, then delete the leftovers',
+        postgres: `create table dept_stats (dept_no varchar(4) primary key, headcount int);
+insert into dept_stats values ('d001', 1), ('d002', 235), ('d099', 7);
+
+insert into dept_stats (dept_no, headcount)
+select dept_no, count(*) from dept_emp where to_date = '9999-01-01' group by dept_no
+on conflict (dept_no) do update set headcount = excluded.headcount;
+
+delete from dept_stats s
+where not exists (select 1 from dept_emp de where de.dept_no = s.dept_no and de.to_date = '9999-01-01');`,
+        mysql: `create table dept_stats (dept_no varchar(4) primary key, headcount int);
+insert into dept_stats values ('d001', 1), ('d002', 235), ('d099', 7);
+
+insert into dept_stats (dept_no, headcount)
+select * from (select dept_no, count(*) as n from dept_emp where to_date = '9999-01-01' group by dept_no) as cur
+on duplicate key update headcount = cur.n;
+
+delete from dept_stats
+where not exists (select 1 from dept_emp de where de.dept_no = dept_stats.dept_no and de.to_date = '9999-01-01');`,
+        explanation: 'Two statements doing the same; wrap them in a transaction so no reader sees the in-between state.',
+      },
+    ],
+    comparison: 'Same nine rows. MERGE does all three kinds of change in one pass; the two-step version works in MySQL.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'employees-077',
+    dataset: 'employees',
+    level: 3,
+    topics: ['recursive', 'dates-basics'],
+    title: 'Who took over from whom',
+    prompt:
+      'Follow the line of managers of department d004 (Production): start with the first one, and at each step find the manager whose term began the day the previous term ended. Show step, emp_no, last_name, from_date and to_date.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE joining end date to start date',
+        postgres: `with recursive line (step, emp_no, from_date, to_date) as (
+  select 1, emp_no, from_date, to_date
+  from dept_manager
+  where dept_no = 'd004'
+    and from_date = (select min(from_date) from dept_manager where dept_no = 'd004')
+  union all
+  select l.step + 1, m.emp_no, m.from_date, m.to_date
+  from line l
+  join dept_manager m on m.dept_no = 'd004' and m.from_date = l.to_date
+)
+select l.step, l.emp_no, e.last_name, l.from_date, l.to_date
+from line l
+join employees e on e.emp_no = l.emp_no
+order by l.step;`,
+        mysql: `with recursive line (step, emp_no, from_date, to_date) as (
+  select 1, emp_no, from_date, to_date
+  from dept_manager
+  where dept_no = 'd004'
+    and from_date = (select min(from_date) from dept_manager where dept_no = 'd004')
+  union all
+  select l.step + 1, m.emp_no, m.from_date, m.to_date
+  from line l
+  join dept_manager m on m.dept_no = 'd004' and m.from_date = l.to_date
+)
+select l.step, l.emp_no, e.last_name, l.from_date, l.to_date
+from line l
+join employees e on e.emp_no = l.emp_no
+order by l.step;`,
+        explanation:
+          'Each step looks for the term that starts where the previous one ended; the walk stops at the current manager, whose to_date (9999-01-01) matches no start. Four managers in a row. If a gap or overlap existed, the chain would stop early, which makes this also a check that the history has no holes.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'employees-078',
+    dataset: 'employees',
+    level: 4,
+    topics: ['arrays', 'json'],
+    title: 'From Production to Development',
+    prompt: 'Collect each employee\'s departments (all periods) into a list, then count the employees whose list contains both d004 (Production) and d005 (Development).',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'array_agg and @> / JSON_ARRAYAGG and JSON_CONTAINS',
+        postgres: `with careers as (
+  select emp_no, array_agg(dept_no) as depts
+  from dept_emp
+  group by emp_no
+)
+select count(*) as employees
+from careers
+where depts @> array['d004', 'd005']::varchar[];`,
+        mysql: `with careers as (
+  select emp_no, json_arrayagg(dept_no) as depts
+  from dept_emp
+  group by emp_no
+)
+select count(*) as employees
+from careers
+where json_contains(depts, '["d004", "d005"]');`,
+        mysqlNote: 'A JSON array instead of an array; JSON_CONTAINS checks that both values are in it.',
+        explanation:
+          'The cast gives the literal the same type as the aggregated column (varchar[]): array operators want both sides to have the same element type. 605 employees changed department at least once, 98 of them between these two.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' },
+      { label: 'MySQL: JSON_CONTAINS', url: MY + 'json-search-functions.html#function_json-contains' },
+    ],
+  },
 ]

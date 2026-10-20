@@ -3889,4 +3889,283 @@ order by a.airplane_code;`,
     ],
     docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
   },
+  {
+    id: 'airlines-095',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['limit', 'dates-basics'],
+    title: 'The latest bookings',
+    prompt: 'Show the 3 most recent bookings: book_ref, book_date and total_amount, newest first.',
+    hint: SAMPLE_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ORDER BY … DESC with LIMIT',
+        postgres: `select book_ref, book_date, total_amount
+from bookings
+order by book_date desc, book_ref
+limit 3;`,
+        mysql: `select book_ref, book_date, total_amount
+from bookings
+order by book_date desc, book_ref
+limit 3;`,
+        explanation: 'DESC puts the latest first. The data is a snapshot, so "latest" means the evening of 30 November 2025, not today. book_ref breaks a tie if two bookings share a timestamp.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'airlines-096',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['self-cross-join', 'dates-basics'],
+    title: 'Departures too close together',
+    prompt:
+      'Among December 2025 routes, find pairs leaving the same airport with scheduled times at most 15 minutes apart: airport, both route_no (lower first), both times. Ignore days of the week and midnight wrap-around.',
+    hint: DECEMBER_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Self-join on airport and a time window',
+        postgres: `select a.departure_airport, a.route_no as route_1, a.scheduled_time as time_1,
+       b.route_no as route_2, b.scheduled_time as time_2
+from routes a
+join routes b
+  on b.departure_airport = a.departure_airport
+ and b.valid_from = a.valid_from
+ and b.route_no > a.route_no
+ and abs(extract(epoch from a.scheduled_time - b.scheduled_time)) <= 900
+where a.valid_from = '2025-12-01'
+order by a.departure_airport, a.route_no, b.route_no;`,
+        mysql: `select a.departure_airport, a.route_no as route_1, a.scheduled_time as time_1,
+       b.route_no as route_2, b.scheduled_time as time_2
+from routes a
+join routes b
+  on b.departure_airport = a.departure_airport
+ and b.valid_from = a.valid_from
+ and b.route_no > a.route_no
+ and abs(time_to_sec(a.scheduled_time) - time_to_sec(b.scheduled_time)) <= 900
+where a.valid_from = '2025-12-01'
+order by a.departure_airport, a.route_no, b.route_no;`,
+        mysqlNote: 'TIME_TO_SEC turns a time of day into seconds after midnight.',
+        explanation:
+          'Subtracting two times gives an interval; its epoch is the gap in seconds. b.route_no > a.route_no lists each pair once. 11 pairs, two of them at Frankfurt; 23:55 and 00:05 would be missed, which a real check would handle by comparing modulo 24 hours.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Date/time operators', url: PG + 'functions-datetime.html' }],
+  },
+  {
+    id: 'airlines-097',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'Departure times as text and as numbers',
+    prompt:
+      'For December 2025 routes from SVO: route_no, the scheduled time as \'HH:MM\' text, and as minutes after midnight (an integer). Order by time.',
+    hint: DECEMBER_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Format the time, extract seconds and divide',
+        postgres: `select route_no,
+       to_char(scheduled_time, 'HH24:MI') as departs,
+       (extract(epoch from scheduled_time) / 60)::integer as minutes_after_midnight
+from routes
+where valid_from = '2025-12-01' and departure_airport = 'SVO'
+order by scheduled_time, route_no;`,
+        mysql: `select route_no,
+       time_format(scheduled_time, '%H:%i') as departs,
+       time_to_sec(scheduled_time) div 60 as minutes_after_midnight
+from routes
+where valid_from = '2025-12-01' and departure_airport = 'SVO'
+order by scheduled_time, route_no;`,
+        mysqlNote: 'TIME_FORMAT uses %H for hours and %i (not %M) for minutes; %M is the month name.',
+        explanation:
+          'The same value in three shapes: a time for arithmetic, text for display, an integer for compact storage or bucketing. The times here are whole minutes, so dividing seconds by 60 is exact.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Formatting functions', url: PG + 'functions-formatting.html' }],
+  },
+  {
+    id: 'airlines-098',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['text-search', 'select-basics'],
+    title: 'The Boeing fleet',
+    prompt: 'List the Boeing airplanes: airplane_code, model and range_km, longest range first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LIKE with a prefix',
+        postgres: `select airplane_code, model, range_km
+from airplanes
+where model like 'Boeing%'
+order by range_km desc;`,
+        mysql: `select airplane_code, model, range_km
+from airplanes
+where model like 'Boeing%'
+order by range_km desc;`,
+        explanation: 'Four Boeings, from the 777-300ER (14,600 km) to the 767 freighter. The manufacturer is only part of the model text here; a separate manufacturer column would make this an exact match instead of a pattern.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'airlines-099',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['gaps-islands', 'dates-advanced'],
+    title: 'Days in a row with a cancellation',
+    prompt: 'Find the 3 longest runs of consecutive days (by scheduled departure date, UTC) on which at least one flight was cancelled: first day, last day, number of days. Longest first, then earliest.',
+    hint: UTC_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Day minus row number',
+        postgres: `with days as (
+  select distinct scheduled_departure::date as day from flights where status = 'Cancelled'
+),
+runs as (
+  select day, day - (row_number() over (order by day))::int as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from runs
+group by grp
+order by days desc, first_day
+limit 3;`,
+        mysql: `with days as (
+  select distinct date(scheduled_departure) as day from flights where status = 'Cancelled'
+),
+runs as (
+  select day, day - interval (row_number() over (order by day)) day as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from runs
+group by grp
+order by days desc, first_day
+limit 3;`,
+        explanation:
+          'Cancellations happened on 72 different days; the longest unbroken stretch ran from 11 to 21 December 2025, eleven days. ::date of a timestamptz uses the session time zone, UTC here; in another zone some flights would fall on a different day.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'airlines-100',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['temp-tables', 'aggregates'],
+    title: 'December loads, prepared once',
+    prompt:
+      'Store each December 2025 flight with its route_no and number of sold segments in a temporary table dec_loads (flight_id, route_no, sold). Then: the 3 routes with the highest average sold per flight (2 decimals), among routes with at least 20 flights.',
+    hint: SAMPLE_NOTE,
+    orderMatters: true,
+    checkSql: `select route_no, count(*) as flights, round(avg(sold), 2) as avg_sold
+from dec_loads
+group by route_no
+having count(*) >= 20
+order by avg_sold desc, route_no
+limit 3`,
+    solutions: [
+      {
+        approach: 'LEFT JOIN so empty flights count as 0',
+        postgres: `create temporary table dec_loads as
+select f.flight_id, f.route_no, count(s.ticket_no) as sold
+from flights f
+left join segments s on s.flight_id = f.flight_id
+where f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2026-01-01'
+group by f.flight_id, f.route_no;`,
+        mysql: `create temporary table dec_loads as
+select f.flight_id, f.route_no, count(s.ticket_no) as sold
+from flights f
+left join segments s on s.flight_id = f.flight_id
+where f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2026-01-01'
+group by f.flight_id, f.route_no;`,
+        explanation:
+          'A plain join would drop flights with no sold seat and inflate the averages; LEFT JOIN with count(s.ticket_no) keeps them as 0. Built once, the table serves this and any follow-up question about December loads.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'airlines-101',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'Open boarding, only when it makes sense',
+    prompt:
+      'Write a procedure open_boarding(p_flight_id) that sets status to \'Boarding\' only if it is currently \'On Time\' or \'Delayed\', and raises an error otherwise (including for an unknown flight). Open boarding for flight 11086.',
+    orderMatters: false,
+    checkSql: `select flight_id, status from flights where flight_id = 11086`,
+    solutions: [
+      {
+        approach: 'Read the status, decide, update',
+        postgres: `create procedure open_boarding(p_flight_id integer)
+language plpgsql
+as $$
+declare
+  v_status varchar;
+begin
+  select status into v_status from flights where flight_id = p_flight_id for update;
+  if v_status is null then
+    raise exception 'flight % does not exist', p_flight_id;
+  elsif v_status not in ('On Time', 'Delayed') then
+    raise exception 'flight % is %, boarding cannot open', p_flight_id, v_status;
+  end if;
+  update flights set status = 'Boarding' where flight_id = p_flight_id;
+end;
+$$;
+
+call open_boarding(11086);`,
+        mysql: `create procedure open_boarding(p_flight_id int)
+begin
+  declare v_status varchar(10);
+  select status into v_status from flights where flight_id = p_flight_id for update;
+  if v_status is null then
+    signal sqlstate '45000' set message_text = 'flight does not exist';
+  elseif v_status not in ('On Time', 'Delayed') then
+    signal sqlstate '45000' set message_text = 'boarding cannot open in this status';
+  end if;
+  update flights set status = 'Boarding' where flight_id = p_flight_id;
+end;
+
+call open_boarding(11086);`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'The procedure encodes the allowed transitions of a small state machine: a Scheduled, Cancelled or already Departed flight cannot start boarding. FOR UPDATE keeps another session from changing the status between the check and the update.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
+  },
+  {
+    id: 'airlines-102',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'The next five flights, straight from the key',
+    prompt:
+      'flights has a unique key on (route_no, scheduled_departure). Write "the next 5 flights of route PG0012 from 2025-12-10" so that this key can find them already in order, and explain why no extra index is needed.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Equality on the first key column, range and ORDER BY on the second',
+        postgres: `select flight_id, scheduled_departure, status
+from flights
+where route_no = 'PG0012' and scheduled_departure >= '2025-12-10'
+order by scheduled_departure
+limit 5;`,
+        mysql: `select flight_id, scheduled_departure, status
+from flights
+where route_no = 'PG0012' and scheduled_departure >= '2025-12-10'
+order by scheduled_departure
+limit 5;`,
+        explanation:
+          'In the index, all flights of PG0012 sit together, sorted by departure. The database jumps to (PG0012, 2025-12-10) and reads five entries forward: no sort, no scan. EXPLAIN shows an index scan with a LIMIT on top. The same query by departure time alone, across all routes, could not use this key.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Indexes and ORDER BY', url: PG + 'indexes-ordering.html' },
+      { label: 'MySQL: ORDER BY optimization', url: MY + 'order-by-optimization.html' },
+    ],
+  },
 ]

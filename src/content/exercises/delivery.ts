@@ -3289,4 +3289,205 @@ end;`,
       { label: 'MySQL: CREATE PROCEDURE', url: MY + 'create-procedure.html' },
     ],
   },
+  {
+    id: 'delivery-088',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['upsert', 'constraints'],
+    title: 'Upsert on the email, not the id',
+    prompt:
+      'Make customers.email unique. Then import two customers by email in one statement: noa.mizrahi2@mail.com (exists: update city to Haifa) and dana.levi.new@mail.com (new: id 50001, Dana Levi, Herzliya, signed up 2026-06-25).',
+    orderMatters: true,
+    checkSql: `select id, name, email, city, signed_up_at from customers where email in ('noa.mizrahi2@mail.com', 'dana.levi.new@mail.com') order by id`,
+    solutions: [
+      {
+        approach: 'Unique index, then ON CONFLICT (email)',
+        postgres: `create unique index customers_email_key on customers (email);
+
+insert into customers (id, name, email, city, signed_up_at)
+values (2, 'Noa Mizrahi', 'noa.mizrahi2@mail.com', 'Haifa', '2024-01-01'),
+       (50001, 'Dana Levi', 'dana.levi.new@mail.com', 'Herzliya', '2026-06-25')
+on conflict (email) do update set city = excluded.city;`,
+        mysql: `create unique index customers_email_key on customers (email);
+
+insert into customers (id, name, email, city, signed_up_at)
+values (2, 'Noa Mizrahi', 'noa.mizrahi2@mail.com', 'Haifa', '2024-01-01'),
+       (50001, 'Dana Levi', 'dana.levi.new@mail.com', 'Herzliya', '2026-06-25') as new
+on duplicate key update city = new.city;`,
+        mysqlNote:
+          'ON DUPLICATE KEY reacts to a clash on ANY unique key, primary or email; you cannot name one. Here both point to the same row, so it does not matter, but with two independent unique keys the result can surprise.',
+        explanation:
+          'ON CONFLICT needs a unique index or constraint on exactly the named columns, which is why the index comes first. Only city is updated, so the existing sign-up date stays as it was although the feed sent a different one.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'delivery-089',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['materialized-views', 'aggregates'],
+    title: 'Customer value, stored for marketing',
+    prompt:
+      'Store per customer, from delivered orders: orders, spent (2 decimals) and last_order (timestamp). Marketing reads it all day; it is refreshed nightly. Then: the 5 biggest spenders.',
+    orderMatters: true,
+    checkSql: `select customer_id, orders, spent, last_order from customer_value order by spent desc, customer_id limit 5`,
+    solutions: [
+      {
+        approach: 'Materialized view keyed by customer',
+        postgres: `create materialized view customer_value as
+select customer_id, count(*) as orders, round(sum(total), 2) as spent, max(created_at) as last_order
+from orders
+where status = 'delivered'
+group by customer_id;
+
+create unique index customer_value_key on customer_value (customer_id);`,
+        mysql: `create table customer_value (
+  customer_id int primary key,
+  orders      int,
+  spent       decimal(12, 2),
+  last_order  datetime
+);
+
+replace into customer_value
+select customer_id, count(*), round(sum(total), 2), max(created_at)
+from orders
+where status = 'delivered'
+group by customer_id;`,
+        mysqlNote: 'A keyed table refreshed by REPLACE INTO stands in for the materialized view.',
+        explanation:
+          'Recency (last_order), frequency (orders) and monetary value (spent) are the classic RFM measures. Stored, they cost one index lookup per customer instead of an aggregate over 184,000 delivered orders.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
+  {
+    id: 'delivery-090',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for the fraud screen',
+    prompt:
+      'Fraud review looks at delivered orders of 240 or more, newest first, showing id, customer_id and total. Create an index for exactly those orders that answers the screen from the index.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'orders' and indexdef like '%total%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'orders' and column_name = 'status' and seq_in_index = 1`,
+    solutions: [
+      {
+        approach: 'Partial covering index',
+        postgres: `create index orders_fraud_idx on orders (created_at desc) include (id, customer_id, total)
+where status = 'delivered' and total >= 240;
+
+-- used by: select id, customer_id, total from orders
+--          where status = 'delivered' and total >= 240 order by created_at desc limit 50`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation:
+          '8,425 of 200,000 orders, already in newest-first order, with the displayed columns included. The query\'s WHERE must imply the index\'s WHERE (same or stricter), otherwise the planner cannot use it.',
+      },
+      {
+        approach: 'Composite index',
+        postgres: `create index orders_status_total_idx on orders (status, total, created_at);`,
+        mysql: `create index orders_status_total_idx on orders (status, total, created_at);`,
+        explanation:
+          'status = \'delivered\' and total >= 240 is one range of this index, but the rows come out by total, not by date, so a sort is still needed. In InnoDB the primary key id is carried along automatically.',
+      },
+    ],
+    comparison: 'The partial index is small and pre-sorted for the screen; the composite one is larger, needs a sort, but works in MySQL.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
+  {
+    id: 'delivery-091',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['full-text', 'text-search'],
+    title: 'Names in any order',
+    prompt:
+      'Support types "cohen noa". With a full-text index on customers.name, count the customers whose name contains both words, in any order. Compare with LIKE \'%cohen noa%\'.',
+    orderMatters: false,
+    checkSql: `select count(*) as customers from customers where to_tsvector('simple', name) @@ plainto_tsquery('simple', 'cohen noa')`,
+    checkSqlMysql: `select count(*) as customers from customers where match(name) against ('+cohen +noa' in boolean mode)`,
+    solutions: [
+      {
+        approach: 'Words, not a substring',
+        postgres: `create index customers_name_fts on customers using gin (to_tsvector('simple', name));
+
+-- search: where to_tsvector('simple', name) @@ plainto_tsquery('simple', 'cohen noa')`,
+        mysql: `create fulltext index customers_name_ft on customers (name);
+
+-- search: where match(name) against ('+cohen +noa' in boolean mode)`,
+        mysqlNote: '"Noa" has exactly 3 letters, the default minimum InnoDB indexes; a 2-letter name would be ignored.',
+        explanation:
+          'Full-text search matches words wherever they are, so "cohen noa" finds the 479 Noa Cohens. LIKE \'%cohen noa%\' looks for that exact sequence of characters and finds nobody, because names are stored first name first.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Text search', url: PG + 'textsearch-intro.html' }],
+  },
+  {
+    id: 'delivery-092',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['text-aggregation', 'joins'],
+    title: 'One customer\'s order history in a line',
+    prompt: 'For customer 16177: the number of orders and the restaurant names of all their orders in time order, separated by " → ".',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'string_agg ordered by created_at',
+        postgres: `select count(*) as orders,
+       string_agg(r.name, ' → ' order by o.created_at, o.id) as history
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.customer_id = 16177;`,
+        mysql: `select count(*) as orders,
+       group_concat(r.name order by o.created_at, o.id separator ' → ') as history
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.customer_id = 16177;`,
+        explanation:
+          'The ORDER BY inside the aggregate controls the order of names in the string; without it the order is whatever the join produced. Fifteen orders, the most of any customer, so this is also a quick way to eyeball a customer\'s habits.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'delivery-093',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['pivot', 'conditional-aggregates'],
+    title: 'Cuisines, first and second quarter of 2026',
+    prompt:
+      'Delivered orders per cuisine in Q1 2026 and Q2 2026 (data ends 24 June), one column per quarter, plus the change in percent (1 decimal). Order by cuisine.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts per quarter',
+        postgres: `select r.cuisine,
+       count(*) filter (where o.created_at < '2026-04-01') as q1,
+       count(*) filter (where o.created_at >= '2026-04-01') as q2,
+       round(100.0 * (count(*) filter (where o.created_at >= '2026-04-01') - count(*) filter (where o.created_at < '2026-04-01'))
+             / count(*) filter (where o.created_at < '2026-04-01'), 1) as change_pct
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered' and o.created_at >= '2026-01-01' and o.created_at < '2026-07-01'
+group by r.cuisine
+order by r.cuisine;`,
+        mysql: `select r.cuisine,
+       sum(o.created_at < '2026-04-01') as q1,
+       sum(o.created_at >= '2026-04-01') as q2,
+       round(100 * (sum(o.created_at >= '2026-04-01') - sum(o.created_at < '2026-04-01'))
+             / sum(o.created_at < '2026-04-01'), 1) as change_pct
+from orders o
+join restaurants r on r.id = o.restaurant_id
+where o.status = 'delivered' and o.created_at >= '2026-01-01' and o.created_at < '2026-07-01'
+group by r.cuisine
+order by r.cuisine;`,
+        explanation:
+          'Every cuisine drops a few percent in Q2, but Q2 is a week short (it ends 24 June), so most of the drop is the calendar, not demand. Comparing per day, or full quarters only, would be fairer.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
 ]

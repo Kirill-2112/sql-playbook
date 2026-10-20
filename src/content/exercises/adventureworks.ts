@@ -3795,4 +3795,379 @@ update catalog_prices set list_price = 36.99 where product_id = 707;`,
       { label: 'MySQL: Updatable views', url: MY + 'view-updatability.html' },
     ],
   },
+  {
+    id: 'adventureworks-101',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['null', 'aggregates'],
+    title: 'Products outside the catalogue tree',
+    prompt: 'How many products have no subcategory (product_subcategory_id is NULL), and how many have one?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'COUNT(column) skips NULLs',
+        postgres: `select count(*) - count(product_subcategory_id) as without_subcategory,
+       count(product_subcategory_id) as with_subcategory
+from product;`,
+        mysql: `select count(*) - count(product_subcategory_id) as without_subcategory,
+       count(product_subcategory_id) as with_subcategory
+from product;`,
+        explanation:
+          'count(*) counts rows, count(column) only rows where the column is not NULL, so their difference is the number of NULLs, in one pass. 209 products, mostly parts used to build bikes, are not sold through the catalogue tree.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'adventureworks-102',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['full-join', 'distinct'],
+    title: 'Bought products and their vendors',
+    prompt:
+      'Products with make_flag = 0 are bought, not made, so each should have at least one vendor in product_vendor, and only those should. Count products that are bought and have a vendor, bought without a vendor, and with a vendor but made in-house.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of the two product lists',
+        postgres: `with bought as (select product_id from product where make_flag = 0),
+     supplied as (select distinct product_id from product_vendor)
+select count(*) filter (where b.product_id is not null and s.product_id is not null) as bought_with_vendor,
+       count(*) filter (where s.product_id is null) as bought_no_vendor,
+       count(*) filter (where b.product_id is null) as vendor_but_made
+from bought b
+full join supplied s on s.product_id = b.product_id;`,
+        mysql: `with bought as (select product_id from product where make_flag = 0),
+     supplied as (select distinct product_id from product_vendor)
+select (select count(*) from bought b join supplied s on s.product_id = b.product_id) as bought_with_vendor,
+       (select count(*) from bought b where not exists (select 1 from supplied s where s.product_id = b.product_id)) as bought_no_vendor,
+       (select count(*) from supplied s where not exists (select 1 from bought b where b.product_id = s.product_id)) as vendor_but_made;`,
+        mysqlNote: 'No FULL JOIN in MySQL: a join and two anti-joins.',
+        explanation:
+          'Both "orphan" counts are 0: all 265 bought products have a vendor and no made product does. The query is a check of a business rule the schema does not enforce; running it regularly catches the day it breaks.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'adventureworks-103',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['pivot'],
+    title: 'European orders, one column per year',
+    prompt: 'For each European sales territory: the number of orders in 2022, 2023, 2024 and 2025, one column per year. Order by territory name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts per year',
+        postgres: `select t.name as territory,
+       count(*) filter (where extract(year from h.order_date) = 2022) as y2022,
+       count(*) filter (where extract(year from h.order_date) = 2023) as y2023,
+       count(*) filter (where extract(year from h.order_date) = 2024) as y2024,
+       count(*) filter (where extract(year from h.order_date) = 2025) as y2025
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+where t.territory_group = 'Europe'
+group by t.territory_id, t.name
+order by t.name;`,
+        mysql: `select t.name as territory,
+       sum(year(h.order_date) = 2022) as y2022,
+       sum(year(h.order_date) = 2023) as y2023,
+       sum(year(h.order_date) = 2024) as y2024,
+       sum(year(h.order_date) = 2025) as y2025
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+where t.territory_group = 'Europe'
+group by t.territory_id, t.name
+order by t.name;`,
+        explanation:
+          'The year columns make growth visible across a row: every territory jumps in 2024. 2022 and 2025 are partial years in this data, so compare them with care.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'adventureworks-104',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'Holes in the product ids',
+    prompt: 'product_id runs from 1 to 999, but only 504 ids exist. List the ranges of missing ids: first missing, last missing and how many. Order by the first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEAD to the next existing id',
+        postgres: `with ids as (
+  select product_id, lead(product_id) over (order by product_id) as next_id
+  from product
+)
+select product_id + 1 as gap_start, next_id - 1 as gap_end, next_id - product_id - 1 as missing
+from ids
+where next_id - product_id > 1
+order by gap_start;`,
+        mysql: `with ids as (
+  select product_id, lead(product_id) over (order by product_id) as next_id
+  from product
+)
+select product_id + 1 as gap_start, next_id - 1 as gap_end, next_id - product_id - 1 as missing
+from ids
+where next_id - product_id > 1
+order by gap_start;`,
+        explanation:
+          'A gap is wherever the next existing id is more than one higher. Six ranges hold the 495 missing ids. Gaps in surrogate keys are normal (deleted rows, rolled-back inserts, sequence caching) and should never be "filled in".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'adventureworks-105',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['functions', 'joins'],
+    title: 'A category path function',
+    prompt:
+      'Write a function category_path(p_product_id) that returns "Category > Subcategory" for a product, or \'(none)\' if it has no subcategory, and NULL for an unknown product. Test it on products 707, 1 and 5.',
+    orderMatters: false,
+    checkSql: `select category_path(707) as helmet, category_path(1) as part, category_path(5) as unknown`,
+    solutions: [
+      {
+        approach: 'A lookup with outer joins inside a function',
+        postgres: `create function category_path(p_product_id integer) returns text
+language sql
+stable
+as $$
+  select coalesce(c.name || ' > ' || s.name, '(none)')
+  from product p
+  left join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+  left join product_category c on c.product_category_id = s.product_category_id
+  where p.product_id = p_product_id;
+$$;`,
+        mysql: `create function category_path(p_product_id int) returns varchar(110)
+reads sql data
+begin
+  return (
+    select coalesce(concat(c.name, ' > ', s.name), '(none)')
+    from product p
+    left join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+    left join product_category c on c.product_category_id = s.product_category_id
+    where p.product_id = p_product_id
+  );
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'The LEFT JOINs keep a product without a subcategory, whose path is then NULL and becomes \'(none)\'. A missing product returns no row at all, which a scalar function turns into NULL. Helmets give "Accessories > Helmets".',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SQL functions', url: PG + 'xfunc-sql.html' }],
+  },
+  {
+    id: 'adventureworks-106',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['conditions', 'select-basics'],
+    title: 'Touring bikes over 2,000',
+    prompt: 'List the products of product line T (touring) with a list price above 2,000: product_id, name and list_price, by product_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Two conditions with AND',
+        postgres: `select product_id, name, list_price
+from product
+where product_line = 'T' and list_price > 2000
+order by product_id;`,
+        mysql: `select product_id, name, list_price
+from product
+where product_line = 'T' and list_price > 2000
+order by product_id;`,
+        explanation:
+          'product_line is a short code: R road, M mountain, T touring, S standard. It is VARCHAR(2) here in PostgreSQL but CHAR(2) in MySQL, where \'T\' is padded with a space; comparisons ignore that padding, so the same WHERE works. Eight Touring-1000 bikes qualify, in yellow and blue.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Character types', url: PG + 'datatype-character.html' }],
+  },
+  {
+    id: 'adventureworks-107',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['self-cross-join', 'dates-basics'],
+    title: 'Colleagues with the same birthday',
+    prompt: 'Find pairs of employees born on exactly the same date: both business_entity_ids (lower first) and the birth_date. Order by birth_date, then the first id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Self-join on birth_date',
+        postgres: `select a.business_entity_id as employee_1, b.business_entity_id as employee_2, a.birth_date
+from employee a
+join employee b
+  on b.birth_date = a.birth_date
+ and b.business_entity_id > a.business_entity_id
+order by a.birth_date, a.business_entity_id;`,
+        mysql: `select a.business_entity_id as employee_1, b.business_entity_id as employee_2, a.birth_date
+from employee a
+join employee b
+  on b.birth_date = a.birth_date
+ and b.business_entity_id > a.business_entity_id
+order by a.birth_date, a.business_entity_id;`,
+        explanation:
+          '15 pairs among 290 employees. That is less surprising than it looks: by the birthday paradox, a group of 290 almost surely shares birthdays (day and month); sharing the full date including the year is rarer, and still happens.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'adventureworks-108',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['lateral'],
+    title: 'The biggest order of each territory',
+    prompt: 'For every sales territory: territory_id, name, and its order with the highest total_due (sales_order_id, order_date, total_due). Ties by lower sales_order_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CROSS JOIN LATERAL … LIMIT 1',
+        postgres: `select t.territory_id, t.name, top.sales_order_id, top.order_date, top.total_due
+from sales_territory t
+cross join lateral (
+  select h.sales_order_id, h.order_date, h.total_due
+  from sales_order_header h
+  where h.territory_id = t.territory_id
+  order by h.total_due desc, h.sales_order_id
+  limit 1
+) top
+order by t.territory_id;`,
+        mysql: `select t.territory_id, t.name, top.sales_order_id, top.order_date, top.total_due
+from sales_territory t
+cross join lateral (
+  select h.sales_order_id, h.order_date, h.total_due
+  from sales_order_header h
+  where h.territory_id = t.territory_id
+  order by h.total_due desc, h.sales_order_id
+  limit 1
+) top
+order by t.territory_id;`,
+        explanation: 'One row per territory with the whole winning order, not just its amount. An index on (territory_id, total_due) would let each lateral lookup read a single index entry.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'adventureworks-109',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['materialized-views', 'joins'],
+    title: 'Spend per vendor, stored',
+    prompt: 'Store per vendor: business_entity_id, name, purchase orders and total spend (total_due, 2 decimals) for the purchasing dashboard. Then: the 3 vendors with the highest spend.',
+    orderMatters: true,
+    checkSql: `select vendor_id, name, orders, spend from vendor_spend order by spend desc, vendor_id limit 3`,
+    solutions: [
+      {
+        approach: 'Materialized view keyed by vendor',
+        postgres: `create materialized view vendor_spend as
+select v.business_entity_id as vendor_id, v.name, count(*) as orders, round(sum(h.total_due), 2) as spend
+from purchase_order_header h
+join vendor v on v.business_entity_id = h.vendor_id
+group by v.business_entity_id, v.name;
+
+create unique index vendor_spend_key on vendor_spend (vendor_id);`,
+        mysql: `create table vendor_spend (
+  vendor_id int primary key,
+  name      varchar(50),
+  orders    int,
+  spend     decimal(14, 2)
+);
+
+replace into vendor_spend
+select v.business_entity_id, v.name, count(*), round(sum(h.total_due), 2)
+from purchase_order_header h
+join vendor v on v.business_entity_id = h.vendor_id
+group by v.business_entity_id, v.name;`,
+        mysqlNote: 'A keyed table refreshed by REPLACE INTO stands in for the materialized view.',
+        explanation: 'Superior Bicycles leads with over 5 million. A vendor with no purchase orders is missing from the stored result; a LEFT JOIN from vendor would list it with 0.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
+  {
+    id: 'adventureworks-110',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for rejected deliveries',
+    prompt:
+      'The quality report lists purchase order lines with rejected_qty > 0 for one product at a time, showing purchase_order_id and rejected_qty. They are 563 of 8,845 lines. Create an index for exactly those lines.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'purchase_order_detail' and indexdef like '%rejected_qty%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'purchase_order_detail' and column_name = 'rejected_qty'`,
+    solutions: [
+      {
+        approach: 'Partial covering index',
+        postgres: `create index pod_rejected_idx on purchase_order_detail (product_id) include (purchase_order_id, rejected_qty)
+where rejected_qty > 0;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: 'About 6% of the lines; the report for one product becomes an index-only scan. The query must include "rejected_qty > 0" for the planner to choose it.',
+      },
+      {
+        approach: 'Composite covering index',
+        postgres: `create index pod_product_rejected_idx on purchase_order_detail (product_id, rejected_qty, purchase_order_id);`,
+        mysql: `create index pod_product_rejected_idx on purchase_order_detail (product_id, rejected_qty, purchase_order_id);`,
+        explanation: 'For one product, rejected_qty > 0 is a range of this index, and purchase_order_id is included, so the table is not read. It indexes all 8,845 lines.',
+      },
+    ],
+    comparison: 'Both serve the report from the index. The partial one is about 16 times smaller.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
+  {
+    id: 'adventureworks-111',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Purchase orders: open, rejected, complete',
+    prompt:
+      'Create po_by_status (purchase_order_id, status, vendor_id, order_date, total_due) list-partitioned by status: open (1 pending, 2 approved), rejected (3) and complete (4). Copy the purchase orders in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from po_open) as open_orders, (select count(*) from po_rejected) as rejected, (select count(*) from po_complete) as complete`,
+    checkSqlMysql: `select (select count(*) from po_by_status partition (p_open)) as open_orders,
+       (select count(*) from po_by_status partition (p_rejected)) as rejected,
+       (select count(*) from po_by_status partition (p_complete)) as complete`,
+    solutions: [
+      {
+        approach: 'LIST partitions by a status code',
+        postgres: `create table po_by_status (
+  purchase_order_id integer  not null,
+  status            smallint not null,
+  vendor_id         integer  not null,
+  order_date        timestamp not null,
+  total_due         numeric(19, 4),
+  primary key (purchase_order_id, status)
+) partition by list (status);
+
+create table po_open     partition of po_by_status for values in (1, 2);
+create table po_rejected partition of po_by_status for values in (3);
+create table po_complete partition of po_by_status for values in (4);
+
+insert into po_by_status select purchase_order_id, status, vendor_id, order_date, total_due from purchase_order_header;`,
+        mysql: `create table po_by_status (
+  purchase_order_id int      not null,
+  status            tinyint  not null,
+  vendor_id         int      not null,
+  order_date        datetime not null,
+  total_due         decimal(19, 4),
+  primary key (purchase_order_id, status)
+)
+partition by list (status) (
+  partition p_open     values in (1, 2),
+  partition p_rejected values in (3),
+  partition p_complete values in (4)
+);
+
+insert into po_by_status select purchase_order_id, status, vendor_id, order_date, total_due from purchase_order_header;`,
+        explanation:
+          'The working set (237 open orders) lives apart from 3,689 completed ones, so the buyers\' daily queries touch a small partition. When an order completes, its UPDATE of status moves the row to po_complete automatically.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
+  },
 ]

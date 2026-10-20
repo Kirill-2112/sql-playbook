@@ -2827,4 +2827,337 @@ call add_to_playlist(18, 1);`,
       { label: 'MySQL: DROP INDEX', url: MY + 'drop-index.html' },
     ],
   },
+  {
+    id: 'chinook-102',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['recursive'],
+    title: 'Fill a time budget, greedily',
+    prompt:
+      'Build a playlist from album 1 with at most 1,420,000 ms of music: go through its tracks in track_id order, take a track if it still fits, otherwise skip it and try the next. Show the chosen track_ids with the running total.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE carrying the used time',
+        postgres: `with recursive tracks as (
+  select row_number() over (order by track_id) as n, track_id, milliseconds
+  from track
+  where album_id = 1
+),
+fill (n, track_id, taken, used) as (
+  select n, track_id, milliseconds <= 1420000, case when milliseconds <= 1420000 then milliseconds else 0 end
+  from tracks where n = 1
+  union all
+  select t.n, t.track_id,
+         f.used + t.milliseconds <= 1420000,
+         case when f.used + t.milliseconds <= 1420000 then f.used + t.milliseconds else f.used end
+  from fill f
+  join tracks t on t.n = f.n + 1
+)
+select track_id, used as running_ms
+from fill
+where taken
+order by n;`,
+        mysql: `with recursive tracks as (
+  select row_number() over (order by track_id) as n, track_id, milliseconds
+  from track
+  where album_id = 1
+),
+fill (n, track_id, taken, used) as (
+  select n, track_id, milliseconds <= 1420000, case when milliseconds <= 1420000 then milliseconds else 0 end
+  from tracks where n = 1
+  union all
+  select t.n, t.track_id,
+         f.used + t.milliseconds <= 1420000,
+         case when f.used + t.milliseconds <= 1420000 then f.used + t.milliseconds else f.used end
+  from fill f
+  join tracks t on t.n = f.n + 1
+)
+select track_id, used as running_ms
+from fill
+where taken
+order by n;`,
+        explanation:
+          'Whether a track is taken depends on what was taken before, including the skips, so a running SUM cannot express it; the recursion carries "time used so far" from row to row. Track 10 does not fit, but the shorter track 11 after it does: six tracks, 1,397,079 ms.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'chinook-103',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['normalization'],
+    title: 'Is the genre a property of the album?',
+    prompt:
+      'Someone suggests storing genre_id on album instead of on every track. Check it: list the albums whose tracks belong to more than one genre, with the number of genres. Order by genres descending, then album_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Test album_id → genre_id with GROUP BY … HAVING',
+        postgres: `select al.album_id, al.title, count(distinct t.genre_id) as genres
+from album al
+join track t on t.album_id = al.album_id
+group by al.album_id, al.title
+having count(distinct t.genre_id) > 1
+order by genres desc, al.album_id;`,
+        mysql: `select al.album_id, al.title, count(distinct t.genre_id) as genres
+from album al
+join track t on t.album_id = al.album_id
+group by al.album_id, al.title
+having count(distinct t.genre_id) > 1
+order by genres desc, al.album_id;`,
+        explanation:
+          'If album_id determined genre_id, every album would have exactly one genre and the column could move to album without losing anything. Eleven albums, such as compilations and a TV season, break the rule, so the genre belongs to the track.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUP BY and HAVING', url: PG + 'queries-table-expressions.html#QUERIES-GROUP' }],
+  },
+  {
+    id: 'chinook-104',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['arrays', 'json'],
+    title: 'Playlists that share a track with Grunge',
+    prompt: 'Collect the track ids of every playlist into a list, then find the playlists (other than Grunge, id 16) whose list has at least one track in common with Grunge\'s. Show playlist_id and name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array && array / JSON_OVERLAPS',
+        postgres: `with lists as (
+  select playlist_id, array_agg(track_id) as tracks
+  from playlist_track
+  group by playlist_id
+)
+select p.playlist_id, p.name
+from lists l
+join playlist p on p.playlist_id = l.playlist_id
+where l.playlist_id <> 16
+  and l.tracks && (select tracks from lists where playlist_id = 16)
+order by p.playlist_id;`,
+        mysql: `with lists as (
+  select playlist_id, json_arrayagg(track_id) as tracks
+  from playlist_track
+  group by playlist_id
+)
+select p.playlist_id, p.name
+from lists l
+join playlist p on p.playlist_id = l.playlist_id
+where l.playlist_id <> 16
+  and json_overlaps(l.tracks, (select tracks from lists where playlist_id = 16))
+order by p.playlist_id;`,
+        mysqlNote: 'JSON_OVERLAPS (MySQL 8.0.17+) is true when two JSON arrays have at least one element in common.',
+        explanation:
+          '&& means "overlaps": at least one shared element, as opposed to @> "contains all". Three playlists share Grunge tracks: the two Music playlists and 90\'s Music.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' },
+      { label: 'MySQL: JSON_OVERLAPS', url: MY + 'json-search-functions.html#function_json-overlaps' },
+    ],
+  },
+  {
+    id: 'chinook-105',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Audio and video tracks apart',
+    prompt:
+      'Create track_by_media (track_id, name, album_id, media_type_id, milliseconds) list-partitioned by media_type_id: video (3) in one partition, the four audio types (1, 2, 4, 5) in another. Copy the tracks in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from track_video) as video, (select count(*) from track_audio) as audio`,
+    checkSqlMysql: `select (select count(*) from track_by_media partition (p_video)) as video,
+       (select count(*) from track_by_media partition (p_audio)) as audio`,
+    solutions: [
+      {
+        approach: 'LIST partitions on an integer key',
+        postgres: `create table track_by_media (
+  track_id      integer      not null,
+  name          varchar(200) not null,
+  album_id      integer,
+  media_type_id integer      not null,
+  milliseconds  integer      not null,
+  primary key (track_id, media_type_id)
+) partition by list (media_type_id);
+
+create table track_video partition of track_by_media for values in (3);
+create table track_audio partition of track_by_media for values in (1, 2, 4, 5);
+
+insert into track_by_media select track_id, name, album_id, media_type_id, milliseconds from track;`,
+        mysql: `create table track_by_media (
+  track_id      int          not null,
+  name          varchar(200) not null,
+  album_id      int,
+  media_type_id int          not null,
+  milliseconds  int          not null,
+  primary key (track_id, media_type_id)
+)
+partition by list (media_type_id) (
+  partition p_video values in (3),
+  partition p_audio values in (1, 2, 4, 5)
+);
+
+insert into track_by_media select track_id, name, album_id, media_type_id, milliseconds from track;`,
+        mysqlNote: 'Plain LIST works here because the key is an integer.',
+        explanation:
+          '214 video tracks and 3,289 audio tracks. Big video rows and small audio rows now live apart, and queries that filter on media_type_id read one partition. A sixth media type would fail to insert until a partition lists it.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
+  },
+  {
+    id: 'chinook-106',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['locks-isolation'],
+    title: 'A lock that lets invoices through',
+    prompt:
+      'Change customer 1\'s email to luis.goncalves@embraer.com.br, locking the row first. Other sessions keep creating invoices for this customer and must not be blocked by your lock. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select customer_id, email from customer where customer_id = 1`,
+    solutions: [
+      {
+        approach: 'FOR NO KEY UPDATE',
+        postgres: `select email from customer where customer_id = 1 for no key update;
+
+update customer set email = 'luis.goncalves@embraer.com.br' where customer_id = 1;`,
+        mysql: `start transaction;
+
+select email from customer where customer_id = 1 for update;
+
+update customer set email = 'luis.goncalves@embraer.com.br' where customer_id = 1;
+
+commit;`,
+        mysqlNote: 'MySQL has no FOR NO KEY UPDATE. In InnoDB an INSERT into invoice takes a shared lock on the referenced customer row, so it waits for this FOR UPDATE until COMMIT; keep such transactions short.',
+        explanation:
+          'Inserting an invoice checks the foreign key by taking FOR KEY SHARE on the customer. FOR UPDATE conflicts with that, so invoices would wait; FOR NO KEY UPDATE promises not to change the key and lets them through. A plain UPDATE that leaves the key alone already takes this weaker lock in PostgreSQL.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Row-level locks', url: PG + 'explicit-locking.html#LOCKING-ROWS' }],
+  },
+  {
+    id: 'chinook-107',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['cte', 'ranking'],
+    title: 'Support reps, their revenue and their best customer',
+    prompt:
+      'For each support rep: last_name, customers, revenue (invoice totals of their customers), share of all revenue in percent (1 decimal), and their highest-spending customer\'s id. Order by revenue descending.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Per-customer CTE feeding two summaries',
+        postgres: `with per_customer as (
+  select c.support_rep_id, c.customer_id, sum(i.total) as spent
+  from customer c
+  join invoice i on i.customer_id = c.customer_id
+  group by c.support_rep_id, c.customer_id
+),
+per_rep as (
+  select support_rep_id, count(*) as customers, sum(spent) as revenue
+  from per_customer
+  group by support_rep_id
+),
+best as (
+  select support_rep_id, customer_id,
+         row_number() over (partition by support_rep_id order by spent desc, customer_id) as n
+  from per_customer
+)
+select e.last_name, r.customers, r.revenue,
+       round(100 * r.revenue / sum(r.revenue) over (), 1) as share_pct,
+       b.customer_id as best_customer
+from per_rep r
+join employee e on e.employee_id = r.support_rep_id
+join best b on b.support_rep_id = r.support_rep_id and b.n = 1
+order by r.revenue desc;`,
+        mysql: `with per_customer as (
+  select c.support_rep_id, c.customer_id, sum(i.total) as spent
+  from customer c
+  join invoice i on i.customer_id = c.customer_id
+  group by c.support_rep_id, c.customer_id
+),
+per_rep as (
+  select support_rep_id, count(*) as customers, sum(spent) as revenue
+  from per_customer
+  group by support_rep_id
+),
+best as (
+  select support_rep_id, customer_id,
+         row_number() over (partition by support_rep_id order by spent desc, customer_id) as n
+  from per_customer
+)
+select e.last_name, r.customers, r.revenue,
+       round(100 * r.revenue / sum(r.revenue) over (), 1) as share_pct,
+       b.customer_id as best_customer
+from per_rep r
+join employee e on e.employee_id = r.support_rep_id
+join best b on b.support_rep_id = r.support_rep_id and b.n = 1
+order by r.revenue desc;`,
+        explanation:
+          'per_customer is computed once and used twice: summed per rep and ranked per rep. SUM(…) OVER () with an empty window adds up all reps for the share. Peacock leads with 21 customers and 833.04.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'chinook-108',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['window-frames'],
+    title: 'The last_value trap',
+    prompt: 'For customer 2\'s invoices in date order: invoice_id, invoice_date, total, the total of the customer\'s first invoice and of their last invoice, on every row.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'first_value and last_value with a full frame',
+        postgres: `select invoice_id, invoice_date, total,
+       first_value(total) over w as first_total,
+       last_value(total) over w as last_total
+from invoice
+where customer_id = 2
+window w as (order by invoice_date, invoice_id rows between unbounded preceding and unbounded following)
+order by invoice_date, invoice_id;`,
+        mysql: `select invoice_id, invoice_date, total,
+       first_value(total) over w as first_total,
+       last_value(total) over w as last_total
+from invoice
+where customer_id = 2
+window w as (order by invoice_date, invoice_id rows between unbounded preceding and unbounded following)
+order by invoice_date, invoice_id;`,
+        explanation:
+          'With ORDER BY and no frame, the window ends at the current row, so last_value would just repeat each row\'s own total. Extending the frame to UNBOUNDED FOLLOWING makes it see the whole partition: 0.99, the July 2024 invoice. The WINDOW clause names the definition once for both functions.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'chinook-109',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'A genre list from the label',
+    prompt:
+      'The label sends its genre list: (2, Jazz), (5, Rock & Roll), (26, K-Pop). Apply it in one statement: rename where the name differs, add the new genre, leave identical rows untouched.',
+    orderMatters: true,
+    checkSql: `select genre_id, name from genre where genre_id in (2, 5, 26) order by genre_id`,
+    solutions: [
+      {
+        approach: 'MERGE with a change test',
+        postgres: `merge into genre g
+using (values (2, 'Jazz'), (5, 'Rock & Roll'), (26, 'K-Pop')) as feed (genre_id, name)
+on g.genre_id = feed.genre_id
+when matched and g.name is distinct from feed.name then
+  update set name = feed.name
+when not matched then
+  insert (genre_id, name) values (feed.genre_id, feed.name);`,
+        mysql: `insert into genre (genre_id, name)
+values (2, 'Jazz'), (5, 'Rock & Roll'), (26, 'K-Pop') as feed
+on duplicate key update name = feed.name;`,
+        mysqlNote: 'No MERGE in MySQL; an upsert does the same here, and MySQL skips rows whose value does not change.',
+        explanation:
+          '"Rock And Roll" becomes "Rock & Roll", K-Pop is added as genre 26, Jazz is matched but not rewritten. IS DISTINCT FROM also counts a NULL name replaced by a value as a change.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
 ]

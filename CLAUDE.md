@@ -61,7 +61,7 @@ Audit of 2026-10-15:
 - MySQL: no FILTER, FULL JOIN, MERGE, RETURNING, DISTINCT ON, generate_series, ::, partial indexes, bool_and;
   `||` is OR; `/` is decimal (use DIV); temp tables can't be referenced twice in one query.
 - When a learner-visible claim mentions a number (counts, percentages), check it against the data first.
-- PG generated columns accept only IMMUTABLE expressions: concat_ws, to_char and timestamptz::date are refused; || with
+- PG generated columns accept only IMMUTABLE expressions: concat_ws, to_char, timestamptz::date and age(date, date) are refused (age(d1::timestamp, d2::timestamp) works); || with
   coalesce, extract, date − date and integer arithmetic are fine. Day-of-year tricks (MAKEDATE(y, 182)) break in leap years.
 - MySQL collations: strings made by CAST/JSON_TABLE get the connection collation (utf8mb4_general_ci via mysql2), not the
   table's utf8mb4_0900_ai_ci; comparing them fails with "Illegal mix of collations". Add COLLATE utf8mb4_0900_ai_ci.
@@ -79,7 +79,7 @@ Audit of 2026-10-15:
   AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
   every 200th booking), Lahman (SABR CSVs, CC BY-SA, major leagues only, player data from 2010), Delivery (own,
   generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
-  767 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
+  829 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
 - Next: go deep on existing datasets (topics with few exercises first), two replacement datasets with commercial licenses,
   a functions reference section; a licenses/credits page;

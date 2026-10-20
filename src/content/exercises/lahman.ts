@@ -3404,4 +3404,283 @@ order by team_id;`,
     ],
     docs: [{ label: 'PostgreSQL: Text search', url: PG + 'textsearch-intro.html' }],
   },
+  {
+    id: 'lahman-095',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['text-aggregation'],
+    title: 'Who beat whom in the 2024 playoffs',
+    prompt:
+      'For each team that won a 2024 postseason series: the team and the teams it beat, in playoff order (wild card, division series, championship series, World Series), separated by ", ". Order by the number of series won (most first), then team.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg ordered by a stage number',
+        postgres: `select team_id_winner as team,
+       count(*) as series_won,
+       string_agg(team_id_loser, ', ' order by
+         case when round like '%WC%' then 1 when round like '%DS%' then 2 when round like '%CS' then 3 else 4 end
+       ) as beat
+from series_post
+where year_id = 2024
+group by team_id_winner
+order by series_won desc, team;`,
+        mysql: `select team_id_winner as team,
+       count(*) as series_won,
+       group_concat(team_id_loser order by
+         case when round like '%WC%' then 1 when round like '%DS%' then 2 when round like '%CS' then 3 else 4 end
+         separator ', '
+       ) as beat
+from series_post
+where year_id = 2024
+group by team_id_winner
+order by series_won desc, team;`,
+        mysqlNote: 'ROUND is a function name in MySQL but works as a column name here without quotes.',
+        explanation:
+          'Sorting by the round code as text would put ALCS before ALDS1, which is backwards in time; the CASE turns codes into stages. The Dodgers (LAN) won three series, beating SDN, NYN and the Yankees.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'lahman-096',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['cte', 'aggregates'],
+    title: 'Mid-season manager changes of 2025',
+    prompt:
+      'For teams with more than one manager in 2025: each manager\'s games, wins and winning percentage (3 decimals), next to the team\'s overall winning percentage. Order by team, then the manager\'s order (inseason).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Pick the teams in one CTE, compute in the next',
+        postgres: `with changed as (
+  select team_id from managers where year_id = 2025 group by team_id having count(*) > 1
+),
+team_pct as (
+  select team_id, round(w::numeric / (w + l), 3) as team_pct from teams where year_id = 2025
+)
+select m.team_id, m.inseason, p.name_last, m.g, m.w,
+       round(m.w::numeric / nullif(m.w + m.l, 0), 3) as manager_pct, t.team_pct
+from managers m
+join changed c on c.team_id = m.team_id
+join team_pct t on t.team_id = m.team_id
+join people p on p.player_id = m.player_id
+where m.year_id = 2025
+order by m.team_id, m.inseason;`,
+        mysql: `with changed as (
+  select team_id from managers where year_id = 2025 group by team_id having count(*) > 1
+),
+team_pct as (
+  select team_id, round(w / (w + l), 3) as team_pct from teams where year_id = 2025
+)
+select m.team_id, m.inseason, p.name_last, m.g, m.w,
+       round(m.w / nullif(m.w + m.l, 0), 3) as manager_pct, t.team_pct
+from managers m
+join changed c on c.team_id = m.team_id
+join team_pct t on t.team_id = m.team_id
+join people p on p.player_id = m.player_id
+where m.year_id = 2025
+order by m.team_id, m.inseason;`,
+        mysqlNote: 'MySQL / always returns a decimal, so no cast is needed.',
+        explanation:
+          'In PostgreSQL w / (w + l) with integers would be 0, hence ::numeric. NULLIF guards a manager with no decided games. Eight teams used more than one manager; the Angels three.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'lahman-097',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['date-series', 'set-operations'],
+    title: 'The years Washington had no team',
+    prompt: 'Between 1901 and 2025, in which seasons did no team whose name starts with "Washington" play? Show the first and last such season and how many there were.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Year series EXCEPT years with a Washington team',
+        postgres: `select min(season) as first_season, max(season) as last_season, count(*) as seasons
+from (
+  select y as season from generate_series(1901, 2025) as y
+  except
+  select year_id from teams where name like 'Washington%'
+) missing;`,
+        mysql: `with recursive years (y) as (
+  select 1901 union all select y + 1 from years where y < 2025
+)
+select min(season) as first_season, max(season) as last_season, count(*) as seasons
+from (
+  select y as season from years
+  except
+  select year_id from teams where name like 'Washington%'
+) missing;`,
+        mysqlNote: 'EXCEPT needs MySQL 8.0.31 or later; the recursive CTE replaces generate_series.',
+        explanation:
+          'The missing seasons form one block, 1972 to 2004: the second Senators left for Texas after 1971 and the Expos moved in as the Nationals in 2005. Only min and max are safe here because the gap is a single run; with several gaps, a gaps-and-islands query would be needed.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'lahman-098',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['constraints', 'ddl'],
+    title: 'Rules a batting line must follow',
+    prompt: 'Add named CHECK constraints to batting: hits cannot exceed at-bats, home runs cannot exceed hits, and no count may be negative (check g, ab, h, hr). Then count the CHECK constraints on batting.',
+    orderMatters: false,
+    checkSql: `select count(*) as check_constraints from pg_constraint where conrelid = 'batting'::regclass and contype = 'c'`,
+    checkSqlMysql: `select count(*) as check_constraints
+from information_schema.table_constraints
+where table_schema = database() and table_name = 'batting' and constraint_type = 'CHECK'`,
+    solutions: [
+      {
+        approach: 'ALTER TABLE … ADD CONSTRAINT … CHECK',
+        postgres: `alter table batting
+  add constraint batting_h_le_ab   check (h <= ab),
+  add constraint batting_hr_le_h   check (hr <= h),
+  add constraint batting_counts_ge_0 check (g >= 0 and ab >= 0 and h >= 0 and hr >= 0);`,
+        mysql: `alter table batting
+  add constraint batting_h_le_ab   check (h <= ab),
+  add constraint batting_hr_le_h   check (hr <= h),
+  add constraint batting_counts_ge_0 check (g >= 0 and ab >= 0 and h >= 0 and hr >= 0);`,
+        explanation:
+          'All 24,276 existing rows are checked first and pass. A CHECK with a NULL inside counts as passed (NULL is not false), so a row with unknown at-bats is still accepted; add NOT NULL where a value must be known.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Check constraints', url: PG + 'ddl-constraints.html#DDL-CONSTRAINTS-CHECK-CONSTRAINTS' }],
+  },
+  {
+    id: 'lahman-099',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['limit'],
+    title: 'The best-attended teams of 2025',
+    prompt: 'Show the 5 teams with the highest home attendance in 2025: team_id, name and attendance.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ORDER BY … DESC, LIMIT',
+        postgres: `select team_id, name, attendance
+from teams
+where year_id = 2025
+order by attendance desc, team_id
+limit 5;`,
+        mysql: `select team_id, name, attendance
+from teams
+where year_id = 2025
+order by attendance desc, team_id
+limit 5;`,
+        explanation: 'The Dodgers drew over four million fans. Filter the season first, then sort, then cut: the LIMIT applies to the sorted result, never before it.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'lahman-100',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'Innings pitched, the baseball way',
+    prompt:
+      'pitching stores outs (ipouts). Baseball writes innings as whole innings, a dot and the extra outs: 616 outs is "205.1". Show the 3 pitchers of 2025 with the most outs: player_id, ipouts and innings in that notation.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Integer division and remainder, cast to text',
+        postgres: `select player_id, ipouts,
+       (ipouts / 3)::text || '.' || (ipouts % 3)::text as innings
+from pitching
+where year_id = 2025
+order by ipouts desc, player_id
+limit 3;`,
+        mysql: `select player_id, ipouts,
+       concat(ipouts div 3, '.', ipouts % 3) as innings
+from pitching
+where year_id = 2025
+order by ipouts desc, player_id
+limit 3;`,
+        mysqlNote: 'DIV is integer division; CONCAT converts the numbers to text by itself.',
+        explanation:
+          '"205.1" is not the number 205.1: the digit after the dot counts outs (0, 1 or 2), not tenths. Storing outs and formatting only for display keeps arithmetic correct; summing the text values would be nonsense.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Type conversion', url: PG + 'typeconv.html' }],
+  },
+  {
+    id: 'lahman-101',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['generated-columns', 'null'],
+    title: 'Strikeouts per nine innings as a column',
+    prompt:
+      'Add a stored generated column k_per_9 to pitching: so × 27 / ipouts with 2 decimals, NULL when ipouts is 0 or missing. Then: the 3 best of 2025 among pitchers with at least 486 outs (162 innings).',
+    orderMatters: true,
+    checkSql: `select player_id, so, ipouts, k_per_9 from pitching where year_id = 2025 and ipouts >= 486 order by k_per_9 desc, player_id limit 3`,
+    solutions: [
+      {
+        approach: 'NULLIF guards the division',
+        postgres: `alter table pitching
+add column k_per_9 numeric(5, 2)
+generated always as (round(so * 27.0 / nullif(ipouts, 0), 2)) stored;`,
+        mysql: `alter table pitching
+add column k_per_9 decimal(5, 2)
+generated always as (round(so * 27 / nullif(ipouts, 0), 2)) stored;`,
+        explanation:
+          '27 outs make nine innings, so so × 27 / ipouts is strikeouts per nine. Pitchers who never recorded an out would divide by zero; NULLIF turns that into NULL, which an error-free generated column needs. Dylan Cease leads at 11.52.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: NULLIF', url: PG + 'functions-conditional.html#FUNCTIONS-NULLIF' }],
+  },
+  {
+    id: 'lahman-102',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['triggers', 'constraints'],
+    title: 'All-Stars must have played that season',
+    prompt:
+      'Add a trigger that rejects a new allstar_full row unless the player has a batting or pitching row in the same season. Then add abelmi01 (PHI, NL) to the 2025 game: game_num 0, gp 1.',
+    orderMatters: false,
+    checkSql: `select player_id, year_id, team_id, lg_id, gp from allstar_full where player_id = 'abelmi01' and year_id = 2025`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger with EXISTS',
+        postgres: `create function check_allstar_played() returns trigger
+language plpgsql
+as $$
+begin
+  if not exists (select 1 from batting where player_id = new.player_id and year_id = new.year_id)
+     and not exists (select 1 from pitching where player_id = new.player_id and year_id = new.year_id) then
+    raise exception 'player % did not play in %', new.player_id, new.year_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger allstar_played
+before insert on allstar_full
+for each row execute function check_allstar_played();
+
+insert into allstar_full (player_id, year_id, game_num, team_id, lg_id, gp)
+values ('abelmi01', 2025, 0, 'PHI', 'NL', 1);`,
+        mysql: `create trigger allstar_played
+before insert on allstar_full
+for each row
+begin
+  if not exists (select 1 from batting where player_id = new.player_id and year_id = new.year_id)
+     and not exists (select 1 from pitching where player_id = new.player_id and year_id = new.year_id) then
+    signal sqlstate '45000' set message_text = 'player did not play in that season';
+  end if;
+end;
+
+insert into allstar_full (player_id, year_id, game_num, team_id, lg_id, gp)
+values ('abelmi01', 2025, 0, 'PHI', 'NL', 1);`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'A foreign key can only point to one table and needs the exact key; "a row exists in batting OR pitching for that player and season" needs a trigger. Inserting a player without a 2025 season would now fail with a clear message.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
+  },
 ]

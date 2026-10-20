@@ -2575,4 +2575,284 @@ commit;`,
       { label: 'MySQL: innodb_lock_wait_timeout', url: MY + 'innodb-parameters.html#sysvar_innodb_lock_wait_timeout' },
     ],
   },
+  {
+    id: 'northwind-099',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Suppliers and products by country, with a total',
+    prompt: 'Per supplier country: the number of suppliers and of products they supply, plus a grand total row labelled \'All\'. Countries alphabetically, total last.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP on one column',
+        postgres: `select coalesce(s.country, 'All') as country,
+       count(distinct s.supplier_id) as suppliers,
+       count(*) as products
+from suppliers s
+join products p on p.supplier_id = s.supplier_id
+group by rollup (s.country)
+order by grouping(s.country), s.country;`,
+        mysql: `select coalesce(s.country, 'All') as country,
+       count(distinct s.supplier_id) as suppliers,
+       count(*) as products
+from suppliers s
+join products p on p.supplier_id = s.supplier_id
+group by s.country with rollup
+order by grouping(s.country), s.country;`,
+        explanation:
+          'ROLLUP over a single column adds just the grand total. Note that count(distinct …) is recomputed for the total, not summed: 29 suppliers, not the sum of the country counts (which would be the same here only because no supplier is in two countries).',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'northwind-100',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['ddl'],
+    title: 'Comments that document the schema',
+    prompt: 'Attach documentation to the database itself: comment the shippers table as "Delivery companies we contract" and its phone column as "Dispatch desk, not the head office". Then read both comments back.',
+    orderMatters: false,
+    checkSql: `select obj_description('shippers'::regclass, 'pg_class') as table_comment,
+       col_description('shippers'::regclass, 3) as phone_comment`,
+    checkSqlMysql: `select (select table_comment from information_schema.tables where table_schema = database() and table_name = 'shippers') as table_comment,
+       (select column_comment from information_schema.columns where table_schema = database() and table_name = 'shippers' and column_name = 'phone') as phone_comment`,
+    solutions: [
+      {
+        approach: 'COMMENT ON / ALTER TABLE … COMMENT',
+        postgres: `comment on table shippers is 'Delivery companies we contract';
+comment on column shippers.phone is 'Dispatch desk, not the head office';`,
+        mysql: `alter table shippers comment = 'Delivery companies we contract';
+alter table shippers modify phone varchar(24) comment 'Dispatch desk, not the head office';`,
+        mysqlNote: 'A MySQL column comment is part of the column definition, so MODIFY repeats the type (and would drop NOT NULL or a default if they were not repeated).',
+        explanation:
+          'Comments live in the catalog next to the objects they describe, so every tool that reads the schema can show them. In PostgreSQL col_description takes the column\'s position (phone is the 3rd column); psql shows comments with \\d+.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: COMMENT', url: PG + 'sql-comment.html' },
+      { label: 'MySQL: ALTER TABLE', url: MY + 'alter-table.html' },
+    ],
+  },
+  {
+    id: 'northwind-101',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['temp-tables', 'conditional-aggregates'],
+    title: 'Discounted lines, set aside',
+    prompt:
+      'Copy every order line that has a discount into a temporary table discounted (order_id, product_id, employee_id, discount). Then: per employee, the number of discounted lines and the average discount in percent (1 decimal).',
+    orderMatters: true,
+    checkSql: `select employee_id, count(*) as discounted_lines, round(avg(discount) * 100, 1) as avg_discount_pct
+from discounted
+group by employee_id
+order by employee_id`,
+    solutions: [
+      {
+        approach: 'CREATE TEMPORARY TABLE … AS with a join',
+        postgres: `create temporary table discounted as
+select d.order_id, d.product_id, o.employee_id, d.discount
+from order_details d
+join orders o on o.order_id = d.order_id
+where d.discount > 0;`,
+        mysql: `create temporary table discounted as
+select d.order_id, d.product_id, o.employee_id, d.discount
+from order_details d
+join orders o on o.order_id = d.order_id
+where d.discount > 0;`,
+        explanation:
+          'The temp table keeps the 838 discounted lines with the employee already attached, so follow-up questions (by product, by month) skip both the join and the filter. It vanishes at the end of the session.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'northwind-102',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['triggers', 'control-flow'],
+    title: 'No price jump above 50%',
+    prompt:
+      'Add a trigger that rejects any UPDATE raising a product\'s unit_price by more than 50% in one step (lowering is fine). Then raise all Beverages (category 1) prices by 2%, which must pass.',
+    orderMatters: true,
+    checkSql: `select product_id, unit_price from products where category_id = 1 order by product_id`,
+    solutions: [
+      {
+        approach: 'BEFORE UPDATE OF unit_price trigger',
+        postgres: `create function check_price_jump() returns trigger
+language plpgsql
+as $$
+begin
+  if new.unit_price > old.unit_price * 1.5 then
+    raise exception 'price of product % would rise from % to %', old.product_id, old.unit_price, new.unit_price;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger products_price_jump
+before update of unit_price on products
+for each row execute function check_price_jump();
+
+update products set unit_price = round(unit_price * 1.02, 2) where category_id = 1;`,
+        mysql: `create trigger products_price_jump
+before update on products
+for each row
+begin
+  if new.unit_price > old.unit_price * 1.5 then
+    signal sqlstate '45000' set message_text = 'price would rise by more than 50%';
+  end if;
+end;
+
+update products set unit_price = round(unit_price * 1.02, 2) where category_id = 1;`,
+        mysqlNote: DELIMITER_NOTE + ' MySQL has no UPDATE OF column list; the trigger fires on every update and compares the values itself.',
+        explanation:
+          'UPDATE OF unit_price makes PostgreSQL skip the trigger for updates that do not set the price at all. A typo like 1.02 → 102 would be caught before it reaches the customers. The 2% raise passes for all 12 beverages.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE TRIGGER', url: PG + 'sql-createtrigger.html' },
+      { label: 'MySQL: SIGNAL', url: MY + 'signal.html' },
+    ],
+  },
+  {
+    id: 'northwind-103',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['select-basics', 'numbers'],
+    title: 'Prices with VAT',
+    prompt: 'For the first 5 products by product_id: product_name, unit_price, and price_with_vat (unit_price plus 20%, rounded to 2 decimals).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'A computed column with an alias',
+        postgres: `select product_name, unit_price, round(unit_price * 1.20, 2) as price_with_vat
+from products
+order by product_id
+limit 5;`,
+        mysql: `select product_name, unit_price, round(unit_price * 1.20, 2) as price_with_vat
+from products
+order by product_id
+limit 5;`,
+        explanation: 'SELECT can compute new values from columns; AS names them. Multiplying by 1.20 adds 20% in one step. unit_price is an exact numeric type, so the result has no floating-point noise.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Mathematical operators', url: PG + 'functions-math.html' }],
+  },
+  {
+    id: 'northwind-104',
+    dataset: 'northwind',
+    level: 2,
+    topics: ['full-join', 'dates-basics'],
+    title: '1997 against 1998, month by month',
+    prompt: 'Put the order counts of 1997 and 1998 side by side by month number (1–12): month, orders_1997, orders_1998, with 0 where a year has no orders in that month.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two monthly counts',
+        postgres: `with y97 as (
+  select extract(month from order_date)::int as month, count(*) as n
+  from orders where order_date >= '1997-01-01' and order_date < '1998-01-01' group by 1
+),
+y98 as (
+  select extract(month from order_date)::int as month, count(*) as n
+  from orders where order_date >= '1998-01-01' and order_date < '1999-01-01' group by 1
+)
+select coalesce(a.month, b.month) as month, coalesce(a.n, 0) as orders_1997, coalesce(b.n, 0) as orders_1998
+from y97 a
+full join y98 b on b.month = a.month
+order by month;`,
+        mysql: `with y97 as (
+  select month(order_date) as month, count(*) as n
+  from orders where order_date >= '1997-01-01' and order_date < '1998-01-01' group by 1
+),
+y98 as (
+  select month(order_date) as month, count(*) as n
+  from orders where order_date >= '1998-01-01' and order_date < '1999-01-01' group by 1
+)
+select a.month, a.n as orders_1997, coalesce(b.n, 0) as orders_1998
+from y97 a left join y98 b on b.month = a.month
+union all
+select b.month, 0, b.n
+from y98 b left join y97 a on a.month = b.month
+where a.month is null
+order by month;`,
+        mysqlNote: 'No FULL JOIN in MySQL: LEFT JOIN plus the months only 1998 has (none here).',
+        explanation:
+          '1998 stops in May, so June to December show 0 for 1998. With a FULL JOIN the query would also be right in the opposite case, a month present only in the later year.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'northwind-105',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['recursive', 'aggregates'],
+    title: 'Headcount at each level of the org chart',
+    prompt: 'Starting from the employee with no boss (level 1), walk down reports_to and count how many employees are at each level, with their last names.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE with a level counter',
+        postgres: `with recursive org (employee_id, last_name, level) as (
+  select employee_id, last_name, 1 from employees where reports_to is null
+  union all
+  select e.employee_id, e.last_name, o.level + 1
+  from employees e
+  join org o on e.reports_to = o.employee_id
+)
+select level, count(*) as employees, string_agg(last_name, ', ' order by last_name) as names
+from org
+group by level
+order by level;`,
+        mysql: `with recursive org (employee_id, last_name, level) as (
+  select employee_id, last_name, 1 from employees where reports_to is null
+  union all
+  select e.employee_id, e.last_name, o.level + 1
+  from employees e
+  join org o on e.reports_to = o.employee_id
+)
+select level, count(*) as employees, group_concat(last_name order by last_name separator ', ') as names
+from org
+group by level
+order by level;`,
+        explanation:
+          'Each step goes one level down; the counter records how deep. Fuller is alone at the top, five people report to him, and three to Buchanan. LEVEL is a pseudo-column in Oracle but an ordinary name here.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'northwind-106',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['normalization'],
+    title: 'Ship-to names that drifted',
+    prompt:
+      'orders.ship_name repeats the customer\'s company_name. Count the orders where the two differ and list the distinct (company_name, ship_name) pairs. Is this redundancy, or a record of the past?',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Compare the copy with the source',
+        postgres: `select c.customer_id, c.company_name, o.ship_name, count(*) as orders
+from orders o
+join customers c on c.customer_id = o.customer_id
+where o.ship_name <> c.company_name
+group by c.customer_id, c.company_name, o.ship_name
+order by c.customer_id;`,
+        mysql: `select c.customer_id, c.company_name, o.ship_name, count(*) as orders
+from orders o
+join customers c on c.customer_id = o.customer_id
+where o.ship_name <> c.company_name collate utf8mb4_bin
+group by c.customer_id, c.company_name, o.ship_name
+order by c.customer_id;`,
+        mysqlNote: 'COLLATE utf8mb4_bin compares exactly, as PostgreSQL does here; the default collation would also treat differences in case or accents as equal.',
+        explanation:
+          'Three customers, 23 orders. "Alfred\'s" vs "Alfreds" and a double space look like typos, so here the copy has drifted. But ship-to fields are often kept on purpose: they record where the goods actually went at the time, even if the customer later changes. Decide which it is before "fixing" either side.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Database design', url: PG + 'ddl.html' }],
+  },
 ]

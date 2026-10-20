@@ -3601,4 +3601,142 @@ where salary >= 100000;
     comparison: 'Both avoid reading the table. The partial index is smaller and pre-sorted; the full one also serves other salary thresholds and works in MySQL.',
     docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
   },
+  {
+    id: 'employees-096',
+    dataset: 'employees',
+    level: 3,
+    topics: ['lateral', 'joins'],
+    title: 'The newest arrivals under each manager',
+    prompt: 'For each current department manager: dept_no, the manager\'s emp_no, and the 2 people who most recently joined that department (emp_no, from_date). Order by dept_no, then from_date descending, then emp_no.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CROSS JOIN LATERAL … LIMIT 2',
+        postgres: `select m.dept_no, m.emp_no as manager, newest.emp_no, newest.from_date
+from dept_manager m
+cross join lateral (
+  select de.emp_no, de.from_date
+  from dept_emp de
+  where de.dept_no = m.dept_no
+  order by de.from_date desc, de.emp_no
+  limit 2
+) newest
+where m.to_date = '9999-01-01'
+order by m.dept_no, newest.from_date desc, newest.emp_no;`,
+        mysql: `select m.dept_no, m.emp_no as manager, newest.emp_no, newest.from_date
+from dept_manager m
+cross join lateral (
+  select de.emp_no, de.from_date
+  from dept_emp de
+  where de.dept_no = m.dept_no
+  order by de.from_date desc, de.emp_no
+  limit 2
+) newest
+where m.to_date = '9999-01-01'
+order by m.dept_no, newest.from_date desc, newest.emp_no;`,
+        explanation:
+          'For each manager row the subquery looks only at that department and keeps two rows. The same with ROW_NUMBER would number every assignment of every department before throwing most away; LATERAL can stop early with an index on (dept_no, from_date).',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'employees-097',
+    dataset: 'employees',
+    level: 4,
+    topics: ['generated-columns', 'dates-advanced'],
+    title: 'Age at hire as a column',
+    prompt: 'Add a stored generated column age_at_hire to employees: full years between birth_date and hire_date. Then: how many were hired at 20 (the youngest age) and at 46 (the oldest)?',
+    orderMatters: true,
+    checkSql: `select age_at_hire, count(*) as employees from employees where age_at_hire in (20, 46) group by age_at_hire order by age_at_hire`,
+    solutions: [
+      {
+        approach: 'age() / TIMESTAMPDIFF in a generated column',
+        postgres: `alter table employees
+add column age_at_hire integer
+generated always as (extract(year from age(hire_date::timestamp, birth_date::timestamp))::integer) stored;`,
+        mysql: `alter table employees
+add column age_at_hire int
+generated always as (timestampdiff(year, birth_date, hire_date)) stored;`,
+        mysqlNote: 'TIMESTAMPDIFF(YEAR, …) counts completed years, like age().',
+        explanation:
+          'Both depend only on the two dates in the row, so they may be stored. In PostgreSQL the casts to timestamp matter: age() on plain dates resolves to the time-zone-aware version, which is not immutable and is refused in a generated column. Age relative to today could not be: current_date changes, and a generated column must give the same result every time. 26 people were hired at 20, 7 at 46.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: age', url: PG + 'functions-datetime.html' }],
+  },
+  {
+    id: 'employees-098',
+    dataset: 'employees',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Current staff by department and gender, every total',
+    prompt:
+      'Count current employees by department and gender with all subtotals: per department, per gender, and overall (label totals \'all\'). Order: department rows first, then gender totals, then the grand total.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CUBE',
+        postgres: `select coalesce(de.dept_no, 'all') as dept_no, coalesce(e.gender, 'all') as gender, count(*) as employees
+from dept_emp de
+join employees e on e.emp_no = de.emp_no
+where de.to_date = '9999-01-01'
+group by cube (de.dept_no, e.gender)
+order by grouping(de.dept_no), de.dept_no, grouping(e.gender), e.gender;`,
+        mysql: `select dept_no, gender, employees
+from (
+  select coalesce(de.dept_no, 'all') as dept_no, coalesce(e.gender, 'all') as gender, count(*) as employees,
+         grouping(de.dept_no) as gd, grouping(e.gender) as gg, de.dept_no as d, e.gender as g
+  from dept_emp de
+  join employees e on e.emp_no = de.emp_no
+  where de.to_date = '9999-01-01'
+  group by de.dept_no, e.gender with rollup
+  union all
+  select 'all', e.gender, count(*), 1, 0, null, e.gender
+  from dept_emp de
+  join employees e on e.emp_no = de.emp_no
+  where de.to_date = '9999-01-01'
+  group by e.gender
+) t
+order by gd, d, gg, g;`,
+        mysqlNote: 'No CUBE in MySQL: ROLLUP gives department × gender, department totals and the grand total; the gender totals are added with UNION ALL.',
+        explanation:
+          'CUBE (a, b) produces every combination of grouped and totalled columns: 18 detail rows, 9 department totals, 2 gender totals and 1 grand total. GROUPING() tells a real value from a total row, which matters if a column itself can be NULL.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CUBE', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'employees-099',
+    dataset: 'employees',
+    level: 4,
+    topics: ['upsert', 'functions'],
+    title: 'Keep the highest salary ever seen',
+    prompt:
+      'salary_peaks (emp_no primary key, peak) holds (10050, 97830) and (10100, 80000). A feed arrives: (10050, 97000), (10100, 82000), (10150, 100182). Upsert it so that peak only ever goes up.',
+    orderMatters: true,
+    checkSql: `select emp_no, peak from salary_peaks order by emp_no`,
+    solutions: [
+      {
+        approach: 'GREATEST in the update part',
+        postgres: `create table salary_peaks (emp_no integer primary key, peak integer not null);
+insert into salary_peaks values (10050, 97830), (10100, 80000);
+
+insert into salary_peaks (emp_no, peak)
+values (10050, 97000), (10100, 82000), (10150, 100182)
+on conflict (emp_no) do update set peak = greatest(salary_peaks.peak, excluded.peak);`,
+        mysql: `create table salary_peaks (emp_no int primary key, peak int not null);
+insert into salary_peaks values (10050, 97830), (10100, 80000);
+
+insert into salary_peaks (emp_no, peak)
+values (10050, 97000), (10100, 82000), (10150, 100182) as new
+on duplicate key update peak = greatest(salary_peaks.peak, new.peak);`,
+        explanation:
+          'GREATEST compares the stored and the incoming value and keeps the larger: 10050 stays at 97,830 although the feed is lower, 10100 rises to 82,000, 10150 is new. The same pattern keeps a minimum (LEAST) or a latest timestamp.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GREATEST and LEAST', url: PG + 'functions-conditional.html#FUNCTIONS-GREATEST-LEAST' }],
+  },
 ]

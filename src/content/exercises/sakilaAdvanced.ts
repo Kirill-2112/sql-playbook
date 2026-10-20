@@ -2764,4 +2764,333 @@ insert into rental_by_quarter select rental_id, rental_date, inventory_id, custo
     ],
     docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
   },
+  {
+    id: 'sakila-099',
+    dataset: 'sakila',
+    level: 2,
+    topics: ['set-operations'],
+    title: 'UNION or UNION ALL?',
+    prompt: 'Put the first and last names of all actors, customers and staff into one list. How many rows does it have with UNION ALL, and how many with UNION?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Count both forms',
+        postgres: `select
+  (select count(*) from (
+     select first_name, last_name from actor
+     union all select first_name, last_name from customer
+     union all select first_name, last_name from staff) a) as union_all_rows,
+  (select count(*) from (
+     select first_name, last_name from actor
+     union select first_name, last_name from customer
+     union select first_name, last_name from staff) u) as union_rows;`,
+        mysql: `select
+  (select count(*) from (
+     select first_name, last_name from actor
+     union all select first_name, last_name from customer
+     union all select first_name, last_name from staff) a) as union_all_rows,
+  (select count(*) from (
+     select first_name, last_name from actor
+     union select first_name, last_name from customer
+     union select first_name, last_name from staff) u) as union_rows;`,
+        explanation:
+          'UNION ALL simply appends (801 rows); UNION also removes duplicate rows (799), which costs a sort or hash. The two duplicates are real: the actor table has two different actors named SUSAN DAVIS. Use UNION only when duplicates must go; otherwise UNION ALL is faster and does not hide data.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'sakila-100',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['window-frames', 'dates-basics'],
+    title: 'Running total that restarts every month',
+    prompt: 'For customer 1\'s payments before July 2005: payment_id, payment_date, amount, and the running total of the amounts within the same calendar month.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'PARTITION BY month, frame from the start of the partition',
+        postgres: `select payment_id, payment_date, amount,
+       sum(amount) over (
+         partition by date_trunc('month', payment_date)
+         order by payment_date, payment_id
+         rows between unbounded preceding and current row
+       ) as month_to_date
+from payment
+where customer_id = 1 and payment_date < '2005-07-01'
+order by payment_date, payment_id;`,
+        mysql: `select payment_id, payment_date, amount,
+       sum(amount) over (
+         partition by date_format(payment_date, '%Y-%m')
+         order by payment_date, payment_id
+         rows between unbounded preceding and current row
+       ) as month_to_date
+from payment
+where customer_id = 1 and payment_date < '2005-07-01'
+order by payment_date, payment_id;`,
+        explanation:
+          'PARTITION BY starts a new window for each month, so the sum restarts on the 1st; the frame "unbounded preceding to current row" makes it a running total. Writing the frame with ROWS avoids the default RANGE behaviour, which would treat payments with equal timestamps as one step.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window function calls', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
+  {
+    id: 'sakila-101',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['merge'],
+    title: 'Re-categorise films from a list',
+    prompt:
+      'A curator sends new categories by name: film 1 → Horror, film 2 → Horror, film 3 → Comedy. Each film has one category. Apply the list in one statement, touching only films whose category actually changes.',
+    orderMatters: true,
+    checkSql: `select fc.film_id, c.name from film_category fc join category c on c.category_id = fc.category_id where fc.film_id in (1, 2, 3) order by fc.film_id`,
+    solutions: [
+      {
+        approach: 'MERGE on film_id, update when different',
+        postgres: `merge into film_category fc
+using (
+  select v.film_id, c.category_id
+  from (values (1, 'Horror'), (2, 'Horror'), (3, 'Comedy')) as v (film_id, category)
+  join category c on c.name = v.category
+) s
+on fc.film_id = s.film_id
+when matched and fc.category_id <> s.category_id then
+  update set category_id = s.category_id, last_update = now()
+when not matched then
+  insert (film_id, category_id) values (s.film_id, s.category_id);`,
+        mysql: `update film_category fc
+join (
+  select v.film_id, c.category_id
+  from (select 1 as film_id, 'Horror' as category union all select 2, 'Horror' union all select 3, 'Comedy') v
+  join category c on c.name = v.category collate utf8mb4_0900_ai_ci
+) s on s.film_id = fc.film_id
+set fc.category_id = s.category_id, fc.last_update = now()
+where fc.category_id <> s.category_id;`,
+        mysqlNote: 'No MERGE in MySQL; every film here already has a category row, so a joined UPDATE does the job. COLLATE matches the literal names to the table\'s collation.',
+        explanation:
+          'The feed speaks in names, the table in ids, so the source query translates first. Film 2 is already Horror and is left alone; films 1 and 3 change. Because (film_id, category_id) is the primary key, the UPDATE changes a key column, which is allowed as long as no other row has the new pair.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'sakila-102',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'An index that also sorts',
+    prompt:
+      'The account page runs: select rental_id, rental_date from rental where customer_id = ? order by rental_date desc limit 5. rental has an index on customer_id alone. Create an index that lets the query stop after 5 rows without sorting.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'rental' and indexdef like '%(customer_id, rental_date%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'rental' and column_name = 'rental_date' and seq_in_index = 2
+  and index_name in (select index_name from information_schema.statistics
+                     where table_schema = database() and table_name = 'rental' and column_name = 'customer_id' and seq_in_index = 1)`,
+    solutions: [
+      {
+        approach: 'Equality column first, sort column second',
+        postgres: `create index rental_customer_date_idx on rental (customer_id, rental_date);
+
+-- explain select rental_id, rental_date from rental where customer_id = 5 order by rental_date desc limit 5;`,
+        mysql: `create index rental_customer_date_idx on rental (customer_id, rental_date);
+
+-- explain select rental_id, rental_date from rental where customer_id = 5 order by rental_date desc limit 5;`,
+        explanation:
+          'Within one customer_id the entries are already ordered by rental_date, and an index can be read backwards, so the newest five are simply the last five entries of that customer: no sort, no reading the customer\'s other rentals. With the customer_id-only index the database fetches all of the customer\'s rentals and sorts them.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Indexes and ORDER BY', url: PG + 'indexes-ordering.html' },
+      { label: 'MySQL: ORDER BY optimization', url: MY + 'order-by-optimization.html' },
+    ],
+  },
+  {
+    id: 'sakila-103',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['date-series'],
+    title: 'The quiet day before the rush',
+    prompt: 'For every hour of 16 August 2005 (0 to 23), the number of rentals that started in it, including hours with none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Hour series LEFT JOIN rentals',
+        postgres: `select h.hour, count(r.rental_id) as rentals
+from generate_series(0, 23) as h (hour)
+left join rental r
+  on r.rental_date >= '2005-08-16' and r.rental_date < '2005-08-17'
+ and extract(hour from r.rental_date) = h.hour
+group by h.hour
+order by h.hour;`,
+        mysql: `with recursive hours (hour) as (
+  select 0 union all select hour + 1 from hours where hour < 23
+)
+select h.hour, count(r.rental_id) as rentals
+from hours h
+left join rental r
+  on r.rental_date >= '2005-08-16' and r.rental_date < '2005-08-17'
+ and hour(r.rental_date) = h.hour
+group by h.hour
+order by h.hour;`,
+        explanation:
+          'Rentals only started at 22:00 that day: 23 in the last two hours, then about 600 a day from the 17th. The day conditions sit in ON, so the 22 empty hours survive the LEFT JOIN as 0.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'sakila-104',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['views', 'joins'],
+    title: 'A readable rental view',
+    prompt:
+      'Create a view rental_details (rental_id, rental_date, return_date, customer, film, store_id) with the customer as "FIRST LAST" and the film title. Then show customer 1\'s first 3 rentals from it.',
+    orderMatters: true,
+    checkSql: `select rental_id, customer, film, store_id from rental_details where customer = 'MARY SMITH' order by rental_date, rental_id limit 3`,
+    solutions: [
+      {
+        approach: 'A view over four tables',
+        postgres: `create view rental_details as
+select r.rental_id, r.rental_date, r.return_date,
+       c.first_name || ' ' || c.last_name as customer,
+       f.title as film, i.store_id
+from rental r
+join customer c on c.customer_id = r.customer_id
+join inventory i on i.inventory_id = r.inventory_id
+join film f on f.film_id = i.film_id;`,
+        mysql: `create view rental_details as
+select r.rental_id, r.rental_date, r.return_date,
+       concat(c.first_name, ' ', c.last_name) as customer,
+       f.title as film, i.store_id
+from rental r
+join customer c on c.customer_id = r.customer_id
+join inventory i on i.inventory_id = r.inventory_id
+join film f on f.film_id = i.film_id;`,
+        explanation:
+          'The view saves every report the same three joins. Filtering on a computed column such as customer is fine for occasional use, but it cannot use an index on the name columns; for frequent lookups filter on customer_id instead and expose it in the view.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'sakila-105',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['arrays', 'window-frames'],
+    title: 'Each customer\'s third film',
+    prompt: 'For customers 1 to 5, collect the titles they rented in rental order into a list, and show the third element: customer_id and third_film.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array_agg with ORDER BY, then [3]',
+        postgres: `select r.customer_id,
+       (array_agg(f.title order by r.rental_date, r.rental_id))[3] as third_film
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+join film f on f.film_id = i.film_id
+where r.customer_id between 1 and 5
+group by r.customer_id
+order by r.customer_id;`,
+        mysql: `select r.customer_id,
+       substring_index(substring_index(group_concat(f.title order by r.rental_date, r.rental_id separator '|'), '|', 3), '|', -1) as third_film
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+join film f on f.film_id = i.film_id
+where r.customer_id between 1 and 5
+group by r.customer_id
+order by r.customer_id;`,
+        mysqlNote: 'No arrays: an ordered GROUP_CONCAT with a separator that never appears in titles, then "everything up to the 3rd item, and of that the last item".',
+        explanation:
+          'PostgreSQL arrays start at index 1, so [3] is the third rental. The window alternative is ROW_NUMBER() per customer and a filter on 3, which scales better when you need one position from very long lists.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Arrays', url: PG + 'arrays.html' }],
+  },
+  {
+    id: 'sakila-106',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['functions', 'control-flow'],
+    title: 'A late fee function',
+    prompt:
+      'Write late_fee(p_rental_id): 1.00 per calendar day the film came back after rental_date + rental_duration days, capped at the film\'s replacement_cost; 0 if on time; NULL if not returned yet. Test rentals 1, 3 and 11496.',
+    orderMatters: false,
+    checkSql: `select late_fee(1) as on_time, late_fee(3) as one_day, late_fee(11496) as not_returned`,
+    solutions: [
+      {
+        approach: 'Look up, compute, cap',
+        postgres: `create function late_fee(p_rental_id integer) returns numeric
+language plpgsql
+stable
+as $$
+declare
+  v_days integer;
+  v_cap  numeric;
+begin
+  select r.return_date::date - (r.rental_date + make_interval(days => f.rental_duration))::date, f.replacement_cost
+  into v_days, v_cap
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f on f.film_id = i.film_id
+  where r.rental_id = p_rental_id;
+
+  if v_days is null then
+    return null;
+  end if;
+  return least(greatest(v_days, 0) * 1.00, v_cap);
+end;
+$$;`,
+        mysql: `create function late_fee(p_rental_id int) returns decimal(5, 2)
+reads sql data
+begin
+  declare v_days int;
+  declare v_cap decimal(5, 2);
+
+  select datediff(r.return_date, r.rental_date + interval f.rental_duration day), f.replacement_cost
+  into v_days, v_cap
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f on f.film_id = i.film_id
+  where r.rental_id = p_rental_id;
+
+  if v_days is null then
+    return null;
+  end if;
+  return least(greatest(v_days, 0) * 1.00, v_cap);
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'An open rental has no return_date, so the day difference is NULL and the function says so instead of inventing a fee. greatest(…, 0) turns early returns into 0; least(…) applies the cap. Rental 3 came back one day late.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GREATEST and LEAST', url: PG + 'functions-conditional.html#FUNCTIONS-GREATEST-LEAST' }],
+  },
+  {
+    id: 'sakila-107',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['locks-isolation', 'dml'],
+    title: 'Optimistic locking with last_update',
+    prompt:
+      'Two clerks may edit rental 1 at once. Without holding a lock while the clerk types, record the return_date 2005-05-26 22:10 only if the row\'s last_update is still the value you read (2006-02-15 21:30:53), and bump last_update. Show the row afterwards.',
+    orderMatters: false,
+    checkSql: `select rental_id, return_date, last_update > '2006-02-15 21:30:53' as was_updated from rental where rental_id = 1`,
+    solutions: [
+      {
+        approach: 'UPDATE … WHERE last_update = the value read',
+        postgres: `update rental
+set return_date = '2005-05-26 22:10', last_update = now()
+where rental_id = 1 and last_update = '2006-02-15 21:30:53';`,
+        mysql: `update rental
+set return_date = '2005-05-26 22:10', last_update = now()
+where rental_id = 1 and last_update = '2006-02-15 21:30:53';`,
+        explanation:
+          'If someone changed the row in between, its last_update differs, the UPDATE matches 0 rows, and the application must reload and ask the clerk again. No lock is held while people think, which a SELECT … FOR UPDATE would do. A timestamp works as a version only if every write updates it; a counter column is safer.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: UPDATE', url: PG + 'sql-update.html' }],
+  },
 ]

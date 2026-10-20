@@ -3416,4 +3416,219 @@ commit;`,
     ],
     docs: [{ label: 'PostgreSQL: Deadlocks', url: PG + 'explicit-locking.html#LOCKING-DEADLOCKS' }],
   },
+  {
+    id: 'northwind-124',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['null', 'aggregates'],
+    title: 'Customers without a region',
+    prompt: 'How many customers have no region (region is NULL), out of how many in total?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Conditional count next to the total',
+        postgres: `select count(*) filter (where region is null) as without_region, count(*) as customers
+from customers;`,
+        mysql: `select sum(region is null) as without_region, count(*) as customers
+from customers;`,
+        explanation: '60 of 91: most countries have no regions in this sense, only the US, Canada and a few others fill the column. A NULL here means "does not apply" rather than "unknown"; SQL cannot tell those apart.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Comparison predicates', url: PG + 'functions-comparison.html' }],
+  },
+  {
+    id: 'northwind-125',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['cte', 'ranking'],
+    title: '1997 revenue by category, with its best product',
+    prompt: 'For 1997: the 3 categories with the most revenue, their share of all 1997 revenue (1 decimal) and their best-selling product by revenue.',
+    hint: REVENUE_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Product revenue once, reused for categories and the top product',
+        postgres: `with product_rev as (
+  select p.category_id, p.product_name, sum(d.unit_price * d.quantity * (1 - d.discount)) as revenue
+  from order_details d
+  join orders o on o.order_id = d.order_id
+  join products p on p.product_id = d.product_id
+  where o.order_date >= '1997-01-01' and o.order_date < '1998-01-01'
+  group by p.category_id, p.product_name
+),
+category_rev as (
+  select category_id, sum(revenue) as revenue from product_rev group by category_id
+),
+best as (
+  select category_id, product_name,
+         row_number() over (partition by category_id order by revenue desc, product_name) as n
+  from product_rev
+)
+select c.category_name, round(cr.revenue, 2) as revenue,
+       round(100 * cr.revenue / sum(cr.revenue) over (), 1) as share_pct,
+       b.product_name as best_product
+from category_rev cr
+join categories c on c.category_id = cr.category_id
+join best b on b.category_id = cr.category_id and b.n = 1
+order by cr.revenue desc
+limit 3;`,
+        mysql: `with product_rev as (
+  select p.category_id, p.product_name, sum(d.unit_price * d.quantity * (1 - d.discount)) as revenue
+  from order_details d
+  join orders o on o.order_id = d.order_id
+  join products p on p.product_id = d.product_id
+  where o.order_date >= '1997-01-01' and o.order_date < '1998-01-01'
+  group by p.category_id, p.product_name
+),
+category_rev as (
+  select category_id, sum(revenue) as revenue from product_rev group by category_id
+),
+best as (
+  select category_id, product_name,
+         row_number() over (partition by category_id order by revenue desc, product_name) as n
+  from product_rev
+)
+select c.category_name, round(cr.revenue, 2) as revenue,
+       round(100 * cr.revenue / sum(cr.revenue) over (), 1) as share_pct,
+       b.product_name as best_product
+from category_rev cr
+join categories c on c.category_id = cr.category_id
+join best b on b.category_id = cr.category_id and b.n = 1
+order by cr.revenue desc
+limit 3;`,
+        explanation:
+          'The window SUM(…) OVER () is computed before LIMIT, so the share is of all categories, not of the three shown. Dairy leads with 18.7%, carried by Raclette Courdavault; Côte de Blaye alone makes Beverages second.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'northwind-126',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['window-frames'],
+    title: 'Each condiment against its price neighbours',
+    prompt: 'For products in category 2 (Condiments), sorted by price: product_id, unit_price and the average price of the product and its immediate neighbours (one cheaper, one dearer), 2 decimals.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'A frame of one row on each side',
+        postgres: `select product_id, unit_price,
+       round(avg(unit_price) over (order by unit_price, product_id rows between 1 preceding and 1 following), 2) as neighbourhood_avg
+from products
+where category_id = 2
+order by unit_price, product_id;`,
+        mysql: `select product_id, unit_price,
+       round(avg(unit_price) over (order by unit_price, product_id rows between 1 preceding and 1 following), 2) as neighbourhood_avg
+from products
+where category_id = 2
+order by unit_price, product_id;`,
+        explanation:
+          'The frame follows the sort order, not the product ids: "neighbours" means next in price. At both ends there is only one neighbour, so the average covers two rows. Comparing a price with its neighbourhood flags outliers such as the jump from 28.50 to 40.00.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
+  {
+    id: 'northwind-127',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['normalization', 'text-search'],
+    title: 'Packaging stored as free text',
+    prompt: 'products.quantity_per_unit mixes numbers and units ("10 boxes x 20 bags"). Count how many products use the nested "… x …" form, and show 4 examples.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Pattern search shows the problem',
+        postgres: `select product_id, quantity_per_unit,
+       count(*) over () as nested_forms
+from products
+where quantity_per_unit like '% x %'
+order by product_id
+limit 4;`,
+        mysql: `select product_id, quantity_per_unit,
+       count(*) over () as nested_forms
+from products
+where quantity_per_unit like '% x %'
+order by product_id
+limit 4;`,
+        explanation:
+          'Seven products pack in two levels. Because the column is free text, "how many bags do we have" is impossible to compute in SQL. First normal form asks for atomic values: columns such as pack_count, units_per_pack and unit_name would make the packaging something the database can calculate with.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Pattern matching', url: PG + 'functions-matching.html' }],
+  },
+  {
+    id: 'northwind-128',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['generated-columns', 'numbers'],
+    title: 'Stock value as a column',
+    prompt: 'Add a stored generated column stock_value to products: unit_price × units_in_stock. Then: the 3 products with the most valuable stock.',
+    orderMatters: true,
+    checkSql: `select product_id, product_name, stock_value from products order by stock_value desc, product_id limit 3`,
+    solutions: [
+      {
+        approach: 'Multiplication in a generated column',
+        postgres: `alter table products
+add column stock_value numeric(12, 2)
+generated always as (unit_price * units_in_stock) stored;`,
+        mysql: `alter table products
+add column stock_value decimal(12, 2)
+generated always as (unit_price * units_in_stock) stored;`,
+        explanation: 'Côte de Blaye leads with 4,479.50 of stock (only 17 bottles, but at 263.50 each). The value updates itself whenever price or stock changes, so reports cannot use a stale figure.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'northwind-129',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Orders by shipper',
+    prompt: 'Create orders_by_shipper (order_id, customer_id, order_date, ship_via, freight) list-partitioned by ship_via, one partition per shipper (1, 2, 3), and copy the orders in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from orders_ship1) as speedy, (select count(*) from orders_ship2) as united, (select count(*) from orders_ship3) as federal`,
+    checkSqlMysql: `select (select count(*) from orders_by_shipper partition (p_ship1)) as speedy,
+       (select count(*) from orders_by_shipper partition (p_ship2)) as united,
+       (select count(*) from orders_by_shipper partition (p_ship3)) as federal`,
+    solutions: [
+      {
+        approach: 'One LIST partition per key value',
+        postgres: `create table orders_by_shipper (
+  order_id    integer        not null,
+  customer_id varchar(5),
+  order_date  timestamp,
+  ship_via    integer        not null,
+  freight     numeric(10, 2),
+  primary key (order_id, ship_via)
+) partition by list (ship_via);
+
+create table orders_ship1 partition of orders_by_shipper for values in (1);
+create table orders_ship2 partition of orders_by_shipper for values in (2);
+create table orders_ship3 partition of orders_by_shipper for values in (3);
+
+insert into orders_by_shipper select order_id, customer_id, order_date, ship_via, freight from orders;`,
+        mysql: `create table orders_by_shipper (
+  order_id    int            not null,
+  customer_id varchar(5),
+  order_date  datetime,
+  ship_via    int            not null,
+  freight     decimal(10, 2),
+  primary key (order_id, ship_via)
+)
+partition by list (ship_via) (
+  partition p_ship1 values in (1),
+  partition p_ship2 values in (2),
+  partition p_ship3 values in (3)
+);
+
+insert into orders_by_shipper select order_id, customer_id, order_date, ship_via, freight from orders;`,
+        explanation:
+          '249, 326 and 255 orders. A fourth shipper would need a new partition before its first order could be stored; in PostgreSQL a DEFAULT partition can catch it instead. Partitioning by a column with three values only pays off when each value really is a separate workload.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
+  },
 ]

@@ -4362,4 +4362,190 @@ generated always as (round((h + bb + hbp) / nullif(ab + bb + hbp + sf, 0), 3)) s
     ],
     docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
   },
+  {
+    id: 'lahman-122',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['select-basics', 'conditions'],
+    title: 'Players born in the Netherlands',
+    prompt: 'List the people born in the Netherlands: first name, last name, birth year and birth city, by player_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'A filter on birth_country',
+        postgres: `select name_first, name_last, birth_year, birth_city
+from people
+where birth_country = 'Netherlands'
+order by player_id;`,
+        mysql: `select name_first, name_last, birth_year, birth_city
+from people
+where birth_country = 'Netherlands'
+order by player_id;`,
+        explanation: 'Four players, from Hall of Famer Bert Blyleven (Zeist) to Didi Gregorius (Amsterdam). The table also has Curaçao and Aruba as separate countries, which is where most "Dutch" players were born.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SELECT', url: PG + 'sql-select.html' }],
+  },
+  {
+    id: 'lahman-123',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['conditions', 'aggregates'],
+    title: 'Gold Gloves of 2025',
+    prompt: 'How many Gold Glove awards were given for 2025?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'COUNT with two conditions',
+        postgres: `select count(*) as gold_gloves
+from awards_players
+where award_id = 'Gold Glove' and year_id = 2025;`,
+        mysql: `select count(*) as gold_gloves
+from awards_players
+where award_id = 'Gold Glove' and year_id = 2025;`,
+        explanation: 'Twenty: nine positions in each league plus a utility award per league. award_id is free text, so the spelling in the WHERE must match the data exactly.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'lahman-124',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'Heights in feet and inches, with quotes',
+    prompt: 'For people at least 82 inches tall: name and height written like 6\'10" (feet, an apostrophe, inches, a double quote). Tallest first, then player_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Integer division and remainder, quotes escaped',
+        postgres: `select name_first || ' ' || name_last as name,
+       (height / 12)::text || '''' || (height % 12)::text || '"' as height_ft
+from people
+where height >= 82
+order by height desc, player_id;`,
+        mysql: `select concat(name_first, ' ', name_last) as name,
+       concat(height div 12, '''', height % 12, '"') as height_ft
+from people
+where height >= 82
+order by height desc, player_id;`,
+        mysqlNote: 'In MySQL a single quote inside a string is also written twice; a double quote inside single quotes needs no escaping.',
+        explanation:
+          'Inside a single-quoted SQL string, \'\' is one apostrophe, so \'\'\'\' is a string holding just \'. The tallest are Sean Hjelle and Jon Rauch at 6\'11". Keep heights as numbers and format only for display.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: String constants', url: PG + 'sql-syntax-lexical.html#SQL-SYNTAX-STRINGS' }],
+  },
+  {
+    id: 'lahman-125',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'Corrections to the 2016 Red Sox payroll',
+    prompt:
+      'A corrected list for 2016 BOS arrives: priceda01 at 30,000,000 (unchanged), ramirha01 at 23,000,000 (changed) and newcomer judgeaa01 at 500,000. Apply it in one statement: insert new players, update changed salaries, leave identical ones.',
+    orderMatters: true,
+    checkSql: `select player_id, salary from salaries where year_id = 2016 and team_id = 'BOS' and player_id in ('priceda01', 'ramirha01', 'judgeaa01') order by player_id`,
+    solutions: [
+      {
+        approach: 'MERGE on the full key',
+        postgres: `merge into salaries s
+using (values ('priceda01', 30000000), ('ramirha01', 23000000), ('judgeaa01', 500000)) as feed (player_id, salary)
+on s.year_id = 2016 and s.team_id = 'BOS' and s.player_id = feed.player_id
+when matched and s.salary <> feed.salary then
+  update set salary = feed.salary
+when not matched then
+  insert (year_id, team_id, lg_id, player_id, salary) values (2016, 'BOS', 'AL', feed.player_id, feed.salary);`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          'The ON condition covers the whole primary key (year, team, player). Matching with only player_id would update his rows of other years and teams too. judgeaa01 did not actually play for Boston; the data allows it, which shows what a feed can do without a check.',
+      },
+      {
+        approach: 'Upsert',
+        postgres: `insert into salaries (year_id, team_id, lg_id, player_id, salary)
+values (2016, 'BOS', 'AL', 'priceda01', 30000000), (2016, 'BOS', 'AL', 'ramirha01', 23000000), (2016, 'BOS', 'AL', 'judgeaa01', 500000)
+on conflict (year_id, team_id, player_id) do update set salary = excluded.salary
+  where salaries.salary <> excluded.salary;`,
+        mysql: `insert into salaries (year_id, team_id, lg_id, player_id, salary)
+values (2016, 'BOS', 'AL', 'priceda01', 30000000), (2016, 'BOS', 'AL', 'ramirha01', 23000000), (2016, 'BOS', 'AL', 'judgeaa01', 500000) as new
+on duplicate key update salary = new.salary;`,
+        explanation: 'For "insert or update" on a key, an upsert is the shorter tool; MERGE pays off once deletes or several conditions join in.',
+      },
+    ],
+    comparison: 'Same three rows afterwards.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'lahman-126',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['triggers', 'aggregates'],
+    title: 'Team home runs that follow the batters',
+    prompt:
+      'teams.hr is the sum of its batters\' home runs. Add a trigger so that when a batting row\'s hr is updated, the team season\'s hr changes by the same difference. Test: give Aaron Judge (judgeaa01, 2025, stint 1) one more home run.',
+    orderMatters: false,
+    checkSql: `update batting set hr = hr + 1 where player_id = 'judgeaa01' and year_id = 2025 and stint = 1;
+select (select hr from batting where player_id = 'judgeaa01' and year_id = 2025 and stint = 1) as judge_hr,
+       (select hr from teams where year_id = 2025 and team_id = 'NYA') as team_hr`,
+    solutions: [
+      {
+        approach: 'AFTER UPDATE trigger applying the delta',
+        postgres: `create function batting_hr_to_team() returns trigger
+language plpgsql
+as $$
+begin
+  if new.hr is distinct from old.hr then
+    update teams set hr = hr + (coalesce(new.hr, 0) - coalesce(old.hr, 0))
+    where year_id = new.year_id and team_id = new.team_id;
+  end if;
+  return null;
+end;
+$$;
+
+create trigger batting_hr_sync
+after update of hr on batting
+for each row execute function batting_hr_to_team();`,
+        mysql: `create trigger batting_hr_sync
+after update on batting
+for each row
+begin
+  if not (new.hr <=> old.hr) then
+    update teams set hr = hr + (coalesce(new.hr, 0) - coalesce(old.hr, 0))
+    where year_id = new.year_id and team_id = new.team_id;
+  end if;
+end;`,
+        mysqlNote: DELIMITER_NOTE + ' <=> is MySQL\'s NULL-safe equality, the counterpart of IS NOT DISTINCT FROM.',
+        explanation:
+          'Adding the difference instead of recounting keeps the trigger cheap: one row update per change. Judge goes from 53 to 54 and the Yankees from 274 to 275. A batting row moved to another team would need the trigger to handle team_id changes as well.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
+  },
+  {
+    id: 'lahman-127',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Juan or Miguel',
+    prompt: 'With a full-text index on name_given, count the people with the word Juan or the word Miguel (or both) in their given names.',
+    orderMatters: false,
+    checkSql: `select count(*) as people from people where to_tsvector('simple', name_given) @@ to_tsquery('simple', 'juan | miguel')`,
+    checkSqlMysql: `select count(*) as people from people where match(name_given) against ('juan miguel' in boolean mode)`,
+    solutions: [
+      {
+        approach: 'OR in the text query',
+        postgres: `create index people_name_given_or_fts on people using gin (to_tsvector('simple', name_given));
+
+-- search: to_tsquery('simple', 'juan | miguel')`,
+        mysql: `create fulltext index people_name_given_or_ft on people (name_given);
+
+-- search: against ('juan miguel' in boolean mode)`,
+        mysqlNote: 'In boolean mode, words without + or - are optional, so "juan miguel" means "juan or miguel".',
+        explanation:
+          '84 people. The default meaning of several words differs: PostgreSQL\'s plainto_tsquery would AND them, MySQL\'s boolean mode without + ORs them. Spell the operator out (| or +) so the query says what you mean.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: to_tsquery', url: PG + 'textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES' }],
+  },
 ]

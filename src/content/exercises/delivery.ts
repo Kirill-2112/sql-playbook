@@ -4047,4 +4047,177 @@ from payload;`,
       { label: 'MySQL: JSON path syntax', url: MY + 'json.html#json-path-syntax' },
     ],
   },
+  {
+    id: 'delivery-110',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['self-cross-join'],
+    title: 'Accounts that look like duplicates',
+    prompt: 'Count pairs of different customer accounts with the same name, the same city and the same sign-up date: candidates for duplicate accounts.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Self-join on the matching columns, each pair once',
+        postgres: `select count(*) as candidate_pairs
+from customers a
+join customers b
+  on b.name = a.name
+ and b.city = a.city
+ and b.signed_up_at = a.signed_up_at
+ and b.id > a.id;`,
+        mysql: `select count(*) as candidate_pairs
+from customers a
+join customers b
+  on b.name = a.name
+ and b.city = a.city
+ and b.signed_up_at = a.signed_up_at
+ and b.id > a.id;`,
+        explanation:
+          '4,080 pairs, but in this generated data they are coincidences: with 100 name combinations, 5 cities and about 600 sign-up days, many people share all three. Real duplicate detection needs stronger evidence such as the same email or phone, and a human to confirm.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'delivery-111',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['set-operations', 'joins'],
+    title: 'Haifa customers who never tried Herzliya',
+    prompt: 'How many customers have ordered from a restaurant in Haifa but never from a restaurant in Herzliya?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'EXCEPT of two customer lists',
+        postgres: `select count(*) as customers
+from (
+  select o.customer_id from orders o join restaurants r on r.id = o.restaurant_id where r.city = 'Haifa'
+  except
+  select o.customer_id from orders o join restaurants r on r.id = o.restaurant_id where r.city = 'Herzliya'
+) x;`,
+        mysql: `select count(*) as customers
+from (
+  select o.customer_id from orders o join restaurants r on r.id = o.restaurant_id where r.city = 'Haifa'
+  except
+  select o.customer_id from orders o join restaurants r on r.id = o.restaurant_id where r.city = 'Herzliya'
+) x;`,
+        mysqlNote: 'EXCEPT exists since MySQL 8.0.31.',
+        explanation: '11,036 customers. EXCEPT works on distinct values, so each customer counts once however many Haifa orders they have. NOT EXISTS would give the same answer and can return other columns.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'delivery-112',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['views', 'joins'],
+    title: 'An order overview for support',
+    prompt: 'Create a view order_overview (order_id, created_at, customer, customer_city, restaurant, restaurant_city, total, status) so support never writes the joins. Then show orders 1 to 3 from it.',
+    orderMatters: true,
+    checkSql: `select order_id, customer, customer_city, restaurant, restaurant_city, total, status from order_overview where order_id between 1 and 3 order by order_id`,
+    solutions: [
+      {
+        approach: 'A view over three tables',
+        postgres: `create view order_overview as
+select o.id as order_id, o.created_at, c.name as customer, c.city as customer_city,
+       r.name as restaurant, r.city as restaurant_city, o.total, o.status
+from orders o
+join customers c on c.id = o.customer_id
+join restaurants r on r.id = o.restaurant_id;`,
+        mysql: `create view order_overview as
+select o.id as order_id, o.created_at, c.name as customer, c.city as customer_city,
+       r.name as restaurant, r.city as restaurant_city, o.total, o.status
+from orders o
+join customers c on c.id = o.customer_id
+join restaurants r on r.id = o.restaurant_id;`,
+        explanation:
+          'The view shows something the raw tables hide: most orders go to a restaurant in another city than the customer\'s, which in real delivery data would be a red flag. Here it is a property of the generated sample.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'delivery-113',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'Refunds only within 14 days',
+    prompt:
+      'Write a procedure refund_order(p_id, p_today) that sets a delivered order to refunded only if it was created at most 14 days before p_today; otherwise raise an error. Refund order 122413 with today = 2026-06-24.',
+    orderMatters: false,
+    checkSql: `select id, status from orders where id = 122413`,
+    solutions: [
+      {
+        approach: 'Two checks, then update',
+        postgres: `create procedure refund_order(p_id integer, p_today date)
+language plpgsql
+as $$
+declare
+  v_status text;
+  v_created timestamp;
+begin
+  select status, created_at into v_status, v_created from orders where id = p_id for update;
+  if v_status is distinct from 'delivered' then
+    raise exception 'order % is not a delivered order', p_id;
+  elsif v_created < p_today - 14 then
+    raise exception 'order % is older than 14 days', p_id;
+  end if;
+  update orders set status = 'refunded' where id = p_id;
+end;
+$$;
+
+call refund_order(122413, '2026-06-24');`,
+        mysql: `create procedure refund_order(p_id int, p_today date)
+begin
+  declare v_status varchar(10);
+  declare v_created datetime;
+  select status, created_at into v_status, v_created from orders where id = p_id for update;
+  if v_status is null or v_status <> 'delivered' then
+    signal sqlstate '45000' set message_text = 'not a delivered order';
+  elseif v_created < p_today - interval 14 day then
+    signal sqlstate '45000' set message_text = 'order is older than 14 days';
+  end if;
+  update orders set status = 'refunded' where id = p_id;
+end;
+
+call refund_order(122413, '2026-06-24');`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'Passing "today" as a parameter keeps the procedure testable on historical data and in tests; production code would call it with current_date. IS DISTINCT FROM also catches an unknown order, whose status is NULL.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
+  },
+  {
+    id: 'delivery-114',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'Equality first, range last',
+    prompt:
+      'The restaurant dashboard runs: where restaurant_id = ? and status = \'delivered\' and created_at >= ? order by created_at. Create the best composite index for it and explain the column order.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'orders' and indexdef like '%(restaurant_id, status, created_at%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics s1
+join information_schema.statistics s2 on s2.table_schema = s1.table_schema and s2.table_name = s1.table_name and s2.index_name = s1.index_name
+where s1.table_schema = database() and s1.table_name = 'orders'
+  and s1.column_name = 'status' and s1.seq_in_index = 2
+  and s2.column_name = 'created_at' and s2.seq_in_index = 3`,
+    solutions: [
+      {
+        approach: '(restaurant_id, status, created_at)',
+        postgres: `create index orders_dashboard_idx on orders (restaurant_id, status, created_at);
+
+-- explain select * from orders where restaurant_id = 36 and status = 'delivered' and created_at >= '2026-06-01' order by created_at;`,
+        mysql: `create index orders_dashboard_idx on orders (restaurant_id, status, created_at);
+
+-- explain select * from orders where restaurant_id = 36 and status = 'delivered' and created_at >= '2026-06-01' order by created_at;`,
+        explanation:
+          'Columns compared with = go first, the range column last. Then all matching entries are one contiguous slice, already sorted by created_at, so no sort is needed. With created_at in the middle, the range would split the slice and status could no longer narrow it.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Multicolumn indexes', url: PG + 'indexes-multicolumn.html' }],
+  },
 ]

@@ -38,6 +38,7 @@ Audit of 2026-10-15:
   functions, triggers) set `checkSql` (and `checkSqlMysql` if needed); PG runs them in a rolled-back transaction, MySQL on a
   throwaway copy (`pb_scratch`).
   Never run two `verify` processes at once: they share `pb_scratch` and break each other ("Unknown database 'pb_scratch'").
+  A full run of ~1,000 exercises takes 30–60 minutes; run it in the background with a long timeout.
 - `src/content/topics.ts` — the 53-topic curriculum (5 levels). `src/content/datasets.ts` — dataset metadata and attribution.
 - UI: React + TypeScript strict + styled-components; one component per file in `src/components/`; colours/spacing only from
   `src/theme/tokens.ts`.
@@ -79,7 +80,7 @@ Audit of 2026-10-15:
   AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
   every 200th booking), Lahman (SABR CSVs, CC BY-SA, major leagues only, player data from 2010), Delivery (own,
   generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
-  959 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
+  1000 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
 - Next: go deep on existing datasets (topics with few exercises first), two replacement datasets with commercial licenses,
   a functions reference section; a licenses/credits page;

@@ -4402,4 +4402,151 @@ insert into titles_by_family select emp_no, title, from_date, to_date from title
     ],
     docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
   },
+  {
+    id: 'employees-117',
+    dataset: 'employees',
+    level: 1,
+    topics: ['distinct', 'aggregates'],
+    title: 'How many different names',
+    prompt: 'How many employees are there, how many different last names and how many different first names?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'COUNT(*) next to COUNT(DISTINCT …)',
+        postgres: `select count(*) as employees,
+       count(distinct last_name) as last_names,
+       count(distinct first_name) as first_names
+from employees;`,
+        mysql: `select count(*) as employees,
+       count(distinct last_name) as last_names,
+       count(distinct first_name) as first_names
+from employees;`,
+        explanation: '6,024 people share only 1,597 last names and 1,261 first names: the sample data recombines a limited pool of names, which is why names can never serve as identifiers here.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'employees-118',
+    dataset: 'employees',
+    level: 2,
+    topics: ['full-join', 'distinct'],
+    title: 'Pay changes and title changes in 2002',
+    prompt: 'Among employees with a new salary row starting in 2002 and those with a new title row starting in 2002: how many had both, only a salary change, only a title change?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two distinct employee lists',
+        postgres: `with pay as (select distinct emp_no from salaries where from_date >= '2002-01-01'),
+     job as (select distinct emp_no from titles where from_date >= '2002-01-01')
+select count(*) filter (where p.emp_no is not null and j.emp_no is not null) as both_changes,
+       count(*) filter (where j.emp_no is null) as salary_only,
+       count(*) filter (where p.emp_no is null) as title_only
+from pay p
+full join job j on j.emp_no = p.emp_no;`,
+        mysql: `with pay as (select distinct emp_no from salaries where from_date >= '2002-01-01'),
+     job as (select distinct emp_no from titles where from_date >= '2002-01-01')
+select (select count(*) from pay p join job j on j.emp_no = p.emp_no) as both_changes,
+       (select count(*) from pay p where not exists (select 1 from job j where j.emp_no = p.emp_no)) as salary_only,
+       (select count(*) from job j where not exists (select 1 from pay p where p.emp_no = j.emp_no)) as title_only;`,
+        mysqlNote: 'No FULL JOIN in MySQL: a join and two anti-joins.',
+        explanation: '167 got both, 2,742 only a new salary, and nobody got a new title without a new salary: in this data a promotion always comes with a raise in the same year.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'employees-119',
+    dataset: 'employees',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'Salaries with thousands separators',
+    prompt: 'Show the 3 lowest current salaries as emp_no, the number, and the number formatted with a comma every three digits (39,937).',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'to_char / FORMAT',
+        postgres: `select emp_no, salary, to_char(salary, 'FM999,999') as salary_text
+from salaries
+where to_date = '9999-01-01'
+order by salary, emp_no
+limit 3;`,
+        mysql: `select emp_no, salary, format(salary, 0) as salary_text
+from salaries
+where to_date = '9999-01-01'
+order by salary, emp_no
+limit 3;`,
+        mysqlNote: 'FORMAT(number, decimals) uses commas for thousands by default; a third argument picks another locale.',
+        explanation:
+          'In to_char, 9 is a digit position, the comma a group separator, and FM removes padding spaces. The formatted value is text: sorting it would put "100,000" before "39,937". Format at the very end, never before comparing or sorting.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Formatting functions', url: PG + 'functions-formatting.html' }],
+  },
+  {
+    id: 'employees-120',
+    dataset: 'employees',
+    level: 3,
+    topics: ['recursive', 'numbers'],
+    title: 'How long until 50,000?',
+    prompt: 'Employee 109200 earns 39,937. If the salary grew by 4% a year (rounded to whole numbers each year), in which year after 2002 would it first reach 50,000? Show each year and salary until then.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE that stops when the goal is reached',
+        postgres: `with recursive plan (year, salary) as (
+  select 2002, salary from salaries where emp_no = 109200 and to_date = '9999-01-01'
+  union all
+  select year + 1, round(salary * 1.04)::integer
+  from plan
+  where salary < 50000
+)
+select year, salary from plan order by year;`,
+        mysql: `with recursive plan (year, salary) as (
+  select 2002, salary from salaries where emp_no = 109200 and to_date = '9999-01-01'
+  union all
+  select year + 1, round(salary * 1.04)
+  from plan
+  where salary < 50000
+)
+select year, salary from plan order by year;`,
+        explanation:
+          'The WHERE in the recursive part is the loop condition: a new year is produced only while the salary is still below the goal, so the last row is the first year at or above 50,000 (2008). Unlike generate_series, the number of steps is not known in advance.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'employees-121',
+    dataset: 'employees',
+    level: 5,
+    topics: ['partial-covering-indexes', 'constraints'],
+    title: 'At most one current salary per person',
+    prompt: 'Enforce that no employee can have two salary rows with to_date 9999-01-01 at the same time, using a unique index on the current rows only.',
+    hint: CURRENT_NOTE,
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_unique_index from pg_indexes where tablename = 'salaries' and indexdef like 'CREATE UNIQUE INDEX%' and indexdef like '%9999%'`,
+    checkSqlMysql: `select count(*) > 0 as has_unique_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'salaries' and non_unique = 0 and expression is not null`,
+    solutions: [
+      {
+        approach: 'Partial unique index',
+        postgres: `create unique index salaries_one_current on salaries (emp_no) where to_date = '9999-01-01';`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation:
+          'Uniqueness is checked only among current rows, so history (many closed rows per person) is unaffected. Inserting a second open salary without closing the first now fails, which is exactly the bug it prevents.',
+      },
+      {
+        approach: 'Unique functional index that is NULL for history',
+        postgres: `create unique index salaries_one_current on salaries ((case when to_date = '9999-01-01' then emp_no end));`,
+        mysql: `create unique index salaries_one_current on salaries ((case when to_date = '9999-01-01' then emp_no end));`,
+        explanation: 'Closed rows map to NULL, which a unique index allows any number of times; current rows map to emp_no, which must be unique.',
+      },
+    ],
+    comparison: 'Same rule; the partial index states it directly, the expression trick also works in MySQL 8.0.13+.',
+    docs: [{ label: 'PostgreSQL: Partial unique indexes', url: PG + 'indexes-partial.html' }],
+  },
 ]

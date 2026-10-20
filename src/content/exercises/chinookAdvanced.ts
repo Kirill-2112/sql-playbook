@@ -3550,4 +3550,155 @@ having sum(i.total) > 45;`,
     ],
     docs: [{ label: 'PostgreSQL: Index-only scans', url: PG + 'indexes-index-only-scans.html' }],
   },
+  {
+    id: 'chinook-122',
+    dataset: 'chinook',
+    level: 1,
+    topics: ['text-search', 'conditions'],
+    title: 'Compilations by their title',
+    prompt: 'How many albums have "Greatest" or "Best Of" in the title, in any letter case?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Two patterns joined with OR',
+        postgres: `select count(*) as compilations
+from album
+where title ilike '%greatest%' or title ilike '%best of%';`,
+        mysql: `select count(*) as compilations
+from album
+where title like '%greatest%' or title like '%best of%';`,
+        mysqlNote: 'MySQL\'s default collation ignores case, so plain LIKE matches "The Best of Ed Motta" and "The Best Of Billy Cobham" alike.',
+        explanation: '22 albums. Case matters here: the data writes both "Best Of" and "Best of". ILIKE (or lower() on both sides) catches both spellings.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE and ILIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'chinook-123',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['pivot', 'joins'],
+    title: 'Invoices per support rep and year',
+    prompt: 'For each support rep: last_name and the number of their customers\' invoices in 2023, 2024 and 2025, one column per year. Order by employee_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts per year',
+        postgres: `select e.last_name,
+       count(*) filter (where extract(year from i.invoice_date) = 2023) as y2023,
+       count(*) filter (where extract(year from i.invoice_date) = 2024) as y2024,
+       count(*) filter (where extract(year from i.invoice_date) = 2025) as y2025
+from invoice i
+join customer c on c.customer_id = i.customer_id
+join employee e on e.employee_id = c.support_rep_id
+group by e.employee_id, e.last_name
+order by e.employee_id;`,
+        mysql: `select e.last_name,
+       sum(year(i.invoice_date) = 2023) as y2023,
+       sum(year(i.invoice_date) = 2024) as y2024,
+       sum(year(i.invoice_date) = 2025) as y2025
+from invoice i
+join customer c on c.customer_id = i.customer_id
+join employee e on e.employee_id = c.support_rep_id
+group by e.employee_id, e.last_name
+order by e.employee_id;`,
+        explanation: 'Peacock\'s customers grew to 31 invoices in 2025 while Johnson\'s shrank to 23. Invoices are credited to the customer\'s current rep, so a reassigned customer moves all past invoices with them.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'chinook-124',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['temp-tables', 'joins'],
+    title: '2025 sales lines, enriched once',
+    prompt: 'Store every 2025 invoice line with its genre name and line amount in a temporary table sales_2025 (invoice_line_id, genre, amount). Then: the 3 genres with the most lines and their revenue.',
+    orderMatters: true,
+    checkSql: `select genre, count(*) as lines_sold, sum(amount) as revenue from sales_2025 group by genre order by lines_sold desc, genre limit 3`,
+    solutions: [
+      {
+        approach: 'Join once, aggregate many times',
+        postgres: `create temporary table sales_2025 as
+select l.invoice_line_id, g.name as genre, l.unit_price * l.quantity as amount
+from invoice_line l
+join invoice i on i.invoice_id = l.invoice_id
+join track t on t.track_id = l.track_id
+join genre g on g.genre_id = t.genre_id
+where i.invoice_date >= '2025-01-01' and i.invoice_date < '2026-01-01';`,
+        mysql: `create temporary table sales_2025 as
+select l.invoice_line_id, g.name as genre, l.unit_price * l.quantity as amount
+from invoice_line l
+join invoice i on i.invoice_id = l.invoice_id
+join track t on t.track_id = l.track_id
+join genre g on g.genre_id = t.genre_id
+where i.invoice_date >= '2025-01-01' and i.invoice_date < '2026-01-01';`,
+        explanation: 'Four tables joined once; Rock (176 lines), Latin and Alternative & Punk lead. Any further slice of 2025 sales (by month, by customer country) now reads 442 prepared rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'chinook-125',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['functions', 'normalization'],
+    title: 'Do invoice totals add up?',
+    prompt: 'Write a function lines_total(p_invoice_id) that sums unit_price × quantity of the invoice\'s lines. Use it to count invoices whose stored total differs from their lines.',
+    orderMatters: false,
+    checkSql: `select count(*) as invoices, count(*) filter (where total <> lines_total(invoice_id)) as mismatches from invoice`,
+    checkSqlMysql: `select count(*) as invoices, sum(total <> lines_total(invoice_id)) as mismatches from invoice`,
+    solutions: [
+      {
+        approach: 'A scalar SQL function used in a check query',
+        postgres: `create function lines_total(p_invoice_id integer) returns numeric
+language sql
+stable
+as $$
+  select coalesce(sum(unit_price * quantity), 0) from invoice_line where invoice_id = p_invoice_id;
+$$;`,
+        mysql: `create function lines_total(p_invoice_id int) returns decimal(10, 2)
+reads sql data
+begin
+  return (select coalesce(sum(unit_price * quantity), 0) from invoice_line where invoice_id = p_invoice_id);
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'All 412 totals agree with their lines today. invoice.total is derived data stored for speed; a function like this turns "is it still right?" into a one-line audit you can run any time.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SQL functions', url: PG + 'xfunc-sql.html' }],
+  },
+  {
+    id: 'chinook-126',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'A consistent export without stopping readers',
+    prompt:
+      'An export reads invoice and invoice_line in several queries. Nobody may change invoices while it runs, but other sessions may keep reading. Lock invoice accordingly, then run the export\'s first query (invoices and revenue of 2025). In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select count(*) as invoices, sum(total) as revenue from invoice where invoice_date >= '2025-01-01' and invoice_date < '2026-01-01'`,
+    solutions: [
+      {
+        approach: 'LOCK TABLE … IN SHARE MODE / LOCK TABLES … READ',
+        postgres: `lock table invoice, invoice_line in share mode;
+
+select count(*) as invoices, sum(total) as revenue
+from invoice
+where invoice_date >= '2025-01-01' and invoice_date < '2026-01-01';`,
+        mysql: `lock tables invoice read, invoice_line read;
+
+select count(*) as invoices, sum(total) as revenue
+from invoice
+where invoice_date >= '2025-01-01' and invoice_date < '2026-01-01';
+
+unlock tables;`,
+        mysqlNote: 'LOCK TABLES … READ lets every session read but nobody write, including this session. It must list every table the session will touch, and UNLOCK TABLES releases them.',
+        explanation:
+          'SHARE mode conflicts with writers but not with readers or other SHARE locks: inserts and updates wait, queries go on. In PostgreSQL a REPEATABLE READ transaction would give a consistent export without blocking writers at all; the lock is for when the data must also not change underneath other readers.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table-level locks', url: PG + 'explicit-locking.html#LOCKING-TABLES' }],
+  },
 ]

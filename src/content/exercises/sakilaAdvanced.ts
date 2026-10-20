@@ -3686,4 +3686,161 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: SQL functions', url: PG + 'xfunc-sql.html' }],
   },
+  {
+    id: 'sakila-124',
+    dataset: 'sakila',
+    level: 1,
+    topics: ['limit'],
+    title: 'The cheapest films to replace',
+    prompt: 'Show the 3 films with the lowest replacement_cost: title and replacement_cost. On equal cost, lower film_id first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ORDER BY with a tie-breaker, LIMIT',
+        postgres: `select title, replacement_cost
+from film
+order by replacement_cost, film_id
+limit 3;`,
+        mysql: `select title, replacement_cost
+from film
+order by replacement_cost, film_id
+limit 3;`,
+        explanation: 'Many films share the minimum of 9.99, so without film_id the three returned would be arbitrary and could change between runs. A tie-breaker on a unique column makes LIMIT deterministic.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'sakila-125',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['subtotals', 'casting'],
+    title: 'Action and Animation by rating, with totals',
+    prompt: 'Count Action and Animation films by category and rating, with a subtotal per category and a grand total (label totals \'All\'). Categories alphabetically, ratings alphabetically within them, totals after their details.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP, sorted on the text of the rating',
+        postgres: `select coalesce(c.name, 'All') as category, coalesce(f.rating::text, 'All') as rating, count(*) as films
+from film f
+join film_category fc on fc.film_id = f.film_id
+join category c on c.category_id = fc.category_id
+where c.name in ('Action', 'Animation')
+group by rollup (c.name, f.rating)
+order by grouping(c.name), c.name, grouping(f.rating), f.rating::text;`,
+        mysql: `select coalesce(name, 'All') as category, coalesce(rating_text, 'All') as rating, films
+from (
+  select c.name, cast(f.rating as char) as rating_text, count(*) as films,
+         grouping(c.name) as gc, grouping(cast(f.rating as char)) as gr
+  from film f
+  join film_category fc on fc.film_id = f.film_id
+  join category c on c.category_id = fc.category_id
+  where c.name in ('Action', 'Animation')
+  group by c.name, cast(f.rating as char) with rollup
+) t
+order by gc, name, gr, rating_text;`,
+        mysqlNote: 'rating is an ENUM in MySQL and would sort in definition order (G, PG, PG-13, R, NC-17); grouping by its text makes the order alphabetical, as in PostgreSQL.',
+        explanation: 'Action has 64 films, Animation 66, together 130. ROLLUP subtotals the leftmost column only; a rating total across both categories would need CUBE or GROUPING SETS.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'sakila-126',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['gaps-islands', 'dates-basics'],
+    title: 'Busy stretches of one customer',
+    prompt: 'Find the runs of consecutive days on which customer 1 rented something, lasting at least 2 days: first day, last day, days. In date order.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Distinct days, day minus row number',
+        postgres: `with days as (
+  select distinct rental_date::date as day from rental where customer_id = 1
+),
+runs as (
+  select day, day - (row_number() over (order by day))::int as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from runs
+group by grp
+having count(*) >= 2
+order by first_day;`,
+        mysql: `with days as (
+  select distinct date(rental_date) as day from rental where customer_id = 1
+),
+runs as (
+  select day, day - interval (row_number() over (order by day)) day as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from runs
+group by grp
+having count(*) >= 2
+order by first_day;`,
+        explanation:
+          'DISTINCT matters: on days with several rentals, duplicates would break the "one row per day" assumption the trick relies on. Customer 1 has six such stretches, the longest three days long.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'sakila-127',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['upsert', 'constraints'],
+    title: 'Add languages by name, skip known ones',
+    prompt: 'Make language.name unique, then add French, Hebrew and Russian with ids 7, 8 and 9 in one statement, silently skipping any name that already exists.',
+    orderMatters: true,
+    checkSql: `select language_id, name from language order by language_id`,
+    solutions: [
+      {
+        approach: 'Unique constraint, then ON CONFLICT (name) DO NOTHING',
+        postgres: `alter table language add constraint language_name_key unique (name);
+
+insert into language (language_id, name)
+values (7, 'French'), (8, 'Hebrew'), (9, 'Russian')
+on conflict (name) do nothing;`,
+        mysql: `alter table language add constraint language_name_key unique (name);
+
+insert into language (language_id, name)
+values (7, 'French'), (8, 'Hebrew'), (9, 'Russian') as new
+on duplicate key update name = new.name;`,
+        mysqlNote: 'The no-op update skips duplicates of either key. INSERT IGNORE would also skip them, but would turn other errors into warnings too.',
+        explanation:
+          'French already exists (id 5), so only Hebrew (8) and Russian (9) are added; id 7 stays unused, which is harmless. DO NOTHING needs the conflict target to be backed by a unique index, hence the constraint first.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'sakila-128',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['json', 'dates-basics'],
+    title: 'Monthly spending as one JSON object',
+    prompt: 'For customer 1, build one JSON object mapping each month (YYYY-MM) to the amount paid in it, like {"2005-05": 3.98, …}.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'jsonb_object_agg / JSON_OBJECTAGG over monthly sums',
+        postgres: `select jsonb_object_agg(month, paid) as spending
+from (
+  select to_char(payment_date, 'YYYY-MM') as month, sum(amount) as paid
+  from payment
+  where customer_id = 1
+  group by to_char(payment_date, 'YYYY-MM')
+) m;`,
+        mysql: `select json_objectagg(month, paid) as spending
+from (
+  select date_format(payment_date, '%Y-%m') as month, sum(amount) as paid
+  from payment
+  where customer_id = 1
+  group by date_format(payment_date, '%Y-%m')
+) m;`,
+        explanation: 'Four months, from 3.98 in May to 50.88 in July 2005. Keys come from one column and values from another; the result is a single value, handy for a chart library that expects an object.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: JSON aggregates', url: PG + 'functions-aggregate.html' }],
+  },
 ]

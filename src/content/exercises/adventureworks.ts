@@ -4632,4 +4632,120 @@ call complete_po(4001, '2025-03-10');`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
   },
+  {
+    id: 'adventureworks-126',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['limit', 'conditions'],
+    title: 'The cheapest things you can buy',
+    prompt: 'Show the 3 cheapest products that are actually for sale (list_price above 0): name and list_price, cheapest first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Exclude the zeros, then sort and cut',
+        postgres: `select name, list_price
+from product
+where list_price > 0
+order by list_price, product_id
+limit 3;`,
+        mysql: `select name, list_price
+from product
+where list_price > 0
+order by list_price, product_id
+limit 3;`,
+        explanation: 'Many components have list_price 0 because they are not sold on their own; without the filter they would fill the list. The cheapest real item is a patch kit at 2.29.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'adventureworks-127',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['conditional-aggregates', 'joins'],
+    title: 'Online share by territory group, 2024',
+    prompt: 'For 2024: per territory group, the number of online orders, reseller orders and the online share in percent (1 decimal). Order by group.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts and their ratio',
+        postgres: `select t.territory_group,
+       count(*) filter (where h.online_order_flag = 1) as online,
+       count(*) filter (where h.online_order_flag = 0) as reseller,
+       round(100.0 * count(*) filter (where h.online_order_flag = 1) / count(*), 1) as online_pct
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+where h.order_date >= '2024-01-01' and h.order_date < '2025-01-01'
+group by t.territory_group
+order by t.territory_group;`,
+        mysql: `select t.territory_group,
+       sum(h.online_order_flag = 1) as online,
+       sum(h.online_order_flag = 0) as reseller,
+       round(100 * sum(h.online_order_flag = 1) / count(*), 1) as online_pct
+from sales_order_header h
+join sales_territory t on t.territory_id = h.territory_id
+where h.order_date >= '2024-01-01' and h.order_date < '2025-01-01'
+group by t.territory_group
+order by t.territory_group;`,
+        explanation: 'The Pacific group is almost entirely online (97%), North America has the most reseller orders. Counting orders hides that reseller orders are much larger; a revenue split would tell a different story.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'adventureworks-128',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['subqueries', 'group-by'],
+    title: 'Products with a second source',
+    prompt: 'How many products can be bought from at least two vendors?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'IN with a grouped subquery',
+        postgres: `select count(*) as products
+from product
+where product_id in (
+  select product_id from product_vendor group by product_id having count(*) >= 2
+);`,
+        mysql: `select count(*) as products
+from product
+where product_id in (
+  select product_id from product_vendor group by product_id having count(*) >= 2
+);`,
+        explanation: '152 products have a backup supplier. The subquery returns a list of ids, built with GROUP BY … HAVING; the outer query only checks membership, so duplicates in the list would not matter either.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: IN with a subquery', url: PG + 'functions-subquery.html#FUNCTIONS-SUBQUERY-IN' }],
+  },
+  {
+    id: 'adventureworks-129',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['arrays', 'json'],
+    title: 'Products both vendors can supply',
+    prompt: 'Collect each product\'s vendor ids into a list, then count the products whose list contains both vendor 1492 and vendor 1534.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'array_agg and @> / JSON_ARRAYAGG and JSON_CONTAINS',
+        postgres: `select count(*) as products
+from (
+  select product_id, array_agg(business_entity_id) as vendors
+  from product_vendor
+  group by product_id
+) p
+where vendors @> array[1492, 1534];`,
+        mysql: `select count(*) as products
+from (
+  select product_id, json_arrayagg(business_entity_id) as vendors
+  from product_vendor
+  group by product_id
+) p
+where json_contains(vendors, '[1492, 1534]');`,
+        explanation: '16 products. For a purchasing negotiation with two vendors at once, these are the items where both compete. The list form makes "all of these vendors" one condition, however many vendors you name.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' }],
+  },
 ]

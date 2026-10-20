@@ -4868,4 +4868,154 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
   },
+  {
+    id: 'airlines-122',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['conditions', 'aggregates'],
+    title: 'Bookings over 100,000',
+    prompt: 'How many bookings have a total_amount above 100,000?',
+    hint: SAMPLE_NOTE,
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'COUNT with a numeric condition',
+        postgres: `select count(*) as bookings
+from bookings
+where total_amount > 100000;`,
+        mysql: `select count(*) as bookings
+from bookings
+where total_amount > 100000;`,
+        explanation: '84 bookings. Write numbers without separators in SQL: 100,000 would be read as two values, 100 and 000.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Comparison operators', url: PG + 'functions-comparison.html' }],
+  },
+  {
+    id: 'airlines-123',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['text-aggregation', 'distinct'],
+    title: 'Destinations from Moscow and St Petersburg',
+    prompt: 'For December 2025 routes departing from SVO and from LED: the airport and its destinations in one line, alphabetically, separated by ", ".',
+    hint: DECEMBER_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg(DISTINCT …) per departure airport',
+        postgres: `select departure_airport,
+       string_agg(distinct arrival_airport, ', ' order by arrival_airport) as destinations
+from routes
+where valid_from = '2025-12-01' and departure_airport in ('SVO', 'LED')
+group by departure_airport
+order by departure_airport;`,
+        mysql: `select departure_airport,
+       group_concat(distinct arrival_airport order by arrival_airport separator ', ') as destinations
+from routes
+where valid_from = '2025-12-01' and departure_airport in ('SVO', 'LED')
+group by departure_airport
+order by departure_airport;`,
+        explanation: 'Sheremetyevo serves nine destinations, Pulkovo three. DISTINCT inside the aggregate guards against two route numbers serving the same pair.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'airlines-124',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'Route numbers in numeric order',
+    prompt: 'route_no looks like PG0012. For December 2025 routes from SVO, show route_no and its number part as an integer (12), ordered by that number.',
+    hint: DECEMBER_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Cut the prefix, cast to integer',
+        postgres: `select route_no, substr(route_no, 3)::integer as route_number
+from routes
+where valid_from = '2025-12-01' and departure_airport = 'SVO'
+order by route_number;`,
+        mysql: `select route_no, cast(substr(route_no, 3) as unsigned) as route_number
+from routes
+where valid_from = '2025-12-01' and departure_airport = 'SVO'
+order by route_number;`,
+        explanation:
+          'Here the zero-padding makes text order and numeric order agree, but only because every number has four digits; "PG12" would sort after "PG0999" as text. The leading zeros disappear in the cast: \'0012\' becomes 12.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Type casts', url: PG + 'sql-expressions.html#SQL-SYNTAX-TYPE-CASTS' }],
+  },
+  {
+    id: 'airlines-125',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['lateral', 'dates-advanced'],
+    title: 'The first flight out on Christmas Eve',
+    prompt: 'For SVO, LED and KZN: the first flight scheduled to depart from 24 December 2025 00:00 UTC onwards: airport, flight_id, route_no and scheduled_departure.',
+    hint: `${VALIDITY_NOTE} ${UTC_NOTE}`,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL per airport',
+        postgres: `select a.airport_code, nxt.flight_id, nxt.route_no, nxt.scheduled_departure
+from airports a
+cross join lateral (
+  select f.flight_id, f.route_no, f.scheduled_departure
+  from flights f
+  ${ROUTE_JOIN}
+  where r.departure_airport = a.airport_code and f.scheduled_departure >= '2025-12-24'
+  order by f.scheduled_departure, f.flight_id
+  limit 1
+) nxt
+where a.airport_code in ('SVO', 'LED', 'KZN')
+order by a.airport_code;`,
+        mysql: `select a.airport_code, nxt.flight_id, nxt.route_no, nxt.scheduled_departure
+from airports a
+cross join lateral (
+  select f.flight_id, f.route_no, f.scheduled_departure
+  from flights f
+  ${ROUTE_JOIN}
+  where r.departure_airport = a.airport_code and f.scheduled_departure >= '2025-12-24'
+  order by f.scheduled_departure, f.flight_id
+  limit 1
+) nxt
+where a.airport_code in ('SVO', 'LED', 'KZN')
+order by a.airport_code;`,
+        explanation: '"Next after a moment" per group is the typical LATERAL job: sort that group\'s rows from the moment on and take the first. The period join inside makes sure each flight is matched to the route version valid on its day.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'airlines-126',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['materialized-views', 'dates-basics'],
+    title: 'Bookings per day, stored',
+    prompt: 'Store bookings and revenue per day (UTC) for the sales dashboard. Then show the last three days of the data.',
+    hint: `${UTC_NOTE} ${SAMPLE_NOTE}`,
+    orderMatters: true,
+    checkSql: `select day, bookings, revenue from daily_bookings where day >= '2025-11-28' order by day`,
+    solutions: [
+      {
+        approach: 'Materialized view keyed by day',
+        postgres: `create materialized view daily_bookings as
+select book_date::date as day, count(*) as bookings, sum(total_amount) as revenue
+from bookings
+group by book_date::date;
+
+create unique index daily_bookings_key on daily_bookings (day);`,
+        mysql: `create table daily_bookings (day date primary key, bookings int, revenue decimal(14, 2));
+
+replace into daily_bookings
+select date(book_date), count(*), sum(total_amount)
+from bookings
+group by date(book_date);`,
+        mysqlNote: 'A keyed table refreshed by REPLACE INTO stands in for the materialized view.',
+        explanation: 'book_date::date uses the session time zone (UTC here); a dashboard in Moscow time would group differently, so decide the zone before storing. The last day, 30 November, had 66 bookings.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
 ]

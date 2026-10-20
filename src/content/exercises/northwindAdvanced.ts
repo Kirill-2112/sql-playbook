@@ -2076,4 +2076,124 @@ where discontinued = 0;`,
       { label: 'MySQL: Functional key parts', url: MY + 'create-index.html#create-index-functional-key-parts' },
     ],
   },
+  {
+    id: 'northwind-086',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'Customers who went quiet for a year',
+    prompt:
+      'Find every gap of more than 365 days between two consecutive orders of the same customer: customer_id, the order before the gap, the order after it (dates) and the gap in days. Longest first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LAG to the previous order, then filter',
+        postgres: `with seq as (
+  select customer_id, order_date,
+         lag(order_date) over (partition by customer_id order by order_date, order_id) as prev_date
+  from orders
+)
+select customer_id, prev_date::date as before_gap, order_date::date as after_gap,
+       order_date::date - prev_date::date as gap_days
+from seq
+where order_date::date - prev_date::date > 365
+order by gap_days desc, customer_id;`,
+        mysql: `with seq as (
+  select customer_id, order_date,
+         lag(order_date) over (partition by customer_id order by order_date, order_id) as prev_date
+  from orders
+)
+select customer_id, date(prev_date) as before_gap, date(order_date) as after_gap,
+       datediff(order_date, prev_date) as gap_days
+from seq
+where datediff(order_date, prev_date) > 365
+order by gap_days desc, customer_id;`,
+        explanation:
+          'A gap lives between two rows, so LAG puts the previous order next to each order; the filter must sit outside the CTE, because a window function cannot appear in WHERE. Seven gaps; customer ROMEY went 532 days without ordering, then came back.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'northwind-087',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['window-frames'],
+    title: 'A centred moving average of freight',
+    prompt:
+      'For each day with orders in March 1998: the day, its total freight, and the average daily freight over the 7 order-days centred on it (3 before, the day itself, 3 after), rounded to 2 decimals.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Frame with PRECEDING and FOLLOWING',
+        postgres: `with daily as (
+  select order_date::date as day, sum(freight) as freight
+  from orders
+  where order_date >= '1998-03-01' and order_date < '1998-04-01'
+  group by order_date::date
+)
+select day, freight,
+       round(avg(freight) over (order by day rows between 3 preceding and 3 following), 2) as centred_avg
+from daily
+order by day;`,
+        mysql: `with daily as (
+  select date(order_date) as day, sum(freight) as freight
+  from orders
+  where order_date >= '1998-03-01' and order_date < '1998-04-01'
+  group by date(order_date)
+)
+select day, freight,
+       round(avg(freight) over (order by day rows between 3 preceding and 3 following), 2) as centred_avg
+from daily
+order by day;`,
+        explanation:
+          'A frame can reach forward too: FOLLOWING looks at later rows. A centred average does not lag behind the data the way a trailing one does, but it needs the future, so it suits analysis, not a live dashboard. At the edges of the month the frame is cut short and averages fewer days.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
+  {
+    id: 'northwind-088',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['materialized-views'],
+    title: 'Sales per employee and year, stored',
+    prompt:
+      'Store revenue per employee and year (employee_id, year, orders, revenue with 2 decimals) for the sales leaderboard, refreshable without blocking it. Then: the top 3 of 1997.',
+    hint: REVENUE_NOTE,
+    orderMatters: true,
+    checkSql: `select employee_id, orders, revenue from employee_sales where year = 1997 order by revenue desc, employee_id limit 3`,
+    solutions: [
+      {
+        approach: 'Materialized view with a unique index',
+        postgres: `create materialized view employee_sales as
+select o.employee_id, extract(year from o.order_date)::int as year,
+       count(distinct o.order_id) as orders,
+       round(sum(d.unit_price * d.quantity * (1 - d.discount)), 2) as revenue
+from orders o
+join order_details d on d.order_id = o.order_id
+group by o.employee_id, extract(year from o.order_date);
+
+create unique index employee_sales_key on employee_sales (employee_id, year);`,
+        mysql: `create table employee_sales (
+  employee_id int,
+  year        int,
+  orders      int,
+  revenue     decimal(12, 2),
+  primary key (employee_id, year)
+);
+
+replace into employee_sales
+select o.employee_id, year(o.order_date), count(distinct o.order_id),
+       round(sum(d.unit_price * d.quantity * (1 - d.discount)), 2)
+from orders o
+join order_details d on d.order_id = o.order_id
+group by o.employee_id, year(o.order_date);`,
+        mysqlNote: 'A table refreshed by REPLACE INTO on a schedule stands in for the materialized view.',
+        explanation:
+          'count(distinct order_id), because the join repeats each order once per line. The unique index on (employee_id, year) is what REFRESH … CONCURRENTLY needs to match old and new rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: REFRESH MATERIALIZED VIEW', url: PG + 'sql-refreshmaterializedview.html' }],
+  },
 ]

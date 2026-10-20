@@ -2856,4 +2856,179 @@ using gin (to_tsvector('simple', name || ' ' || cuisine || ' ' || city));
       { label: 'MySQL: Boolean full-text searches', url: MY + 'fulltext-boolean.html' },
     ],
   },
+  {
+    id: 'delivery-077',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['self-cross-join', 'dates-basics'],
+    title: 'Each month against the same month last year',
+    prompt:
+      'Compute delivered revenue per month, then put every month of 2026 next to the same month of 2025: month, revenue, revenue a year earlier, and the change in percent (1 decimal).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Join the monthly table to itself, shifted by a year',
+        postgres: `with monthly as (
+  select date_trunc('month', created_at)::date as month, sum(total) as revenue
+  from orders
+  where status = 'delivered'
+  group by date_trunc('month', created_at)
+)
+select to_char(cur.month, 'YYYY-MM') as month, cur.revenue, prev.revenue as revenue_year_before,
+       round(100 * (cur.revenue - prev.revenue) / prev.revenue, 1) as change_pct
+from monthly cur
+join monthly prev on prev.month = cur.month - interval '1 year'
+order by cur.month;`,
+        mysql: `with monthly as (
+  select cast(date_format(created_at, '%Y-%m-01') as date) as month, sum(total) as revenue
+  from orders
+  where status = 'delivered'
+  group by cast(date_format(created_at, '%Y-%m-01') as date)
+)
+select date_format(cur.month, '%Y-%m') as month, cur.revenue, prev.revenue as revenue_year_before,
+       round(100 * (cur.revenue - prev.revenue) / prev.revenue, 1) as change_pct
+from monthly cur
+join monthly prev on prev.month = cur.month - interval 1 year
+order by cur.month;`,
+        mysqlNote: 'No date_trunc in MySQL: format the date as the 1st of its month and cast it back.',
+        explanation:
+          'The same CTE plays both roles: cur is "this month", prev is "a year earlier", matched by date arithmetic. An inner join keeps only months that have a partner, so 2025 months (with nothing a year before) drop out. LAG(revenue, 12) would also work, but only if no month were ever missing.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: date_trunc', url: PG + 'functions-datetime.html#FUNCTIONS-DATETIME-TRUNC' }],
+  },
+  {
+    id: 'delivery-078',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['cte', 'conditional-aggregates'],
+    title: 'New and returning customers per month',
+    prompt:
+      'For each month of 2025: how many customers ordered, how many of them were ordering for the first time ever, and how many had ordered before.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'First order per customer, then classify',
+        postgres: `with first_orders as (
+  select customer_id, min(created_at) as first_at
+  from orders
+  group by customer_id
+),
+monthly as (
+  select distinct date_trunc('month', o.created_at) as month, o.customer_id,
+         date_trunc('month', f.first_at) as first_month
+  from orders o
+  join first_orders f on f.customer_id = o.customer_id
+  where o.created_at >= '2025-01-01' and o.created_at < '2026-01-01'
+)
+select to_char(month, 'YYYY-MM') as month,
+       count(*) as customers,
+       count(*) filter (where first_month = month) as new_customers,
+       count(*) filter (where first_month < month) as returning_customers
+from monthly
+group by month
+order by month;`,
+        mysql: `with first_orders as (
+  select customer_id, min(created_at) as first_at
+  from orders
+  group by customer_id
+),
+monthly as (
+  select distinct date_format(o.created_at, '%Y-%m') as month, o.customer_id,
+         date_format(f.first_at, '%Y-%m') as first_month
+  from orders o
+  join first_orders f on f.customer_id = o.customer_id
+  where o.created_at >= '2025-01-01' and o.created_at < '2026-01-01'
+)
+select month,
+       count(*) as customers,
+       sum(first_month = month) as new_customers,
+       sum(first_month < month) as returning_customers
+from monthly
+group by month
+order by month;`,
+        explanation:
+          'Step one finds when each customer first ordered; step two reduces orders to one row per customer and month; the last step only counts. In January everyone is new, because the data starts then; returning customers grow from 0% to 91% of the month by December.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'delivery-079',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['recursive', 'window-frames'],
+    title: 'Loyalty points with a cap',
+    prompt:
+      'Customer 16177 earns floor(total / 10) points per delivered order, but the balance can never exceed 40. Show each order in time order with the points earned and the balance after it.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE carrying the balance',
+        postgres: `with recursive numbered as (
+  select row_number() over (order by created_at, id) as n, id, floor(total / 10)::int as earned
+  from orders
+  where customer_id = 16177 and status = 'delivered'
+),
+points (n, id, earned, balance) as (
+  select n, id, earned, least(earned, 40) from numbered where n = 1
+  union all
+  select x.n, x.id, x.earned, least(p.balance + x.earned, 40)
+  from points p
+  join numbered x on x.n = p.n + 1
+)
+select n, id, earned, balance from points order by n;`,
+        mysql: `with recursive numbered as (
+  select row_number() over (order by created_at, id) as n, id, floor(total / 10) as earned
+  from orders
+  where customer_id = 16177 and status = 'delivered'
+),
+points (n, id, earned, balance) as (
+  select n, id, earned, least(earned, 40) from numbered where n = 1
+  union all
+  select x.n, x.id, x.earned, least(p.balance + x.earned, 40)
+  from points p
+  join numbered x on x.n = p.n + 1
+)
+select n, id, earned, balance from points order by n;`,
+        explanation:
+          'A running SUM over a window cannot do this: once the cap cuts the balance, every later value depends on that cut, and SUM knows nothing of earlier results. The recursive CTE carries the previous balance from row to row, one order per step. Without the cap, SUM(earned) OVER (ORDER BY n) would be the simpler tool.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'delivery-080',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['normalization', 'ddl'],
+    title: 'First and last name as separate columns',
+    prompt:
+      'customers.name holds "first last" in one value. Add first_name and last_name columns, fill them from name, and make them NOT NULL. Then: the 3 most common last names.',
+    orderMatters: true,
+    checkSql: `select last_name, count(*) as customers from customers group by last_name order by customers desc, last_name limit 3`,
+    solutions: [
+      {
+        approach: 'Add, fill, then tighten',
+        postgres: `alter table customers add column first_name text, add column last_name text;
+
+update customers
+set first_name = split_part(name, ' ', 1),
+    last_name  = split_part(name, ' ', 2);
+
+alter table customers alter column first_name set not null, alter column last_name set not null;`,
+        mysql: `alter table customers add column first_name varchar(20), add column last_name varchar(20);
+
+update customers
+set first_name = substring_index(name, ' ', 1),
+    last_name  = substring_index(name, ' ', -1);
+
+alter table customers modify first_name varchar(20) not null, modify last_name varchar(20) not null;`,
+        mysqlNote: 'MODIFY restates the full column definition to add NOT NULL.',
+        explanation:
+          'First normal form asks for atomic values: "sort by last name" or "greet by first name" should not need string surgery on every query. The columns are added nullable, filled, and only then made NOT NULL, because existing rows would violate the constraint in between. Every name here has exactly two words; real names would need more care.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ALTER TABLE', url: PG + 'sql-altertable.html' }],
+  },
 ]

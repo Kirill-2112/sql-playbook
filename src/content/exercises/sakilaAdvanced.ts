@@ -2399,4 +2399,130 @@ where return_date is null;`,
     ],
     docs: [{ label: 'PostgreSQL: Comparison predicates', url: PG + 'functions-comparison.html' }],
   },
+  {
+    id: 'sakila-090',
+    dataset: 'sakila',
+    level: 2,
+    topics: ['text-aggregation', 'joins'],
+    title: 'The genres of each actor',
+    prompt: 'For actors 1 to 3: first_name, last_name, how many different categories their films belong to, and those categories in one line, alphabetically, separated by ", ".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Distinct aggregation over a three-table join',
+        postgres: `select a.actor_id, a.first_name, a.last_name,
+       count(distinct c.name) as categories,
+       string_agg(distinct c.name, ', ' order by c.name) as category_list
+from actor a
+join film_actor fa on fa.actor_id = a.actor_id
+join film_category fc on fc.film_id = fa.film_id
+join category c on c.category_id = fc.category_id
+where a.actor_id between 1 and 3
+group by a.actor_id, a.first_name, a.last_name
+order by a.actor_id;`,
+        mysql: `select a.actor_id, a.first_name, a.last_name,
+       count(distinct c.name) as categories,
+       group_concat(distinct c.name order by c.name separator ', ') as category_list
+from actor a
+join film_actor fa on fa.actor_id = a.actor_id
+join film_category fc on fc.film_id = fa.film_id
+join category c on c.category_id = fc.category_id
+where a.actor_id between 1 and 3
+group by a.actor_id, a.first_name, a.last_name
+order by a.actor_id;`,
+        explanation:
+          'An actor with three comedies would list Comedy three times without DISTINCT. Nick Wahlberg covers 14 of the 16 categories, Ed Chase 10.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'sakila-091',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['lateral', 'ranking'],
+    title: 'Top 3 films of each store',
+    prompt: 'For each store, the 3 most rented films (by rentals of that store\'s copies): store_id, film_id, title and rentals. On a tie, lower film_id first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL subquery per store',
+        postgres: `select s.store_id, top.film_id, top.title, top.rentals
+from store s
+cross join lateral (
+  select f.film_id, f.title, count(*) as rentals
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f on f.film_id = i.film_id
+  where i.store_id = s.store_id
+  group by f.film_id, f.title
+  order by rentals desc, f.film_id
+  limit 3
+) top
+order by s.store_id, top.rentals desc, top.film_id;`,
+        mysql: `select s.store_id, top.film_id, top.title, top.rentals
+from store s
+cross join lateral (
+  select f.film_id, f.title, count(*) as rentals
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film f on f.film_id = i.film_id
+  where i.store_id = s.store_id
+  group by f.film_id, f.title
+  order by rentals desc, f.film_id
+  limit 3
+) top
+order by s.store_id, top.rentals desc, top.film_id;`,
+        explanation:
+          'The lateral subquery runs once per store with that store\'s id, so "top 3" is a plain ORDER BY … LIMIT inside it. The window-function version (ROW_NUMBER per store, keep ≤ 3) gives the same rows; LATERAL tends to win when there are few groups and an index to reach each group\'s rows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'sakila-092',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'Deactivate a customer, but not with films at home',
+    prompt:
+      'Write a procedure deactivate_customer(p_customer_id) that sets active = 0, but raises an error if the customer still has unreturned rentals. Deactivate customer 1.',
+    orderMatters: false,
+    checkSql: `select customer_id, active from customer where customer_id = 1`,
+    solutions: [
+      {
+        approach: 'EXISTS check, then update',
+        postgres: `create procedure deactivate_customer(p_customer_id integer)
+language plpgsql
+as $$
+begin
+  if exists (select 1 from rental where customer_id = p_customer_id and return_date is null) then
+    raise exception 'customer % still has films at home', p_customer_id;
+  end if;
+
+  update customer set active = 0 where customer_id = p_customer_id;
+end;
+$$;
+
+call deactivate_customer(1);`,
+        mysql: `create procedure deactivate_customer(p_customer_id int)
+begin
+  if exists (select 1 from rental where customer_id = p_customer_id and return_date is null) then
+    signal sqlstate '45000' set message_text = 'customer still has films at home';
+  end if;
+
+  update customer set active = 0 where customer_id = p_customer_id;
+end;
+
+call deactivate_customer(1);`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'Customer 1 has returned everything, so the update runs. Customer 15 has two films out: deactivate_customer(15) would stop with the error and change nothing. EXISTS stops at the first open rental instead of counting them all.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' },
+      { label: 'MySQL: IF statement', url: MY + 'if.html' },
+    ],
+  },
 ]

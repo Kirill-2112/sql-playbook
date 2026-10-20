@@ -2275,4 +2275,171 @@ order by billing_country;`,
       { label: 'MySQL: GROUP_CONCAT', url: MY + 'aggregate-functions.html#function_group-concat' },
     ],
   },
+  {
+    id: 'chinook-087',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['subtotals', 'dates-basics'],
+    title: 'Quarterly sales with yearly totals',
+    prompt:
+      'Revenue per quarter of 2024 and 2025, with a total per year and a grand total. Show year, quarter (\'all\' on total rows; the grand total has year \'all\' too) and revenue.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP over year and quarter',
+        postgres: `select coalesce(extract(year from invoice_date)::text, 'all') as year,
+       coalesce(extract(quarter from invoice_date)::text, 'all') as quarter,
+       sum(total) as revenue
+from invoice
+where invoice_date >= '2024-01-01' and invoice_date < '2026-01-01'
+group by rollup (extract(year from invoice_date), extract(quarter from invoice_date))
+order by grouping(extract(year from invoice_date)), extract(year from invoice_date),
+         grouping(extract(quarter from invoice_date)), extract(quarter from invoice_date);`,
+        mysql: `select coalesce(cast(y as char), 'all') as year, coalesce(cast(q as char), 'all') as quarter, revenue
+from (
+  select year(invoice_date) as y, quarter(invoice_date) as q, sum(total) as revenue,
+         grouping(year(invoice_date)) as gy, grouping(quarter(invoice_date)) as gq
+  from invoice
+  where invoice_date >= '2024-01-01' and invoice_date < '2026-01-01'
+  group by year(invoice_date), quarter(invoice_date) with rollup
+) t
+order by gy, y, gq, q;`,
+        mysqlNote: 'WITH ROLLUP goes after the GROUP BY list. Labels are added outside, where the NULLs of the total rows are plain values.',
+        explanation:
+          'ROLLUP (year, quarter) adds a subtotal for each year and one grand total. Numbers are turned into text before COALESCE, because a column cannot hold both 2024 and \'all\'. 2024 brought 477.53, 2025 450.58.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'chinook-088',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['ddl'],
+    title: 'A new flag, one old column gone',
+    prompt:
+      'Two schema changes: add explicit to track (true/false, not null, default false), and drop the fax column from customer, which nobody uses any more.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from information_schema.columns where table_name = 'customer' and column_name = 'fax') as customer_fax,
+       (select count(*) from track where explicit) as explicit_tracks,
+       (select count(*) from information_schema.columns where table_name = 'track' and column_name = 'explicit' and is_nullable = 'NO') as explicit_not_null`,
+    checkSqlMysql: `select (select count(*) from information_schema.columns where table_schema = database() and table_name = 'customer' and column_name = 'fax') as customer_fax,
+       (select count(*) from track where explicit) as explicit_tracks,
+       (select count(*) from information_schema.columns where table_schema = database() and table_name = 'track' and column_name = 'explicit' and is_nullable = 'NO') as explicit_not_null`,
+    solutions: [
+      {
+        approach: 'ALTER TABLE … ADD COLUMN / DROP COLUMN',
+        postgres: `alter table track add column explicit boolean not null default false;
+
+alter table customer drop column fax;`,
+        mysql: `alter table track add column explicit boolean not null default false;
+
+alter table customer drop column fax;`,
+        mysqlNote: 'BOOLEAN is TINYINT(1) in MySQL; false is stored as 0.',
+        explanation:
+          'With a constant default, adding a NOT NULL column fills every existing row with it; PostgreSQL even does this without rewriting the table. DROP COLUMN cannot be undone without a backup, and fails if a view still uses the column, which is a useful safety net.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Modifying tables', url: PG + 'ddl-alter.html' },
+      { label: 'MySQL: ALTER TABLE', url: MY + 'alter-table.html' },
+    ],
+  },
+  {
+    id: 'chinook-089',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['upsert', 'aggregates'],
+    title: 'Play counts from a batch of events',
+    prompt:
+      'Create track_plays (track_id primary key, plays). A batch of play events arrives: tracks 1, 2, 1, 3, 1. Add them to the counters in one statement (new tracks start from their count in the batch). Then run the same batch once more.',
+    orderMatters: true,
+    checkSql: `select track_id, plays from track_plays order by track_id`,
+    solutions: [
+      {
+        approach: 'Aggregate the batch first, then upsert',
+        postgres: `create table track_plays (track_id integer primary key references track (track_id), plays integer not null);
+
+insert into track_plays (track_id, plays)
+select track_id, count(*) from (values (1), (2), (1), (3), (1)) as batch (track_id) group by track_id
+on conflict (track_id) do update set plays = track_plays.plays + excluded.plays;
+
+insert into track_plays (track_id, plays)
+select track_id, count(*) from (values (1), (2), (1), (3), (1)) as batch (track_id) group by track_id
+on conflict (track_id) do update set plays = track_plays.plays + excluded.plays;`,
+        mysql: `create table track_plays (track_id int primary key, plays int not null, foreign key (track_id) references track (track_id));
+
+insert into track_plays (track_id, plays)
+select * from (select track_id, count(*) as n from (select 1 as track_id union all select 2 union all select 1 union all select 3 union all select 1) batch group by track_id) as b
+on duplicate key update plays = track_plays.plays + b.n;
+
+insert into track_plays (track_id, plays)
+select * from (select track_id, count(*) as n from (select 1 as track_id union all select 2 union all select 1 union all select 3 union all select 1) batch group by track_id) as b
+on duplicate key update plays = track_plays.plays + b.n;`,
+        mysqlNote: 'MySQL would accept the raw events too, applying them one by one; aggregating first is still fewer row updates.',
+        explanation:
+          'Without the GROUP BY, PostgreSQL refuses the statement: "ON CONFLICT DO UPDATE command cannot affect row a second time", because track 1 appears three times in one batch. Counting per track first turns the batch into one row per key. After two runs: track 1 has 6 plays, track 2 has 2, track 3 has 2.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'chinook-090',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['generated-columns'],
+    title: 'File size in megabytes, kept in sync',
+    prompt: 'Add a stored generated column size_mb to track: bytes / 1,048,576, rounded to 1 decimal. Then: the 3 largest tracks by size_mb with name and size.',
+    orderMatters: true,
+    checkSql: `select track_id, name, size_mb from track order by size_mb desc, track_id limit 3`,
+    solutions: [
+      {
+        approach: 'GENERATED ALWAYS AS … STORED',
+        postgres: `alter table track
+add column size_mb numeric(8, 1)
+generated always as (round(bytes / 1048576.0, 1)) stored;`,
+        mysql: `alter table track
+add column size_mb decimal(8, 1)
+generated always as (round(bytes / 1048576, 1)) stored;`,
+        mysqlNote: 'In MySQL / always gives a decimal result, so no .0 is needed.',
+        explanation:
+          'In PostgreSQL bytes / 1048576 with two integers would be integer division (a 3.9 MB track would become 3); the .0 makes it numeric. The largest "tracks" are TV episodes of about 1 GB.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'chinook-091',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for the video catalogue',
+    prompt:
+      'The video page lists the 1.99 tracks (videos) of an album, by name. Only 213 of 3,503 tracks cost 1.99. Create an index that holds only those tracks and serves this page.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'track' and indexdef like '%unit_price%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'track' and column_name = 'unit_price' and seq_in_index = 1`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index track_video_album_idx on track (album_id, name)
+where unit_price = 1.99;
+
+-- used by: select name from track where unit_price = 1.99 and album_id = 229 order by name`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: 'The index holds 213 entries instead of 3,503, already sorted by album and name, so the page needs neither a sort nor a table scan.',
+      },
+      {
+        approach: 'Composite index with the price first',
+        postgres: `create index track_price_album_idx on track (unit_price, album_id, name);`,
+        mysql: `create index track_price_album_idx on track (unit_price, album_id, name);`,
+        explanation: 'unit_price = 1.99 and album_id = 229 are both equalities, so the matching entries form one range, sorted by name.',
+      },
+    ],
+    comparison: 'Both serve the page from the index. The partial one is about 16 times smaller; the composite one works in MySQL.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
 ]

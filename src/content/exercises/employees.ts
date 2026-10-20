@@ -3189,4 +3189,150 @@ where table_schema = database() and table_name = 'titles' and column_name = 'tit
       { label: 'MySQL: Multiple-column indexes', url: MY + 'multiple-column-indexes.html' },
     ],
   },
+  {
+    id: 'employees-084',
+    dataset: 'employees',
+    level: 1,
+    topics: ['select-basics', 'conditions'],
+    title: 'Everyone called Georgi',
+    prompt: 'List the employees whose first name is Georgi: emp_no, last_name and hire_date, earliest hire first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'WHERE with equality, ORDER BY',
+        postgres: `select emp_no, last_name, hire_date
+from employees
+where first_name = 'Georgi'
+order by hire_date;`,
+        mysql: `select emp_no, last_name, hire_date
+from employees
+where first_name = 'Georgi'
+order by hire_date;`,
+        explanation:
+          'Text values are written in single quotes; double quotes would mean a column name in PostgreSQL. The equality is exact in PostgreSQL ("georgi" would not match) but case-insensitive under MySQL\'s default collation.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SELECT', url: PG + 'sql-select.html' }],
+  },
+  {
+    id: 'employees-085',
+    dataset: 'employees',
+    level: 3,
+    topics: ['date-series', 'aggregates'],
+    title: 'Monthly payroll through 2001',
+    prompt:
+      'For the first day of every month of 2001: the number of salaries in force on that day and their total. A salary is in force from from_date (inclusive) to to_date (exclusive).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Month series joined on a date range',
+        postgres: `select m.day::date as day, count(s.emp_no) as salaries, sum(s.salary) as payroll
+from generate_series('2001-01-01'::date, '2001-12-01', interval '1 month') as m (day)
+left join salaries s on s.from_date <= m.day and s.to_date > m.day
+group by m.day
+order by m.day;`,
+        mysql: `with recursive months (day) as (
+  select cast('2001-01-01' as date)
+  union all
+  select day + interval 1 month from months where day < '2001-12-01'
+)
+select m.day, count(s.emp_no) as salaries, sum(s.salary) as payroll
+from months m
+left join salaries s on s.from_date <= m.day and s.to_date > m.day
+group by m.day
+order by m.day;`,
+        mysqlNote: 'A recursive CTE makes the twelve dates.',
+        explanation:
+          'The series gives the moments to look at; the join keeps every salary whose period contains the moment. This "as of" pattern works for any history table with from/to dates. Unlike a sum of rows, the payroll here goes down when people leave.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'employees-086',
+    dataset: 'employees',
+    level: 4,
+    topics: ['views', 'ranking'],
+    title: 'A view of pay rank in the department',
+    prompt:
+      'Create a view dept_pay_rank (emp_no, dept_no, salary, rank_in_dept) for current employees, ranking current salaries within each current department, highest first. Then: the top 2 of each department.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    checkSql: `select dept_no, rank_in_dept, emp_no, salary from dept_pay_rank where rank_in_dept <= 2 order by dept_no, rank_in_dept, emp_no`,
+    solutions: [
+      {
+        approach: 'A view with a window function',
+        postgres: `create view dept_pay_rank as
+select de.emp_no, de.dept_no, s.salary,
+       rank() over (partition by de.dept_no order by s.salary desc) as rank_in_dept
+from dept_emp de
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+where de.to_date = '9999-01-01';`,
+        mysql: `create view dept_pay_rank as
+select de.emp_no, de.dept_no, s.salary,
+       rank() over (partition by de.dept_no order by s.salary desc) as rank_in_dept
+from dept_emp de
+join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+where de.to_date = '9999-01-01';`,
+        explanation:
+          'A window function cannot appear in WHERE, so "top 2 per department" normally needs a subquery; the view makes rank_in_dept an ordinary column to filter on. Careful: a WHERE on dept_no is pushed into the view, but a WHERE on emp_no is not, because the rank must be computed over the whole department first.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'employees-087',
+    dataset: 'employees',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Salaries split by period',
+    prompt:
+      'Create salaries_by_period with the columns of salaries, range-partitioned by from_date into: before 1990, 1990–1994, and 1995 onwards (open-ended). Copy the salaries in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from salaries_before_1990) as before_1990,
+       (select count(*) from salaries_1990_1994) as from_1990,
+       (select count(*) from salaries_from_1995) as from_1995`,
+    checkSqlMysql: `select (select count(*) from salaries_by_period partition (p_before_1990)) as before_1990,
+       (select count(*) from salaries_by_period partition (p_1990_1994)) as from_1990,
+       (select count(*) from salaries_by_period partition (p_from_1995)) as from_1995`,
+    solutions: [
+      {
+        approach: 'Range partitions with open ends',
+        postgres: `create table salaries_by_period (
+  emp_no    integer not null,
+  salary    integer not null,
+  from_date date    not null,
+  to_date   date    not null,
+  primary key (emp_no, from_date)
+) partition by range (from_date);
+
+create table salaries_before_1990 partition of salaries_by_period for values from (minvalue) to ('1990-01-01');
+create table salaries_1990_1994   partition of salaries_by_period for values from ('1990-01-01') to ('1995-01-01');
+create table salaries_from_1995   partition of salaries_by_period for values from ('1995-01-01') to (maxvalue);
+
+insert into salaries_by_period select emp_no, salary, from_date, to_date from salaries;`,
+        mysql: `create table salaries_by_period (
+  emp_no    int  not null,
+  salary    int  not null,
+  from_date date not null,
+  to_date   date not null,
+  primary key (emp_no, from_date)
+)
+partition by range columns (from_date) (
+  partition p_before_1990 values less than ('1990-01-01'),
+  partition p_1990_1994   values less than ('1995-01-01'),
+  partition p_from_1995   values less than (maxvalue)
+);
+
+insert into salaries_by_period select emp_no, salary, from_date, to_date from salaries;`,
+        mysqlNote: 'MAXVALUE makes the last partition open-ended; the first one is open below by construction.',
+        explanation:
+          'MINVALUE and MAXVALUE leave the outer partitions unbounded, so no future date can fall outside. 5,763 rows go before 1990, 15,087 to 1990–1994 and 36,512 from 1995: recent periods hold most of the data, which is typical of history tables.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: RANGE COLUMNS partitioning', url: MY + 'partitioning-columns-range.html' },
+    ],
+  },
 ]

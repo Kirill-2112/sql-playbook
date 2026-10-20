@@ -3088,4 +3088,119 @@ insert into batting_by_era select player_id, year_id, stint, team_id, hr from ba
       { label: 'MySQL: RANGE partitioning', url: MY + 'partitioning-range.html' },
     ],
   },
+  {
+    id: 'lahman-086',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['pivot'],
+    title: 'AL East wins, one column per season',
+    prompt: 'For the 2025 American League East teams: team_id, name, and their wins in 2021, 2022, 2023, 2024 and 2025, one column per season. Order by team_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'MAX(CASE …) per season',
+        postgres: `select t.team_id, max(t.name) filter (where t.year_id = 2025) as name,
+       max(t.w) filter (where t.year_id = 2021) as w2021,
+       max(t.w) filter (where t.year_id = 2022) as w2022,
+       max(t.w) filter (where t.year_id = 2023) as w2023,
+       max(t.w) filter (where t.year_id = 2024) as w2024,
+       max(t.w) filter (where t.year_id = 2025) as w2025
+from teams t
+where t.year_id between 2021 and 2025
+  and t.team_id in (select team_id from teams where year_id = 2025 and lg_id = 'AL' and div_id = 'E')
+group by t.team_id
+order by t.team_id;`,
+        mysql: `select t.team_id, max(case when t.year_id = 2025 then t.name end) as name,
+       max(case when t.year_id = 2021 then t.w end) as w2021,
+       max(case when t.year_id = 2022 then t.w end) as w2022,
+       max(case when t.year_id = 2023 then t.w end) as w2023,
+       max(case when t.year_id = 2024 then t.w end) as w2024,
+       max(case when t.year_id = 2025 then t.w end) as w2025
+from teams t
+where t.year_id between 2021 and 2025
+  and t.team_id in (select team_id from teams where year_id = 2025 and lg_id = 'AL' and div_id = 'E')
+group by t.team_id
+order by t.team_id;`,
+        mysqlNote: 'No FILTER in MySQL: CASE without ELSE gives NULL for other seasons, which MAX ignores.',
+        explanation:
+          'Each team has one row per season, so MAX just picks that season\'s value; any aggregate that returns its single input would do. The column list is fixed in the query: a new season means a new column, which is the price of a pivot in SQL.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'lahman-087',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Stadiums, but not the Yankees\'',
+    prompt: 'With a full-text index on teams.park, list the different parks used since 2010 whose name contains the word Stadium but not the word Yankee.',
+    orderMatters: true,
+    checkSql: `select distinct park from teams
+where year_id >= 2010 and to_tsvector('simple', park) @@ to_tsquery('simple', 'stadium & !yankee')
+order by park`,
+    checkSqlMysql: `select distinct park from teams
+where year_id >= 2010 and match(park) against ('+stadium -yankee' in boolean mode)
+order by park`,
+    solutions: [
+      {
+        approach: 'NOT in a text query',
+        postgres: `create index teams_park_fts on teams using gin (to_tsvector('simple', park));
+
+-- search: where to_tsvector('simple', park) @@ to_tsquery('simple', 'stadium & !yankee')`,
+        mysql: `create fulltext index teams_park_ft on teams (park);
+
+-- search: where match(park) against ('+stadium -yankee' in boolean mode)`,
+        mysqlNote: 'In boolean mode, + requires a word and - excludes it. A query with only - words returns nothing.',
+        explanation:
+          'In tsquery, ! negates a word; in MySQL it is a leading -. The search works on words: "Yankee Stadium III" is excluded because it contains the word Yankee, while a LIKE \'%Stadium%\' would also match "Stadiums". Seven parks remain.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: to_tsquery', url: PG + 'textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES' },
+      { label: 'MySQL: Boolean full-text searches', url: MY + 'fulltext-boolean.html' },
+    ],
+  },
+  {
+    id: 'lahman-088',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Reload a team\'s salaries under a table lock',
+    prompt:
+      'The 2016 Yankees salaries must be reloaded: delete them and insert them again raised by 1% (rounded), while no other session may write to salaries. Lock the table for the reload. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select count(*) as salaries, sum(salary) as total from salaries where year_id = 2016 and team_id = 'NYA'`,
+    solutions: [
+      {
+        approach: 'LOCK TABLE / LOCK TABLES',
+        postgres: `lock table salaries in exclusive mode;
+
+create temporary table reload as
+select year_id, team_id, lg_id, player_id, round(salary * 1.01) as salary
+from salaries where year_id = 2016 and team_id = 'NYA';
+
+delete from salaries where year_id = 2016 and team_id = 'NYA';
+insert into salaries (year_id, team_id, lg_id, player_id, salary) select * from reload;`,
+        mysql: `create temporary table reload as
+select year_id, team_id, lg_id, player_id, round(salary * 1.01) as salary
+from salaries where year_id = 2016 and team_id = 'NYA';
+
+lock tables salaries write, reload read;
+
+delete from salaries where year_id = 2016 and team_id = 'NYA';
+insert into salaries (year_id, team_id, lg_id, player_id, salary) select * from reload;
+
+unlock tables;`,
+        mysqlNote:
+          'LOCK TABLES must name every table the session will touch while it holds the locks, the temporary one included. It also commits any open transaction, so it does not mix with START TRANSACTION; UNLOCK TABLES releases everything.',
+        explanation:
+          'EXCLUSIVE mode in PostgreSQL blocks every other writer but still lets readers in; they see the old rows until the transaction commits. It is released at commit, never earlier. Row locks would do for a few rows; a table lock is for a bulk job where locking row by row is pointless.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table-level locks', url: PG + 'explicit-locking.html#LOCKING-TABLES' },
+      { label: 'MySQL: LOCK TABLES', url: MY + 'lock-tables.html' },
+    ],
+  },
 ]

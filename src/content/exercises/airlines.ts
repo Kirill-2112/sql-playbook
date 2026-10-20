@@ -3530,4 +3530,128 @@ group by route_no;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
   },
+  {
+    id: 'airlines-086',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['full-join', 'conditional-aggregates'],
+    title: 'Segments and boarding passes, reconciled',
+    prompt:
+      'Every boarding pass should belong to a ticket segment (same ticket_no and flight_id), but not every segment has a boarding pass yet. Count pairs found in both, segments without a pass, and passes without a segment.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN on the shared key',
+        postgres: `select count(*) filter (where s.ticket_no is not null and b.ticket_no is not null) as both_sides,
+       count(*) filter (where b.ticket_no is null) as segment_only,
+       count(*) filter (where s.ticket_no is null) as pass_only
+from segments s
+full join boarding_passes b on b.ticket_no = s.ticket_no and b.flight_id = s.flight_id;`,
+        mysql: `select (select count(*) from segments s join boarding_passes b on b.ticket_no = s.ticket_no and b.flight_id = s.flight_id) as both_sides,
+       (select count(*) from segments s where not exists (select 1 from boarding_passes b where b.ticket_no = s.ticket_no and b.flight_id = s.flight_id)) as segment_only,
+       (select count(*) from boarding_passes b where not exists (select 1 from segments s where s.ticket_no = b.ticket_no and s.flight_id = b.flight_id)) as pass_only;`,
+        mysqlNote: 'No FULL JOIN in MySQL: count the three groups with a join and two anti-joins.',
+        explanation:
+          'Reconciling two tables that should match is a classic FULL JOIN job: one pass shows matches and orphans on both sides. 12,115 segments have a pass, 7,331 (mostly future flights) do not, and no pass is orphaned, which the foreign key guarantees anyway.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'airlines-087',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['casting', 'dates-basics'],
+    title: 'Which day is a booking on?',
+    prompt:
+      'Count bookings per calendar day for 28–30 November 2025 twice: by the UTC date and by the date in Moscow (Europe/Moscow). Show day, utc_bookings and moscow_bookings.',
+    hint: UTC_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Cast to date before and after converting the time zone',
+        postgres: `with utc as (
+  select book_date::date as day, count(*) as n
+  from bookings group by book_date::date
+),
+msk as (
+  select (book_date at time zone 'Europe/Moscow')::date as day, count(*) as n
+  from bookings group by (book_date at time zone 'Europe/Moscow')::date
+)
+select utc.day, utc.n as utc_bookings, msk.n as moscow_bookings
+from utc
+join msk on msk.day = utc.day
+where utc.day between '2025-11-28' and '2025-11-30'
+order by utc.day;`,
+        mysql: `with utc as (
+  select date(book_date) as day, count(*) as n
+  from bookings group by date(book_date)
+),
+msk as (
+  select date(convert_tz(book_date, 'UTC', 'Europe/Moscow')) as day, count(*) as n
+  from bookings group by date(convert_tz(book_date, 'UTC', 'Europe/Moscow'))
+)
+select utc.day, utc.n as utc_bookings, msk.n as moscow_bookings
+from utc
+join msk on msk.day = utc.day
+where utc.day between '2025-11-28' and '2025-11-30'
+order by utc.day;`,
+        mysqlNote: TZ_NOTE,
+        explanation:
+          'Casting a timestamptz to date keeps the date in the session time zone (UTC here). A booking at 22:30 UTC is already the next day in Moscow (UTC+3), so the counts differ: "per day" always needs a time zone. Run the same cast with another session time zone and the first column changes too.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: AT TIME ZONE', url: PG + 'functions-datetime.html#FUNCTIONS-DATETIME-ZONECONVERT' }],
+  },
+  {
+    id: 'airlines-088',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['triggers', 'control-flow'],
+    title: 'No tickets for cancelled flights',
+    prompt:
+      'Add a trigger that refuses a new segment when its flight is Cancelled. Then sell ticket 0005434564152 a seat on flight 11091 (On Time) in Economy for 5,000.',
+    orderMatters: false,
+    checkSql: `select ticket_no, flight_id, fare_conditions, price from segments where ticket_no = '0005434564152' and flight_id = 11091`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger reading the flight status',
+        postgres: `create function refuse_cancelled_flight() returns trigger
+language plpgsql
+as $$
+begin
+  if (select status from flights where flight_id = new.flight_id) = 'Cancelled' then
+    raise exception 'flight % is cancelled', new.flight_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger segments_not_cancelled
+before insert on segments
+for each row execute function refuse_cancelled_flight();
+
+insert into segments (ticket_no, flight_id, fare_conditions, price)
+values ('0005434564152', 11091, 'Economy', 5000);`,
+        mysql: `create trigger segments_not_cancelled
+before insert on segments
+for each row
+begin
+  if (select status from flights where flight_id = new.flight_id) = 'Cancelled' then
+    signal sqlstate '45000' set message_text = 'flight is cancelled';
+  end if;
+end;
+
+insert into segments (ticket_no, flight_id, fare_conditions, price)
+values ('0005434564152', 11091, 'Economy', 5000);`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'The rule depends on another table, so a CHECK constraint cannot express it. The trigger guards inserts only: cancelling a flight that already has segments is a different event, handled by the procedure that cancels flights.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' },
+      { label: 'MySQL: Trigger syntax', url: MY + 'trigger-syntax.html' },
+    ],
+  },
 ]

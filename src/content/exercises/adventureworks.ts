@@ -3267,4 +3267,168 @@ generated always as (
     ],
     docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
   },
+  {
+    id: 'adventureworks-088',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'Make an offer match a list, and only that offer',
+    prompt:
+      'Special offer 10 (Mountain Tire Sale) should contain exactly products 921, 928 and 929: add the missing ones and remove any others from offer 10, in one statement. Rows of other offers must stay untouched.',
+    orderMatters: true,
+    checkSql: `select special_offer_id, count(*) as products from special_offer_product group by special_offer_id order by special_offer_id`,
+    solutions: [
+      {
+        approach: 'MERGE with a restricted NOT MATCHED BY SOURCE',
+        postgres: `merge into special_offer_product t
+using (values (10, 921), (10, 928), (10, 929)) as s (special_offer_id, product_id)
+on t.special_offer_id = s.special_offer_id and t.product_id = s.product_id
+when not matched by target then
+  insert (special_offer_id, product_id) values (s.special_offer_id, s.product_id)
+when not matched by source and t.special_offer_id = 10 then
+  delete;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          '"Not matched by source" means every target row with no partner in the list, which is every row of every other offer too. Without "and t.special_offer_id = 10" the statement would empty all the other offers. With it, 711 is removed and 712 added.',
+      },
+      {
+        approach: 'Insert the missing, delete the extra',
+        postgres: `insert into special_offer_product (special_offer_id, product_id)
+values (10, 921), (10, 928), (10, 929)
+on conflict do nothing;
+
+delete from special_offer_product
+where special_offer_id = 10 and product_id not in (921, 928, 929);`,
+        mysql: `insert ignore into special_offer_product (special_offer_id, product_id)
+values (10, 921), (10, 928), (10, 929);
+
+delete from special_offer_product
+where special_offer_id = 10 and product_id not in (921, 928, 929);`,
+        explanation: 'Two statements with the same effect; here the DELETE states its offer explicitly, which makes the scope hard to forget.',
+      },
+    ],
+    comparison: 'Same result: offer 10 holds 921, 928 and 929, every other offer keeps its count.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'adventureworks-089',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['temp-tables', 'ranking'],
+    title: 'Current pay rates as a working table',
+    prompt:
+      'Store each employee\'s latest pay rate in a temporary table current_rate (business_entity_id, rate). Then: the 4 departments with the highest average current rate (department name, employees, average rate with 2 decimals).',
+    orderMatters: true,
+    checkSql: `select d.name, count(*) as employees, round(avg(r.rate), 2) as avg_rate
+from current_rate r
+join employee_department_history h on h.business_entity_id = r.business_entity_id and h.end_date is null
+join department d on d.department_id = h.department_id
+group by d.department_id, d.name
+order by avg_rate desc, d.name
+limit 4`,
+    solutions: [
+      {
+        approach: 'ROW_NUMBER into a temporary table',
+        postgres: `create temporary table current_rate as
+select business_entity_id, rate
+from (
+  select business_entity_id, rate,
+         row_number() over (partition by business_entity_id order by rate_change_date desc) as n
+  from employee_pay_history
+) latest
+where n = 1;
+
+alter table current_rate add primary key (business_entity_id);`,
+        mysql: `create temporary table current_rate as
+select business_entity_id, rate
+from (
+  select business_entity_id, rate,
+         row_number() over (partition by business_entity_id order by rate_change_date desc) as n
+  from employee_pay_history
+) latest
+where n = 1;
+
+alter table current_rate add primary key (business_entity_id);`,
+        explanation:
+          'Pay history keeps every change; most questions want only the latest one. Computing it once into a keyed temp table makes the following reports simple joins. Executives lead at about 92.80 an hour.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'adventureworks-090',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['control-flow', 'procedures'],
+    title: 'A raise with guard rails',
+    prompt:
+      'Write a procedure apply_raise(p_employee_id, p_pct, p_date) that adds a new employee_pay_history row with the latest rate raised by p_pct percent (4 decimals, same pay_frequency). Refuse raises above 20% and employees without pay history. Give employee 4 a 5% raise on 2025-07-01.',
+    orderMatters: true,
+    checkSql: `select business_entity_id, rate_change_date, rate, pay_frequency from employee_pay_history where business_entity_id = 4 order by rate_change_date`,
+    solutions: [
+      {
+        approach: 'IF checks, then insert',
+        postgres: `create procedure apply_raise(p_employee_id integer, p_pct numeric, p_date date)
+language plpgsql
+as $$
+declare
+  v_rate numeric;
+  v_freq smallint;
+begin
+  if p_pct > 20 then
+    raise exception 'a raise of % percent needs approval', p_pct;
+  end if;
+
+  select rate, pay_frequency into v_rate, v_freq
+  from employee_pay_history
+  where business_entity_id = p_employee_id
+  order by rate_change_date desc
+  limit 1;
+
+  if not found then
+    raise exception 'employee % has no pay history', p_employee_id;
+  end if;
+
+  insert into employee_pay_history (business_entity_id, rate_change_date, rate, pay_frequency)
+  values (p_employee_id, p_date, round(v_rate * (1 + p_pct / 100), 4), v_freq);
+end;
+$$;
+
+call apply_raise(4, 5, '2025-07-01');`,
+        mysql: `create procedure apply_raise(p_employee_id int, p_pct decimal(5, 2), p_date date)
+begin
+  declare v_rate decimal(19, 4);
+  declare v_freq tinyint unsigned;
+
+  if p_pct > 20 then
+    signal sqlstate '45000' set message_text = 'a raise above 20% needs approval';
+  end if;
+
+  select rate, pay_frequency into v_rate, v_freq
+  from employee_pay_history
+  where business_entity_id = p_employee_id
+  order by rate_change_date desc
+  limit 1;
+
+  if v_rate is null then
+    signal sqlstate '45000' set message_text = 'employee has no pay history';
+  end if;
+
+  insert into employee_pay_history (business_entity_id, rate_change_date, rate, pay_frequency)
+  values (p_employee_id, p_date, round(v_rate * (1 + p_pct / 100), 4), v_freq);
+end;
+
+call apply_raise(4, 5, '2025-07-01');`,
+        mysqlNote:
+          DELIMITER_NOTE + ' SELECT … INTO that finds no row leaves the variables NULL (with a warning), so the NULL test stands in for FOUND.',
+        explanation:
+          'Checks first, work last: an error ends the procedure before anything is written. In RAISE, each % is a placeholder for the next argument. 29.8462 × 1.05 rounds to 31.3385.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Errors and messages', url: PG + 'plpgsql-errors-and-messages.html' },
+      { label: 'MySQL: SIGNAL', url: MY + 'signal.html' },
+    ],
+  },
 ]

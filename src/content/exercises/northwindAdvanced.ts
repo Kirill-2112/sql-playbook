@@ -2855,4 +2855,129 @@ order by c.customer_id;`,
     ],
     docs: [{ label: 'PostgreSQL: Database design', url: PG + 'ddl.html' }],
   },
+  {
+    id: 'northwind-107',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['null', 'aggregates'],
+    title: 'Customers without a fax',
+    prompt: 'How many customers have no fax number (fax is NULL), and how many have one?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'count(*) minus count(column)',
+        postgres: `select count(*) - count(fax) as without_fax, count(fax) as with_fax
+from customers;`,
+        mysql: `select count(*) - count(fax) as without_fax, count(fax) as with_fax
+from customers;`,
+        explanation: 'count(fax) skips NULLs, count(*) does not; the difference is the number of missing faxes, 22 of 91. "fax = NULL" would count nothing, because nothing equals NULL.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'northwind-108',
+    dataset: 'northwind',
+    level: 2,
+    topics: ['self-cross-join', 'group-by'],
+    title: 'Cities with many neighbours',
+    prompt: 'Pair up customers located in the same city and country, then count the pairs per city. Show the 3 cities with the most pairs: city, country, pairs.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Self-join, then GROUP BY the city',
+        postgres: `select a.city, a.country, count(*) as pairs
+from customers a
+join customers b
+  on b.city = a.city
+ and b.country = a.country
+ and b.customer_id > a.customer_id
+group by a.city, a.country
+order by pairs desc, a.city
+limit 3;`,
+        mysql: `select a.city, a.country, count(*) as pairs
+from customers a
+join customers b
+  on b.city = a.city
+ and b.country = a.country
+ and b.customer_id > a.customer_id
+group by a.city, a.country
+order by pairs desc, a.city
+limit 3;`,
+        explanation:
+          'n customers in a city form n × (n − 1) / 2 pairs: London\'s 6 give 15, México D.F.\'s 5 give 10, Sao Paulo\'s 4 give 6. Pair counts grow fast, which is why self-joins on a common value can explode on big tables.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'northwind-109',
+    dataset: 'northwind',
+    level: 2,
+    topics: ['casting', 'conditional-aggregates'],
+    title: 'Discontinued as a real true/false',
+    prompt: 'products.discontinued is stored as 0 or 1. Per category, show category_id, the number of products, and how many are discontinued, treating the column as a boolean.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Cast the 0/1 column to boolean',
+        postgres: `select category_id, count(*) as products,
+       count(*) filter (where discontinued::integer::boolean) as discontinued
+from products
+group by category_id
+order by category_id;`,
+        mysql: `select category_id, count(*) as products,
+       sum(discontinued <> 0) as discontinued
+from products
+group by category_id
+order by category_id;`,
+        mysqlNote: 'MySQL has no separate boolean type: BOOLEAN is TINYINT(1), and any non-zero number counts as true.',
+        explanation:
+          'PostgreSQL casts integer to boolean (0 is false, anything else true), but has no direct smallint → boolean cast, hence the step through integer. Writing discontinued <> 0 says the same without any cast and works in both.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Boolean type', url: PG + 'datatype-boolean.html' }],
+  },
+  {
+    id: 'northwind-110',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['merge'],
+    title: 'An employee\'s territories from a list',
+    prompt:
+      'Employee 1 should cover exactly territories 06897 and 10019 (New York). Apply that in one statement: add what is missing and remove other territories of employee 1, without touching other employees.',
+    orderMatters: true,
+    checkSql: `select employee_id, territory_id from employee_territories where employee_id = 1 order by territory_id`,
+    solutions: [
+      {
+        approach: 'MERGE with a scoped NOT MATCHED BY SOURCE',
+        postgres: `merge into employee_territories et
+using (values (1, '06897'), (1, '10019')) as want (employee_id, territory_id)
+on et.employee_id = want.employee_id and et.territory_id = want.territory_id
+when not matched by target then
+  insert (employee_id, territory_id) values (want.employee_id, want.territory_id)
+when not matched by source and et.employee_id = 1 then
+  delete;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          'Without "and et.employee_id = 1" the delete branch would remove every other employee\'s territories too, since none of them is in the list. 19713 (Neward) is removed, 10019 added, 06897 kept.',
+      },
+      {
+        approach: 'Insert the missing, delete the rest',
+        postgres: `insert into employee_territories (employee_id, territory_id)
+values (1, '06897'), (1, '10019')
+on conflict do nothing;
+
+delete from employee_territories where employee_id = 1 and territory_id not in ('06897', '10019');`,
+        mysql: `insert ignore into employee_territories (employee_id, territory_id)
+values (1, '06897'), (1, '10019');
+
+delete from employee_territories where employee_id = 1 and territory_id not in ('06897', '10019');`,
+        explanation: 'Two statements with the scope written in the DELETE; wrap them in a transaction so nobody sees the employee half-updated.',
+      },
+    ],
+    comparison: 'Same two territories for employee 1 and nothing else changed.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
 ]

@@ -3160,4 +3160,79 @@ on duplicate key update name = feed.name;`,
     ],
     docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
   },
+  {
+    id: 'chinook-110',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['pivot', 'joins'],
+    title: 'Sales by media type, 2024 and 2025',
+    prompt: 'Count invoice lines per media type in 2024 and in 2025, one column per year, for all five media types (0 where none). Order by media_type_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEFT JOIN from media_type, conditional counts',
+        postgres: `select m.media_type_id, m.name,
+       count(*) filter (where extract(year from i.invoice_date) = 2024) as y2024,
+       count(*) filter (where extract(year from i.invoice_date) = 2025) as y2025
+from media_type m
+left join track t on t.media_type_id = m.media_type_id
+left join invoice_line l on l.track_id = t.track_id
+left join invoice i on i.invoice_id = l.invoice_id
+group by m.media_type_id, m.name
+order by m.media_type_id;`,
+        mysql: `select m.media_type_id, m.name,
+       sum(year(i.invoice_date) = 2024) as y2024,
+       sum(year(i.invoice_date) = 2025) as y2025
+from media_type m
+left join track t on t.media_type_id = m.media_type_id
+left join invoice_line l on l.track_id = t.track_id
+left join invoice i on i.invoice_id = l.invoice_id
+group by m.media_type_id, m.name
+order by m.media_type_id;`,
+        mysqlNote: 'Where the outer join finds nothing, year(NULL) = 2024 is NULL, which SUM ignores; with no lines at all the sum would be NULL instead of 0, so wrap it in COALESCE if that can happen.',
+        explanation:
+          'Starting from media_type keeps "Purchased AAC audio file" in the result although it never sold in these years. Protected (DRM) AAC and video sales fall sharply in 2025, while plain MPEG audio grows.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'chinook-111',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['materialized-views', 'aggregates'],
+    title: 'Genre sales, stored',
+    prompt: 'Store per genre: genre_id, name, lines sold and revenue (unit_price × quantity, 2 decimals) for the label\'s weekly report. Then: the 3 best genres by lines sold.',
+    orderMatters: true,
+    checkSql: `select name, lines_sold, revenue from genre_sales order by lines_sold desc, genre_id limit 3`,
+    solutions: [
+      {
+        approach: 'Materialized view keyed by genre',
+        postgres: `create materialized view genre_sales as
+select g.genre_id, g.name, count(*) as lines_sold, round(sum(l.unit_price * l.quantity), 2) as revenue
+from invoice_line l
+join track t on t.track_id = l.track_id
+join genre g on g.genre_id = t.genre_id
+group by g.genre_id, g.name;
+
+create unique index genre_sales_key on genre_sales (genre_id);`,
+        mysql: `create table genre_sales (
+  genre_id   int primary key,
+  name       varchar(120),
+  lines_sold int,
+  revenue    decimal(10, 2)
+);
+
+replace into genre_sales
+select g.genre_id, g.name, count(*), round(sum(l.unit_price * l.quantity), 2)
+from invoice_line l
+join track t on t.track_id = l.track_id
+join genre g on g.genre_id = t.genre_id
+group by g.genre_id, g.name;`,
+        mysqlNote: 'A keyed table refreshed by REPLACE INTO stands in for the materialized view.',
+        explanation: 'Rock sells by far the most lines (835), then Latin and Metal. A weekly report can read the stored rows directly; REFRESH (or the REPLACE) runs once a week before it.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
 ]

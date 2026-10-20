@@ -3739,4 +3739,152 @@ on duplicate key update peak = greatest(salary_peaks.peak, new.peak);`,
     ],
     docs: [{ label: 'PostgreSQL: GREATEST and LEAST', url: PG + 'functions-conditional.html#FUNCTIONS-GREATEST-LEAST' }],
   },
+  {
+    id: 'employees-100',
+    dataset: 'employees',
+    level: 2,
+    topics: ['full-join', 'aggregates'],
+    title: 'Titles in Development and in Sales',
+    prompt: 'Count current employees per current title in Development (d005) and in Sales (d007), side by side: title, development, sales, with 0 where a department has nobody with that title. Order by title.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two per-title counts',
+        postgres: `with cur as (
+  select de.dept_no, t.title
+  from dept_emp de
+  join titles t on t.emp_no = de.emp_no and t.to_date = '9999-01-01'
+  where de.to_date = '9999-01-01' and de.dept_no in ('d005', 'd007')
+),
+dev as (select title, count(*) as n from cur where dept_no = 'd005' group by title),
+sales as (select title, count(*) as n from cur where dept_no = 'd007' group by title)
+select coalesce(d.title, s.title) as title, coalesce(d.n, 0) as development, coalesce(s.n, 0) as sales
+from dev d
+full join sales s on s.title = d.title
+order by title;`,
+        mysql: `with cur as (
+  select de.dept_no, t.title
+  from dept_emp de
+  join titles t on t.emp_no = de.emp_no and t.to_date = '9999-01-01'
+  where de.to_date = '9999-01-01' and de.dept_no in ('d005', 'd007')
+),
+dev as (select title, count(*) as n from cur where dept_no = 'd005' group by title),
+sales as (select title, count(*) as n from cur where dept_no = 'd007' group by title)
+select d.title, d.n as development, coalesce(s.n, 0) as sales
+from dev d left join sales s on s.title = d.title
+union all
+select s.title, 0, s.n
+from sales s left join dev d on d.title = s.title
+where d.title is null
+order by title;`,
+        mysqlNote: 'No FULL JOIN in MySQL: a LEFT JOIN plus the titles only Sales has.',
+        explanation:
+          'Engineering titles exist only in Development and the Staff titles dominate Sales, so many cells are 0. Conditional aggregation over cur would give the same table in one pass; the FULL JOIN version shows how to combine two summaries that were computed separately.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'employees-101',
+    dataset: 'employees',
+    level: 2,
+    topics: ['set-operations'],
+    title: 'Titles found in Development but not in Sales',
+    prompt: 'Which current titles are held by someone in Development (d005) but by nobody in Sales (d007)? Alphabetically.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'EXCEPT of two title lists',
+        postgres: `select t.title
+from titles t join dept_emp de on de.emp_no = t.emp_no
+where t.to_date = '9999-01-01' and de.to_date = '9999-01-01' and de.dept_no = 'd005'
+except
+select t.title
+from titles t join dept_emp de on de.emp_no = t.emp_no
+where t.to_date = '9999-01-01' and de.to_date = '9999-01-01' and de.dept_no = 'd007'
+order by title;`,
+        mysql: `select t.title
+from titles t join dept_emp de on de.emp_no = t.emp_no
+where t.to_date = '9999-01-01' and de.to_date = '9999-01-01' and de.dept_no = 'd005'
+except
+select t.title
+from titles t join dept_emp de on de.emp_no = t.emp_no
+where t.to_date = '9999-01-01' and de.to_date = '9999-01-01' and de.dept_no = 'd007'
+order by title;`,
+        mysqlNote: 'EXCEPT exists since MySQL 8.0.31.',
+        explanation: 'The four engineering titles: Assistant Engineer, Engineer, Senior Engineer and Technique Leader. EXCEPT removes duplicates, so each title appears once however many people hold it. The ORDER BY applies to the whole result.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'employees-102',
+    dataset: 'employees',
+    level: 4,
+    topics: ['arrays', 'strings'],
+    title: 'Careers that started Engineer, then Senior Engineer',
+    prompt: 'Collect each employee\'s titles in time order, then count the employees whose first two titles were Engineer followed by Senior Engineer.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Array slice [1:2] / first two items of an ordered list',
+        postgres: `select count(*) as employees
+from (
+  select emp_no, array_agg(title order by from_date) as career
+  from titles
+  group by emp_no
+) c
+where c.career[1:2] = array['Engineer', 'Senior Engineer']::varchar[];`,
+        mysql: `select count(*) as employees
+from (
+  select emp_no, group_concat(title order by from_date separator '|') as career
+  from titles
+  group by emp_no
+) c
+where substring_index(c.career, '|', 2) = 'Engineer|Senior Engineer';`,
+        mysqlNote: 'No arrays: an ordered GROUP_CONCAT with a separator, and SUBSTRING_INDEX for "the first two items".',
+        explanation:
+          'array[1:2] is a slice: elements 1 to 2 as a new array, compared element by element. 1,306 careers start with that promotion. Someone whose only title was Engineer has a one-element slice, which does not match.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Arrays', url: PG + 'arrays.html' }],
+  },
+  {
+    id: 'employees-103',
+    dataset: 'employees',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'The employee row as a mutex',
+    prompt:
+      'Changes to one person\'s salary history must never interleave. Agree that every such change first locks the person\'s row in employees. Then give 10100 a 3% raise from 2002-08-01 (close the current salary, add the new one). In PostgreSQL you are already inside a transaction.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    checkSql: `select salary, from_date, to_date from salaries where emp_no = 10100 and from_date >= '2001-01-01' order by from_date`,
+    solutions: [
+      {
+        approach: 'Lock the parent row, then change the children',
+        postgres: `select emp_no from employees where emp_no = 10100 for update;
+
+update salaries set to_date = '2002-08-01' where emp_no = 10100 and to_date = '9999-01-01';
+insert into salaries (emp_no, salary, from_date, to_date)
+select emp_no, round(salary * 1.03), '2002-08-01', '9999-01-01'
+from salaries where emp_no = 10100 and to_date = '2002-08-01';`,
+        mysql: `start transaction;
+
+select emp_no from employees where emp_no = 10100 for update;
+
+update salaries set to_date = '2002-08-01' where emp_no = 10100 and to_date = '9999-01-01';
+insert into salaries (emp_no, salary, from_date, to_date)
+select emp_no, round(salary * 1.03), '2002-08-01', '9999-01-01'
+from salaries where emp_no = 10100 and to_date = '2002-08-01';
+
+commit;`,
+        explanation:
+          'Locking the current salary row alone would not stop a second session from inserting another new salary for the same person. A single, agreed row to lock (the parent) serialises all changes for that person, including inserts. 74,957 × 1.03 rounds to 77,206.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Row-level locks', url: PG + 'explicit-locking.html#LOCKING-ROWS' }],
+  },
 ]

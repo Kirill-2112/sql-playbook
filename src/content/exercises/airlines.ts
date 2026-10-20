@@ -4168,4 +4168,175 @@ limit 5;`,
       { label: 'MySQL: ORDER BY optimization', url: MY + 'order-by-optimization.html' },
     ],
   },
+  {
+    id: 'airlines-103',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['cte', 'dates-advanced'],
+    title: 'Scheduled hours per airplane model',
+    prompt:
+      'For December 2025: per airplane model, the number of flights, the scheduled flying hours (sum of route durations, 1 decimal) and the share of all hours in percent (1 decimal). Most hours first.',
+    hint: VALIDITY_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Flights with durations, then per model, then the share',
+        postgres: `with dec_flights as (
+  select r.airplane_code, extract(epoch from r.duration) / 3600 as hours
+  from flights f
+  ${ROUTE_JOIN}
+  where f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2026-01-01'
+),
+per_model as (
+  select a.model, count(*) as flights, sum(d.hours) as hours
+  from dec_flights d
+  join airplanes a on a.airplane_code = d.airplane_code
+  group by a.model
+)
+select model, flights, round(hours, 1) as hours,
+       round(100 * hours / sum(hours) over (), 1) as share_pct
+from per_model
+order by hours desc;`,
+        mysql: `with dec_flights as (
+  select r.airplane_code, time_to_sec(r.duration) / 3600 as hours
+  from flights f
+  ${ROUTE_JOIN}
+  where f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2026-01-01'
+),
+per_model as (
+  select a.model, count(*) as flights, sum(d.hours) as hours
+  from dec_flights d
+  join airplanes a on a.airplane_code = d.airplane_code
+  group by a.model
+)
+select model, flights, round(hours, 1) as hours,
+       round(100 * hours / sum(hours) over (), 1) as share_pct
+from per_model
+order by hours desc;`,
+        mysqlNote: 'In MySQL duration is a TIME; TIME_TO_SEC gives its length in seconds.',
+        explanation:
+          'The first CTE attaches each flight\'s planned duration, the second sums per model, and the window SUM() OVER () gives the total for the share. The 777-300ER flies the most flights and the most hours, about a fifth of the airline\'s total.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'airlines-104',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['views', 'set-operations'],
+    title: 'Airport traffic in one view',
+    prompt:
+      'Create a view airport_movements (airport_code, direction, flight_id, scheduled_at) with one row per departure (direction \'out\') and one per arrival (\'in\') of every flight. Then: departures and arrivals at FRA on 24 December 2025 (UTC).',
+    hint: VALIDITY_NOTE,
+    orderMatters: true,
+    checkSql: `select direction, count(*) as movements
+from airport_movements
+where airport_code = 'FRA' and scheduled_at >= '2025-12-24' and scheduled_at < '2025-12-25'
+group by direction
+order by direction`,
+    solutions: [
+      {
+        approach: 'UNION ALL inside a view',
+        postgres: `create view airport_movements as
+select r.departure_airport as airport_code, 'out' as direction, f.flight_id, f.scheduled_departure as scheduled_at
+from flights f
+${ROUTE_JOIN}
+union all
+select r.arrival_airport, 'in', f.flight_id, f.scheduled_arrival
+from flights f
+${ROUTE_JOIN};`,
+        mysql: `create view airport_movements as
+select r.departure_airport as airport_code, 'out' as direction, f.flight_id, f.scheduled_departure as scheduled_at
+from flights f
+${ROUTE_JOIN}
+union all
+select r.arrival_airport, 'in', f.flight_id, f.scheduled_arrival
+from flights f
+${ROUTE_JOIN};`,
+        explanation:
+          'Each flight touches two airports, so the view turns one flight row into two movement rows. UNION ALL, not UNION: the two halves never produce identical rows, and UNION would waste a sort checking. A WHERE on the view is applied to both halves.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'airlines-105',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['normalization'],
+    title: 'The passenger name, stored per ticket',
+    prompt:
+      'tickets stores passenger_id and passenger_name on every ticket. Check whether passenger_id always determines the name, and count how many name copies a passengers table (one row per passenger_id) would save.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Test the dependency, count the copies',
+        postgres: `select count(*) as tickets,
+       count(distinct passenger_id) as passengers,
+       (select count(*) from (select passenger_id from tickets group by passenger_id having count(distinct passenger_name) > 1) x) as ids_with_two_names,
+       count(*) - count(distinct passenger_id) as redundant_copies
+from tickets;`,
+        mysql: `select count(*) as tickets,
+       count(distinct passenger_id) as passengers,
+       (select count(*) from (select passenger_id from tickets group by passenger_id having count(distinct passenger_name collate utf8mb4_bin) > 1) x) as ids_with_two_names,
+       count(*) - count(distinct passenger_id) as redundant_copies
+from tickets;`,
+        mysqlNote: 'COLLATE utf8mb4_bin makes MySQL notice names that differ only in case or accents, as PostgreSQL does here.',
+        explanation:
+          'No passenger_id has two names, so passenger_id → passenger_name holds and the name could live once in a passengers table: 5,738 of 14,668 copies would go. Airlines often keep the name on the ticket anyway, because the name printed on a ticket is a legal fact of that ticket, even if the person later changes it.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Database design', url: PG + 'ddl.html' }],
+  },
+  {
+    id: 'airlines-106',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Segments by travel class',
+    prompt:
+      'Create segments_by_class with the columns of segments, list-partitioned by fare_conditions into Economy, Comfort and Business, and copy the segments in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from segments_economy) as economy, (select count(*) from segments_comfort) as comfort, (select count(*) from segments_business) as business`,
+    checkSqlMysql: `select (select count(*) from segments_by_class partition (p_economy)) as economy,
+       (select count(*) from segments_by_class partition (p_comfort)) as comfort,
+       (select count(*) from segments_by_class partition (p_business)) as business`,
+    solutions: [
+      {
+        approach: 'LIST partitions on a text code',
+        postgres: `create table segments_by_class (
+  ticket_no       varchar(13)    not null,
+  flight_id       integer        not null,
+  fare_conditions varchar(10)    not null,
+  price           numeric(10, 2) not null,
+  primary key (ticket_no, flight_id, fare_conditions)
+) partition by list (fare_conditions);
+
+create table segments_economy  partition of segments_by_class for values in ('Economy');
+create table segments_comfort  partition of segments_by_class for values in ('Comfort');
+create table segments_business partition of segments_by_class for values in ('Business');
+
+insert into segments_by_class select ticket_no, flight_id, fare_conditions, price from segments;`,
+        mysql: `create table segments_by_class (
+  ticket_no       char(13)       not null,
+  flight_id       int            not null,
+  fare_conditions varchar(10)    not null,
+  price           decimal(10, 2) not null,
+  primary key (ticket_no, flight_id, fare_conditions)
+)
+partition by list columns (fare_conditions) (
+  partition p_economy  values in ('Economy'),
+  partition p_comfort  values in ('Comfort'),
+  partition p_business values in ('Business')
+);
+
+insert into segments_by_class select ticket_no, flight_id, fare_conditions, price from segments;`,
+        mysqlNote: 'LIST COLUMNS accepts strings; plain LIST needs integers.',
+        explanation:
+          'The key must include fare_conditions, so (ticket_no, flight_id) alone could no longer be enforced unique across partitions: the same segment could exist in two classes. That loss of a global unique rule is the usual price of partitioning on a column outside the natural key.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Partitioning limitations', url: PG + 'ddl-partitioning.html#DDL-PARTITIONING-DECLARATIVE-LIMITATIONS' }],
+  },
 ]

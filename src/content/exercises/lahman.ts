@@ -3683,4 +3683,202 @@ values ('abelmi01', 2025, 0, 'PHI', 'NL', 1);`,
     ],
     docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
   },
+  {
+    id: 'lahman-103',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['recursive', 'strings'],
+    title: 'Five teams in one season',
+    prompt:
+      'Jose Urena (urenajo01) played for five teams in 2025, one stint after another. Starting from stint 1, follow stint → stint + 1 with a recursive CTE and build the path as text like "NYN → TOR → …". Show the number of teams and the path.',
+    hint: STINT_NOTE,
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Walk the stints like a linked list',
+        postgres: `with recursive path (stint, teams, route) as (
+  select stint, 1, team_id::text
+  from batting
+  where player_id = 'urenajo01' and year_id = 2025 and stint = 1
+  union all
+  select b.stint, p.teams + 1, p.route || ' → ' || b.team_id
+  from path p
+  join batting b on b.player_id = 'urenajo01' and b.year_id = 2025 and b.stint = p.stint + 1
+)
+select teams, route
+from path
+order by stint desc
+limit 1;`,
+        mysql: `with recursive path (stint, teams, route) as (
+  select stint, 1, cast(team_id as char(100))
+  from batting
+  where player_id = 'urenajo01' and year_id = 2025 and stint = 1
+  union all
+  select b.stint, p.teams + 1, concat(p.route, ' → ', b.team_id)
+  from path p
+  join batting b on b.player_id = 'urenajo01' and b.year_id = 2025 and b.stint = p.stint + 1
+)
+select teams, route
+from path
+order by stint desc
+limit 1;`,
+        mysqlNote: 'The anchor CASTs the route wide enough for the whole path, since the recursive CTE takes its column type from the anchor.',
+        explanation:
+          'Each step looks for the next stint number; the walk stops at stint 5, where no stint 6 exists, and the last row holds the full path: NYN → TOR → LAN → MIN → LAA. STRING_AGG ordered by stint would give the same here; the recursive form is what you need when the "next" link is not a simple counter.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'lahman-104',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['gaps-islands'],
+    title: 'Division titles in a row',
+    prompt: 'Find the 3 longest runs of consecutive seasons in which a franchise won its division (div_win = \'Y\'): franch_id, first and last season, number of titles. Longest first, then franch_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Season minus row number per franchise',
+        postgres: `with titles as (
+  select franch_id, year_id from teams where div_win = 'Y'
+),
+runs as (
+  select franch_id, year_id, year_id - row_number() over (partition by franch_id order by year_id) as grp
+  from titles
+)
+select franch_id, min(year_id) as first_season, max(year_id) as last_season, count(*) as titles
+from runs
+group by franch_id, grp
+order by titles desc, franch_id
+limit 3;`,
+        mysql: `with titles as (
+  select franch_id, year_id from teams where div_win = 'Y'
+),
+runs as (
+  select franch_id, year_id, year_id - row_number() over (partition by franch_id order by year_id) as grp
+  from titles
+)
+select franch_id, min(year_id) as first_season, max(year_id) as last_season, count(*) as titles
+from runs
+group by franch_id, grp
+order by titles desc, franch_id
+limit 3;`,
+        explanation:
+          'Atlanta won 11 straight division titles from 1995 to 2005. They had also won in 1991–1993; the run "breaks" at 1994 only because the strike cancelled the postseason and no division winners were recorded, a reminder that a gap in data is not always a gap in reality.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'lahman-105',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['temp-tables', 'aggregates'],
+    title: 'The $20 million club',
+    prompt:
+      'Store every salary of 20,000,000 or more in a temporary table big_salaries (year_id, team_id, player_id, salary). Then: the 3 teams with the most such salaries, with the count and the largest.',
+    hint: SEASONS_NOTE,
+    orderMatters: true,
+    checkSql: `select team_id, count(*) as big_salaries, max(salary) as largest from big_salaries group by team_id order by big_salaries desc, team_id limit 3`,
+    solutions: [
+      {
+        approach: 'CREATE TEMPORARY TABLE … AS',
+        postgres: `create temporary table big_salaries as
+select year_id, team_id, player_id, salary from salaries where salary >= 20000000;`,
+        mysql: `create temporary table big_salaries as
+select year_id, team_id, player_id, salary from salaries where salary >= 20000000;`,
+        explanation: '135 rows out of 5,804. The Yankees account for 28 of them, nearly twice the next team. Further questions (by year, by player) now scan 135 rows instead of the full salary table.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'lahman-106',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'Record a salary, with checks',
+    prompt:
+      'Write a procedure add_salary(p_player_id, p_team_id, p_year, p_salary) that refuses a negative salary and a player who has no batting or pitching row for that team and season, and inserts otherwise. Record 40,000,000 for judgeaa01, NYA, 2025.',
+    orderMatters: false,
+    checkSql: `select year_id, team_id, lg_id, player_id, salary from salaries where player_id = 'judgeaa01'`,
+    solutions: [
+      {
+        approach: 'Validate, look up the league, insert',
+        postgres: `create procedure add_salary(p_player_id varchar, p_team_id varchar, p_year integer, p_salary integer)
+language plpgsql
+as $$
+declare
+  v_lg varchar;
+begin
+  if p_salary < 0 then
+    raise exception 'salary cannot be negative';
+  end if;
+  if not exists (select 1 from batting where player_id = p_player_id and team_id = p_team_id and year_id = p_year)
+     and not exists (select 1 from pitching where player_id = p_player_id and team_id = p_team_id and year_id = p_year) then
+    raise exception '% did not play for % in %', p_player_id, p_team_id, p_year;
+  end if;
+
+  select lg_id into v_lg from teams where team_id = p_team_id and year_id = p_year;
+  insert into salaries (year_id, team_id, lg_id, player_id, salary) values (p_year, p_team_id, v_lg, p_player_id, p_salary);
+end;
+$$;
+
+call add_salary('judgeaa01', 'NYA', 2025, 40000000);`,
+        mysql: `create procedure add_salary(p_player_id varchar(9), p_team_id char(3), p_year int, p_salary int)
+begin
+  declare v_lg char(2);
+  if p_salary < 0 then
+    signal sqlstate '45000' set message_text = 'salary cannot be negative';
+  end if;
+  if not exists (select 1 from batting where player_id = p_player_id and team_id = p_team_id and year_id = p_year)
+     and not exists (select 1 from pitching where player_id = p_player_id and team_id = p_team_id and year_id = p_year) then
+    signal sqlstate '45000' set message_text = 'player did not play for that team in that season';
+  end if;
+
+  select lg_id into v_lg from teams where team_id = p_team_id and year_id = p_year;
+  insert into salaries (year_id, team_id, lg_id, player_id, salary) values (p_year, p_team_id, v_lg, p_player_id, p_salary);
+end;
+
+call add_salary('judgeaa01', 'NYA', 2025, 40000000);`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'The caller passes four values; the procedure finds the league itself, so lg_id can never disagree with teams. The salary data ends in 2016, so this is Judge\'s first row in salaries.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
+  },
+  {
+    id: 'lahman-107',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for the biggest contracts',
+    prompt:
+      'A page lists salaries of 20,000,000 or more by year with team and player. They are 135 of 5,804 rows. Create an index for exactly those rows that serves the page from the index alone.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'salaries' and indexdef like '%salary%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'salaries' and column_name = 'salary'`,
+    solutions: [
+      {
+        approach: 'Partial covering index',
+        postgres: `create index salaries_big_idx on salaries (year_id) include (team_id, player_id, salary)
+where salary >= 20000000;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: 'About 2% of the rows, sorted by year, with the shown columns included. The page\'s WHERE must contain salary >= 20000000 (or a stricter condition) for the index to be chosen.',
+      },
+      {
+        approach: 'Index led by salary',
+        postgres: `create index salaries_salary_idx on salaries (salary, year_id, team_id, player_id);`,
+        mysql: `create index salaries_salary_idx on salaries (salary, year_id, team_id, player_id);`,
+        explanation: 'salary >= 20000000 is a range at the top of this index; the result still needs a sort by year.',
+      },
+    ],
+    comparison: 'Both answer from the index. The partial one is tiny and pre-sorted by year.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
 ]

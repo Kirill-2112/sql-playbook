@@ -4170,4 +4170,106 @@ insert into po_by_status select purchase_order_id, status, vendor_id, order_date
     ],
     docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
   },
+  {
+    id: 'adventureworks-112',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['limit'],
+    title: 'The three biggest orders',
+    prompt: 'Show the 3 sales orders with the highest total_due: sales_order_id, order_date and total_due.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ORDER BY … DESC, LIMIT 3',
+        postgres: `select sales_order_id, order_date, total_due
+from sales_order_header
+order by total_due desc, sales_order_id
+limit 3;`,
+        mysql: `select sales_order_id, order_date, total_due
+from sales_order_header
+order by total_due desc, sales_order_id
+limit 3;`,
+        explanation: 'The largest order is over 170,000; two of the top three were placed on the same day, 30 May 2023, a reseller order day. sales_order_id makes the order fully deterministic.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'adventureworks-113',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['upsert'],
+    title: 'A stock count overrides, a delivery adds',
+    prompt:
+      'A physical count says: product 707 at location 7 has 280 units; product 707 at location 6 (Miscellaneous Storage, shelf A, bin 1) has 12. Store the counts in one statement, replacing any stored quantity.',
+    orderMatters: true,
+    checkSql: `select product_id, location_id, shelf, bin, quantity from product_inventory where product_id = 707 order by location_id`,
+    solutions: [
+      {
+        approach: 'Upsert that sets the value',
+        postgres: `insert into product_inventory (product_id, location_id, shelf, bin, quantity)
+values (707, 7, 'N/A', 0, 280), (707, 6, 'A', 1, 12)
+on conflict (product_id, location_id) do update set quantity = excluded.quantity;`,
+        mysql: `insert into product_inventory (product_id, location_id, shelf, bin, quantity)
+values (707, 7, 'N/A', 0, 280), (707, 6, 'A', 1, 12) as new
+on duplicate key update quantity = new.quantity;`,
+        explanation:
+          'A count is the new truth, so the stored 288 is replaced by 280. A delivery would instead add (quantity = product_inventory.quantity + excluded.quantity). The statement is the same shape; only the update expression says which meaning you want.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'adventureworks-114',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['generated-columns', 'null'],
+    title: 'A display name with a middle initial',
+    prompt:
+      'Add a stored generated column display_name to person: first name, the middle initial with a dot if there is a middle name, and last name, like "Ken J. Sánchez" or "Rob Walters". Show it for people 1 to 4.',
+    orderMatters: true,
+    checkSql: `select business_entity_id, display_name from person where business_entity_id between 1 and 4 order by business_entity_id`,
+    solutions: [
+      {
+        approach: 'COALESCE swallows the missing middle name',
+        postgres: `alter table person
+add column display_name varchar(120)
+generated always as (first_name || ' ' || coalesce(left(middle_name, 1) || '. ', '') || last_name) stored;`,
+        mysql: `alter table person
+add column display_name varchar(120)
+generated always as (concat(first_name, ' ', coalesce(concat(left(middle_name, 1), '. '), ''), last_name)) stored;`,
+        explanation:
+          'With a NULL middle name, left(…) || \'. \' is NULL as a whole, and COALESCE replaces it with an empty string, so no stray dot or double space appears. PostgreSQL would refuse concat_ws here because it is not immutable; || with COALESCE is.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'adventureworks-115',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'Top-N without sorting everything',
+    prompt: 'The dashboard asks for the 3 largest orders (order by total_due desc limit 3) every few seconds. Make the database read just those rows instead of sorting all orders.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'sales_order_header' and indexdef like '%(total_due%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'sales_order_header' and column_name = 'total_due' and seq_in_index = 1`,
+    solutions: [
+      {
+        approach: 'An index on the sort key',
+        postgres: `create index sales_order_header_total_due_idx on sales_order_header (total_due desc, sales_order_id);
+
+-- explain select sales_order_id, order_date, total_due from sales_order_header order by total_due desc, sales_order_id limit 3;`,
+        mysql: `create index sales_order_header_total_due_idx on sales_order_header (total_due desc, sales_order_id);
+
+-- explain select sales_order_id, order_date, total_due from sales_order_header order by total_due desc, sales_order_id limit 3;`,
+        mysqlNote: 'MySQL 8 builds real descending indexes; older versions accepted DESC but ignored it.',
+        explanation:
+          'Without the index the plan is "Sort, then Limit" over 7,866 rows (a top-N heapsort, but still every row is read). With it the plan is "Index Scan, Limit": three entries and done. Including sales_order_id matches the tie-breaker, so the index order is exactly the requested order.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Indexes and ORDER BY', url: PG + 'indexes-ordering.html' }],
+  },
 ]

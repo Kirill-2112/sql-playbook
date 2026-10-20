@@ -3490,4 +3490,106 @@ order by r.cuisine;`,
     ],
     docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
   },
+  {
+    id: 'delivery-094',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['lateral'],
+    title: 'Each customer\'s first order',
+    prompt: 'For customers 1 to 3: id, name, and their first order ever (order id, created_at, restaurant name).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL with a join inside',
+        postgres: `select c.id, c.name, first_order.id as order_id, first_order.created_at, first_order.restaurant
+from customers c
+cross join lateral (
+  select o.id, o.created_at, r.name as restaurant
+  from orders o
+  join restaurants r on r.id = o.restaurant_id
+  where o.customer_id = c.id
+  order by o.created_at, o.id
+  limit 1
+) first_order
+where c.id between 1 and 3
+order by c.id;`,
+        mysql: `select c.id, c.name, first_order.id as order_id, first_order.created_at, first_order.restaurant
+from customers c
+cross join lateral (
+  select o.id, o.created_at, r.name as restaurant
+  from orders o
+  join restaurants r on r.id = o.restaurant_id
+  where o.customer_id = c.id
+  order by o.created_at, o.id
+  limit 1
+) first_order
+where c.id between 1 and 3
+order by c.id;`,
+        explanation: 'The lateral subquery may contain its own joins; here it fetches the restaurant name together with the first order, so the outer query needs no extra join. With the index on orders(customer_id) each lookup reads one customer\'s orders only.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'delivery-095',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['date-series', 'dates-advanced'],
+    title: 'Sign-ups week by week, until they stopped',
+    prompt: 'Count customer sign-ups for every week starting on a Monday from 4 August to 1 September 2025 (5 weeks), including weeks with none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Weekly series LEFT JOIN customers',
+        postgres: `select w.week_start::date as week_start, count(c.id) as signups
+from generate_series('2025-08-04'::date, '2025-09-01', interval '7 days') as w (week_start)
+left join customers c
+  on c.signed_up_at >= w.week_start and c.signed_up_at < w.week_start + interval '7 days'
+group by w.week_start
+order by w.week_start;`,
+        mysql: `with recursive weeks (week_start) as (
+  select cast('2025-08-04' as date)
+  union all
+  select week_start + interval 7 day from weeks where week_start < '2025-09-01'
+)
+select w.week_start, count(c.id) as signups
+from weeks w
+left join customers c
+  on c.signed_up_at >= w.week_start and c.signed_up_at < w.week_start + interval 7 day
+group by w.week_start
+order by w.week_start;`,
+        explanation:
+          'Sign-ups end on 22 August 2025, so the last two weeks show 0; without the series they would simply be missing. Starting the series on a Monday makes each week a Monday-to-Sunday range.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'delivery-096',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['json', 'group-by'],
+    title: 'Cuisines per city as a JSON object',
+    prompt: 'For each city, build one JSON object mapping cuisine to the number of restaurants, like {"Pizza": 2, "Sushi": 11, …}. Order by city.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'jsonb_object_agg / JSON_OBJECTAGG',
+        postgres: `select city, jsonb_object_agg(cuisine, restaurants) as cuisines
+from (select city, cuisine, count(*) as restaurants from restaurants group by city, cuisine) c
+group by city
+order by city;`,
+        mysql: `select city, json_objectagg(cuisine, restaurants) as cuisines
+from (select city, cuisine, count(*) as restaurants from restaurants group by city, cuisine) c
+group by city
+order by city;`,
+        explanation:
+          'The inner query counts per (city, cuisine); the outer one folds each city\'s rows into a single object, keys from one column and values from another. Ramat Gan\'s object has no Thai key at all, rather than "Thai": 0.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: JSON aggregates', url: PG + 'functions-aggregate.html' },
+      { label: 'MySQL: JSON_OBJECTAGG', url: MY + 'aggregate-functions.html#function_json-objectagg' },
+    ],
+  },
 ]

@@ -3093,4 +3093,179 @@ where rental_id = 1 and last_update = '2006-02-15 21:30:53';`,
     ],
     docs: [{ label: 'PostgreSQL: UPDATE', url: PG + 'sql-update.html' }],
   },
+  {
+    id: 'sakila-108',
+    dataset: 'sakila',
+    level: 2,
+    topics: ['text-aggregation', 'joins'],
+    title: 'Epic-length films by category',
+    prompt: 'For films longer than 180 minutes: per category, how many there are and their titles in one line, alphabetically. Most films first, then category name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg / GROUP_CONCAT after a filtered join',
+        postgres: `select c.name as category, count(*) as films,
+       string_agg(f.title, ', ' order by f.title) as titles
+from film f
+join film_category fc on fc.film_id = f.film_id
+join category c on c.category_id = fc.category_id
+where f.length > 180
+group by c.name
+order by films desc, category;`,
+        mysql: `select c.name as category, count(*) as films,
+       group_concat(f.title order by f.title separator ', ') as titles
+from film f
+join film_category fc on fc.film_id = f.film_id
+join category c on c.category_id = fc.category_id
+where f.length > 180
+group by c.name
+order by films desc, category;`,
+        explanation: '39 films run over three hours, spread over 15 categories; Animation and Foreign have five each. WHERE filters films before grouping, so categories without long films do not appear at all.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'sakila-109',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Action and Comedy rentals per store, with totals',
+    prompt: 'Count rentals of Action and Comedy films per store and category, with a subtotal per store and a grand total (label totals \'All\'). Stores in order, categories within each store, totals after their details.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP (store, category)',
+        postgres: `select coalesce(i.store_id::text, 'All') as store, coalesce(c.name, 'All') as category, count(*) as rentals
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+join film_category fc on fc.film_id = i.film_id
+join category c on c.category_id = fc.category_id
+where c.name in ('Action', 'Comedy')
+group by rollup (i.store_id, c.name)
+order by grouping(i.store_id), i.store_id, grouping(c.name), c.name;`,
+        mysql: `select coalesce(cast(store_id as char), 'All') as store, coalesce(name, 'All') as category, rentals
+from (
+  select i.store_id, c.name, count(*) as rentals, grouping(i.store_id) as gs, grouping(c.name) as gc
+  from rental r
+  join inventory i on i.inventory_id = r.inventory_id
+  join film_category fc on fc.film_id = i.film_id
+  join category c on c.category_id = fc.category_id
+  where c.name in ('Action', 'Comedy')
+  group by i.store_id, c.name with rollup
+) t
+order by gs, store_id, gc, name;`,
+        mysqlNote: 'The labels are applied outside the ROLLUP query, where its NULLs are plain values; COALESCE of a number with text needs the number cast to text first.',
+        explanation: 'Store 1 rented 1,098 of these films, store 2 955, together 2,053. ROLLUP never totals a category across stores; that would be CUBE or an extra GROUPING SET.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'sakila-110',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['ddl', 'constraints'],
+    title: 'An email type you can reuse',
+    prompt:
+      'Several tables will store emails that must contain "@" and be at most 100 characters. Define that rule once as a domain (PostgreSQL), then create newsletter_signup (signup_id, email using it, signed_up_at). Add one signup: anna@example.com on 2025-07-01.',
+    orderMatters: false,
+    checkSql: `select signup_id, email, signed_up_at from newsletter_signup`,
+    solutions: [
+      {
+        approach: 'CREATE DOMAIN / a CHECK per column',
+        postgres: `create domain email_address as varchar(100)
+  check (value like '%_@_%');
+
+create table newsletter_signup (
+  signup_id    integer generated always as identity primary key,
+  email        email_address not null unique,
+  signed_up_at date not null
+);
+
+insert into newsletter_signup (email, signed_up_at) values ('anna@example.com', '2025-07-01');`,
+        mysql: `create table newsletter_signup (
+  signup_id    int auto_increment primary key,
+  email        varchar(100) not null unique check (email like '%_@_%'),
+  signed_up_at date not null
+);
+
+insert into newsletter_signup (email, signed_up_at) values ('anna@example.com', '2025-07-01');`,
+        mysqlNote: 'MySQL has no domains; the CHECK has to be repeated on every column that stores an email.',
+        explanation:
+          'A domain is a named type plus rules: every column declared as email_address gets the length and the CHECK, and changing the domain changes them all. \'%_@_%\' demands at least one character before and after the @. Real email validation is far more complex; the database only keeps out obvious junk.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE DOMAIN', url: PG + 'sql-createdomain.html' }],
+  },
+  {
+    id: 'sakila-111',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['transactions', 'dml'],
+    title: 'Move zero payments to an archive, all or nothing',
+    prompt:
+      'Create payment_archive with the columns of payment, then move the payments with amount 0 there: they must end up in exactly one of the two tables, never both and never neither. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from payment_archive) as archived, (select count(*) from payment where amount = 0) as left_in_payment`,
+    solutions: [
+      {
+        approach: 'DELETE … RETURNING inside an INSERT (one statement)',
+        postgres: `create table payment_archive (like payment);
+
+with moved as (
+  delete from payment where amount = 0 returning *
+)
+insert into payment_archive select * from moved;`,
+        mysql: `create table payment_archive like payment;
+
+start transaction;
+insert into payment_archive select * from payment where amount = 0;
+delete from payment where amount = 0;
+commit;`,
+        mysqlNote: 'No data-modifying CTEs in MySQL: two statements inside one transaction. Between them, a concurrent insert of a new zero payment could slip into the DELETE without being archived; SELECT … FOR UPDATE or SERIALIZABLE closes that gap.',
+        explanation:
+          'In PostgreSQL the DELETE … RETURNING hands exactly the deleted rows to the INSERT, in one statement, so no row can be counted twice or lost. 24 payments move.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Data-modifying statements in WITH', url: PG + 'queries-with.html#QUERIES-WITH-MODIFYING' }],
+  },
+  {
+    id: 'sakila-112',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['triggers'],
+    title: 'Renting reactivates a customer',
+    prompt:
+      'If an inactive customer (active = 0) rents a film, they should become active again. Add a trigger for that. Test: set customer 1 inactive, then rent inventory 1 to them (rental 16050, 2006-02-20 10:00, staff 1).',
+    orderMatters: false,
+    checkSql: `update customer set active = 0 where customer_id = 1;
+insert into rental (rental_id, rental_date, inventory_id, customer_id, staff_id) values (16050, '2006-02-20 10:00', 1, 1, 1);
+select customer_id, active from customer where customer_id = 1`,
+    solutions: [
+      {
+        approach: 'AFTER INSERT trigger on rental',
+        postgres: `create function reactivate_customer() returns trigger
+language plpgsql
+as $$
+begin
+  update customer set active = 1 where customer_id = new.customer_id and active = 0;
+  return null;
+end;
+$$;
+
+create trigger rental_reactivates
+after insert on rental
+for each row execute function reactivate_customer();`,
+        mysql: `create trigger rental_reactivates
+after insert on rental
+for each row
+  update customer set active = 1 where customer_id = new.customer_id and active = 0;`,
+        mysqlNote: 'A one-statement trigger body needs no BEGIN … END.',
+        explanation:
+          'The condition active = 0 in the UPDATE makes the trigger touch the customer row only when something changes, so ordinary rentals by active customers cost nothing extra. It runs inside the same transaction as the rental: if the rental is rolled back, so is the reactivation.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
+  },
 ]

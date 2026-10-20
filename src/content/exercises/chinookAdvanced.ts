@@ -2243,4 +2243,36 @@ order by day;`,
     ],
     docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
   },
+  {
+    id: 'chinook-086',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['text-aggregation', 'distinct'],
+    title: 'Billing cities of each country',
+    prompt: 'For countries with invoices from at least 3 different billing cities: the country, the number of cities, and the cities in one line, alphabetically, separated by ", ".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg(DISTINCT …) / GROUP_CONCAT(DISTINCT …)',
+        postgres: `select billing_country, count(distinct billing_city) as cities,
+       string_agg(distinct billing_city, ', ' order by billing_city) as city_list
+from invoice
+group by billing_country
+having count(distinct billing_city) >= 3
+order by billing_country;`,
+        mysql: `select billing_country, count(distinct billing_city) as cities,
+       group_concat(distinct billing_city order by billing_city separator ', ') as city_list
+from invoice
+group by billing_country
+having count(distinct billing_city) >= 3
+order by billing_country;`,
+        explanation:
+          'invoice has one row per invoice, so each city appears many times; DISTINCT inside the aggregate lists it once. In PostgreSQL, with DISTINCT the ORDER BY of string_agg may only use the aggregated value itself, which is exactly what is needed here.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' },
+      { label: 'MySQL: GROUP_CONCAT', url: MY + 'aggregate-functions.html#function_group-concat' },
+    ],
+  },
 ]

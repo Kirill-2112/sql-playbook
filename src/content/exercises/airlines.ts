@@ -3434,4 +3434,100 @@ commit;`,
       { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
     ],
   },
+  {
+    id: 'airlines-084',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['ddl', 'constraints'],
+    title: 'Crew tables',
+    prompt:
+      'Add crew to the schema: crew_members (crew_id generated automatically, full_name, role \'pilot\' or \'cabin\') and crew_assignments (flight_id, crew_id), one row per crew member per flight, with keys and foreign keys. Then assign a new pilot, Anna Petrova, to flight 8.',
+    orderMatters: true,
+    checkSql: `select a.flight_id, m.crew_id, m.full_name, m.role
+from crew_assignments a
+join crew_members m on m.crew_id = a.crew_id
+order by a.flight_id, m.crew_id`,
+    solutions: [
+      {
+        approach: 'Identity key, CHECK, composite primary key, two foreign keys',
+        postgres: `create table crew_members (
+  crew_id   integer generated always as identity primary key,
+  full_name varchar(60) not null,
+  role      varchar(10) not null check (role in ('pilot', 'cabin'))
+);
+
+create table crew_assignments (
+  flight_id integer not null references flights (flight_id),
+  crew_id   integer not null references crew_members (crew_id),
+  primary key (flight_id, crew_id)
+);
+
+insert into crew_members (full_name, role) values ('Anna Petrova', 'pilot');
+insert into crew_assignments (flight_id, crew_id) values (8, 1);`,
+        mysql: `create table crew_members (
+  crew_id   int auto_increment primary key,
+  full_name varchar(60) not null,
+  role      varchar(10) not null check (role in ('pilot', 'cabin'))
+);
+
+create table crew_assignments (
+  flight_id int not null,
+  crew_id   int not null,
+  primary key (flight_id, crew_id),
+  foreign key (flight_id) references flights (flight_id),
+  foreign key (crew_id) references crew_members (crew_id)
+);
+
+insert into crew_members (full_name, role) values ('Anna Petrova', 'pilot');
+insert into crew_assignments (flight_id, crew_id) values (8, 1);`,
+        mysqlNote: 'AUTO_INCREMENT instead of an identity column. MySQL ignores inline REFERENCES on a column, so the foreign keys are written as table constraints.',
+        explanation:
+          'A crew member flies many flights and a flight has many crew: a many-to-many relationship needs the assignments table in between. Its composite key stops assigning the same person twice to one flight. GENERATED ALWAYS refuses a hand-written crew_id, so ids never collide with the sequence.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Identity columns', url: PG + 'ddl-identity-columns.html' },
+      { label: 'MySQL: FOREIGN KEY constraints', url: MY + 'create-table-foreign-keys.html' },
+    ],
+  },
+  {
+    id: 'airlines-085',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['materialized-views', 'dates-advanced'],
+    title: 'Average arrival delay per route, stored',
+    prompt:
+      'Store, per route_no, the number of arrived flights before 2025-12-01 and the average arrival delay in minutes (1 decimal). Then: the 3 routes with the worst average among those with at least 20 flights.',
+    hint: UTC_NOTE,
+    orderMatters: true,
+    checkSql: `select route_no, flights, avg_delay_min from route_delays where flights >= 20 order by avg_delay_min desc, route_no limit 3`,
+    solutions: [
+      {
+        approach: 'Materialized view',
+        postgres: `create materialized view route_delays as
+select route_no, count(*) as flights,
+       round(avg(extract(epoch from actual_arrival - scheduled_arrival) / 60), 1) as avg_delay_min
+from flights
+where status = 'Arrived' and scheduled_departure < '2025-12-01'
+group by route_no;
+
+create unique index route_delays_key on route_delays (route_no);`,
+        mysql: `create table route_delays (
+  route_no      varchar(6) primary key,
+  flights       int,
+  avg_delay_min decimal(8, 1)
+);
+
+replace into route_delays
+select route_no, count(*), round(avg(timestampdiff(second, scheduled_arrival, actual_arrival) / 60), 1)
+from flights
+where status = 'Arrived' and scheduled_departure < '2025-12-01'
+group by route_no;`,
+        mysqlNote: 'A table refreshed by REPLACE INTO plays the materialized view. TIMESTAMPDIFF gives whole units, so take seconds and divide.',
+        explanation:
+          'Subtracting two timestamps gives an interval; its epoch is the length in seconds. The stored summary answers the "worst routes" question from a few hundred rows, and the minimum of 20 flights keeps a route with one bad day off the list.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
 ]

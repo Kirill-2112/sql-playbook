@@ -2039,4 +2039,41 @@ commit;`,
       { label: 'MySQL: Locking reads', url: MY + 'innodb-locking-reads.html' },
     ],
   },
+  {
+    id: 'northwind-085',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['partial-covering-indexes', 'indexes'],
+    title: 'Unique names among active products',
+    prompt:
+      'Two products may share a name only if at least one of them is discontinued. Enforce this with a unique index: product_name must be unique among products with discontinued = 0.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_unique_index from pg_indexes where tablename = 'products' and indexdef like 'CREATE UNIQUE INDEX%' and indexdef like '%discontinued%'`,
+    checkSqlMysql: `select count(*) > 0 as has_unique_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'products' and non_unique = 0 and expression is not null`,
+    solutions: [
+      {
+        approach: 'Partial unique index',
+        postgres: `create unique index products_active_name_key on products (product_name)
+where discontinued = 0;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation:
+          'The index only holds active products, so uniqueness is checked only among them; any number of discontinued products can keep an old name. A UNIQUE constraint on the whole column could not express "only when active".',
+      },
+      {
+        approach: 'Unique index on an expression that is NULL for discontinued products',
+        postgres: `create unique index products_active_name_key on products ((case when discontinued = 0 then product_name end));`,
+        mysql: `create unique index products_active_name_key on products ((case when discontinued = 0 then product_name end));`,
+        mysqlNote: 'Functional indexes (note the double parentheses) exist since MySQL 8.0.13.',
+        explanation: 'A unique index allows any number of NULLs. Mapping discontinued products to NULL leaves only active names to be compared, which gives the same rule.',
+      },
+    ],
+    comparison: 'Same rule. The partial index is clearer and smaller; the NULL trick works in MySQL.',
+    docs: [
+      { label: 'PostgreSQL: Partial unique indexes', url: PG + 'indexes-partial.html' },
+      { label: 'MySQL: Functional key parts', url: MY + 'create-index.html#create-index-functional-key-parts' },
+    ],
+  },
 ]

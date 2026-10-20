@@ -3056,4 +3056,215 @@ call reprice_subcategory(31, 10, '2025-07-01');`,
       { label: 'MySQL: Multiple-table UPDATE', url: MY + 'update.html' },
     ],
   },
+  {
+    id: 'adventureworks-082',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['text-search', 'limit'],
+    title: 'The priciest touring products',
+    prompt: 'Show the 5 most expensive products with "Touring" in the name: product_id, name and list_price. On equal prices, lower product_id first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LIKE, then ORDER BY and LIMIT',
+        postgres: `select product_id, name, list_price
+from product
+where name like '%Touring%'
+order by list_price desc, product_id
+limit 5;`,
+        mysql: `select product_id, name, list_price
+from product
+where name like '%Touring%'
+order by list_price desc, product_id
+limit 5;`,
+        explanation:
+          'Many Touring-1000 bikes share the top price of 2,384.07 (one row per colour and size), so without product_id as a tie-breaker the five could change from run to run.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'adventureworks-083',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'Is the order number just the id?',
+    prompt: 'sales_order_number looks like "SO43660". Check whether, for every order, the digits after "SO" as a number equal sales_order_id. Return the number of orders and of mismatches.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Cut off the prefix, cast to integer, compare',
+        postgres: `select count(*) as orders,
+       count(*) filter (where substr(sales_order_number, 3)::integer <> sales_order_id) as mismatches
+from sales_order_header;`,
+        mysql: `select count(*) as orders,
+       sum(cast(substr(sales_order_number, 3) as unsigned) <> sales_order_id) as mismatches
+from sales_order_header;`,
+        mysqlNote: 'MySQL casts to UNSIGNED or SIGNED, not INTEGER.',
+        explanation:
+          'Comparing text with a number would compare as text (or fail in PostgreSQL), so the digits are cast first. No mismatches: the order number is the id with a prefix, a derived value that could be computed instead of stored.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Type casts', url: PG + 'sql-expressions.html#SQL-SYNTAX-TYPE-CASTS' }],
+  },
+  {
+    id: 'adventureworks-084',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['subtotals'],
+    title: 'Revenue by category and by year, in one result',
+    prompt:
+      'In one query: revenue (line_total, 2 decimals) per product category, per order year, and the grand total, but not category × year. Show dimension (\'category\', \'year\' or \'total\'), value and revenue.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'GROUPING SETS',
+        postgres: `select case when grouping(c.name) = 0 then 'category'
+            when grouping(extract(year from h.order_date)) = 0 then 'year'
+            else 'total' end as dimension,
+       coalesce(c.name, extract(year from h.order_date)::text, 'all') as value,
+       round(sum(d.line_total), 2) as revenue
+from sales_order_detail d
+join sales_order_header h on h.sales_order_id = d.sales_order_id
+join product p on p.product_id = d.product_id
+join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+join product_category c on c.product_category_id = s.product_category_id
+group by grouping sets ((c.name), (extract(year from h.order_date)), ())
+order by dimension, revenue desc;`,
+        mysql: `with order_lines as (
+  select c.name as category, year(h.order_date) as yr, d.line_total
+  from sales_order_detail d
+  join sales_order_header h on h.sales_order_id = d.sales_order_id
+  join product p on p.product_id = d.product_id
+  join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id
+  join product_category c on c.product_category_id = s.product_category_id
+)
+select 'category' as dimension, category as value, round(sum(line_total), 2) as revenue from order_lines group by category
+union all
+select 'year', cast(yr as char) collate utf8mb4_0900_ai_ci, round(sum(line_total), 2) from order_lines group by yr
+union all
+select 'total', 'all', round(sum(line_total), 2) from order_lines
+order by dimension, revenue desc;`,
+        mysqlNote: 'MySQL has no GROUPING SETS: a UNION ALL of the three groupings over one CTE gives the same rows. COLLATE makes the cast year match the collation of the category names in the same column.',
+        explanation:
+          'GROUPING SETS lists exactly the groupings you want; ROLLUP and CUBE are shorthands for particular lists. GROUPING(x) = 0 tells which column a row is grouped by. Bikes are about 86% of revenue.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUPING SETS', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'adventureworks-085',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'Periods where the price did not change',
+    prompt:
+      'product_list_price_history sometimes starts a new period with the same price as the one before. Merge such consecutive periods: show product_id, the first start_date, the last end_date (NULL if still open), list_price and how many rows were merged, only where more than one row was merged.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Flag price changes, running sum as group id',
+        postgres: `with flagged as (
+  select product_id, start_date, end_date, list_price,
+         case when list_price = lag(list_price) over (partition by product_id order by start_date) then 0 else 1 end as is_new
+  from product_list_price_history
+),
+grouped as (
+  select *, sum(is_new) over (partition by product_id order by start_date) as grp
+  from flagged
+)
+select product_id, min(start_date) as period_start,
+       case when count(end_date) = count(*) then max(end_date) end as period_end,
+       min(list_price) as list_price, count(*) as rows_merged
+from grouped
+group by product_id, grp
+having count(*) > 1
+order by product_id, period_start;`,
+        mysql: `with flagged as (
+  select product_id, start_date, end_date, list_price,
+         case when list_price = lag(list_price) over (partition by product_id order by start_date) then 0 else 1 end as is_new
+  from product_list_price_history
+),
+grouped as (
+  select *, sum(is_new) over (partition by product_id order by start_date) as grp
+  from flagged
+)
+select product_id, min(start_date) as period_start,
+       case when count(end_date) = count(*) then max(end_date) end as period_end,
+       min(list_price) as list_price, count(*) as rows_merged
+from grouped
+group by product_id, grp
+having count(*) > 1
+order by product_id, period_start;`,
+        explanation:
+          'Each row that starts a new price gets 1, a repeat gets 0; the running sum of these flags stays constant across a run of equal prices and so numbers the islands. count(end_date) = count(*) checks that no row of the island is open-ended; otherwise the period is still running and its end is NULL. 395 rows collapse to 387 periods.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'adventureworks-086',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['upsert'],
+    title: 'Add products to an offer, skip the ones already in',
+    prompt:
+      'Put products 707, 708, 711 and 712 into special offer 11 (Sport Helmet Discount-2003). Some are already in it; the statement must not fail on them or create duplicates.',
+    orderMatters: true,
+    checkSql: `select special_offer_id, product_id from special_offer_product where special_offer_id = 11 order by product_id`,
+    solutions: [
+      {
+        approach: 'ON CONFLICT DO NOTHING / ON DUPLICATE KEY no-op',
+        postgres: `insert into special_offer_product (special_offer_id, product_id)
+values (11, 707), (11, 708), (11, 711), (11, 712)
+on conflict (special_offer_id, product_id) do nothing;`,
+        mysql: `insert into special_offer_product (special_offer_id, product_id)
+values (11, 707), (11, 708), (11, 711), (11, 712) as new
+on duplicate key update product_id = new.product_id;`,
+        mysqlNote:
+          'MySQL has no DO NOTHING. INSERT IGNORE also skips duplicates, but it turns other errors (such as a bad foreign key) into warnings too; the no-op update skips only duplicate keys.',
+        explanation:
+          'The three helmets are already in offer 11, so only 712 (the cap) is added. Skipping rather than failing makes "make sure these are in" safe to run any number of times.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' },
+      { label: 'MySQL: INSERT … ON DUPLICATE KEY UPDATE', url: MY + 'insert-on-duplicate.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-087',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['generated-columns', 'conditions'],
+    title: 'Weight in grams, whatever the unit',
+    prompt:
+      'product.weight is in pounds (LB) or grams (G), as weight_unit_measure_code says. Add a stored generated column weight_g with the weight in grams (1 lb = 453.59237 g, rounded to whole grams). Then: the 3 heaviest products.',
+    orderMatters: true,
+    checkSql: `select product_id, name, weight, weight_unit_measure_code, weight_g from product where weight_g is not null order by weight_g desc, product_id limit 3`,
+    solutions: [
+      {
+        approach: 'CASE inside a generated column',
+        postgres: `alter table product
+add column weight_g numeric(10, 0)
+generated always as (
+  case weight_unit_measure_code
+    when 'LB' then round(weight * 453.59237)
+    when 'G'  then round(weight)
+  end
+) stored;`,
+        mysql: `alter table product
+add column weight_g decimal(10, 0)
+generated always as (
+  case weight_unit_measure_code
+    when 'LB' then round(weight * 453.59237)
+    when 'G'  then round(weight)
+  end
+) stored;`,
+        explanation:
+          'Mixed units in one column make every comparison wrong: 30 (lb) looks lighter than 88 (g). The generated column puts everything in one unit, and an unknown code gives NULL instead of a wrong number.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
 ]

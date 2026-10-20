@@ -2682,4 +2682,178 @@ select @moved;`,
       { label: 'MySQL: ROW_COUNT', url: MY + 'information-functions.html#function_row-count' },
     ],
   },
+  {
+    id: 'delivery-072',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['distinct', 'aggregates'],
+    title: 'Customers active in June 2026',
+    prompt: 'How many orders were placed in June 2026, and by how many different customers?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'COUNT(*) and COUNT(DISTINCT …)',
+        postgres: `select count(*) as orders, count(distinct customer_id) as customers
+from orders
+where created_at >= '2026-06-01' and created_at < '2026-07-01';`,
+        mysql: `select count(*) as orders, count(distinct customer_id) as customers
+from orders
+where created_at >= '2026-06-01' and created_at < '2026-07-01';`,
+        explanation:
+          'COUNT(*) counts rows, COUNT(DISTINCT customer_id) counts different values: a customer with three orders counts three times in the first and once in the second. The range "from the 1st, before the 1st of next month" catches every time of day on 30 June too.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'delivery-073',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['limit', 'conditions'],
+    title: 'The latest cancellations',
+    prompt: 'Show the 5 most recently created cancelled orders: id, customer_id, total and created_at, newest first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'WHERE, ORDER BY … DESC, LIMIT',
+        postgres: `select id, customer_id, total, created_at
+from orders
+where status = 'cancelled'
+order by created_at desc, id desc
+limit 5;`,
+        mysql: `select id, customer_id, total, created_at
+from orders
+where status = 'cancelled'
+order by created_at desc, id desc
+limit 5;`,
+        explanation: 'Filter first, sort newest first, keep five. id breaks a tie if two orders share a timestamp, so the five are always the same ones.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'delivery-074',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['lateral'],
+    title: 'Last order of each Haifa restaurant',
+    prompt: 'For every restaurant in Haifa: its id, name, and its most recent order (order id, created_at, total). Order by restaurant id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEFT JOIN LATERAL … LIMIT 1',
+        postgres: `select r.id, r.name, last_order.id as order_id, last_order.created_at, last_order.total
+from restaurants r
+left join lateral (
+  select o.id, o.created_at, o.total
+  from orders o
+  where o.restaurant_id = r.id
+  order by o.created_at desc, o.id desc
+  limit 1
+) last_order on true
+where r.city = 'Haifa'
+order by r.id;`,
+        mysql: `select r.id, r.name, last_order.id as order_id, last_order.created_at, last_order.total
+from restaurants r
+left join lateral (
+  select o.id, o.created_at, o.total
+  from orders o
+  where o.restaurant_id = r.id
+  order by o.created_at desc, o.id desc
+  limit 1
+) last_order on true
+where r.city = 'Haifa'
+order by r.id;`,
+        explanation:
+          'The lateral subquery runs once per restaurant and may use r.id, so "latest one" is a plain ORDER BY … LIMIT 1, returning all its columns at once. LEFT JOIN … ON TRUE keeps a restaurant that has no orders, with NULLs.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'delivery-075',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['triggers', 'constraints'],
+    title: 'No orders before sign-up, from now on',
+    prompt:
+      'Add a trigger that rejects a new order whose created_at is before its customer\'s signed_up_at. Then insert a valid order: id 200001, customer 1, restaurant 3, total 80.00, delivered, created 2026-06-25 12:00.',
+    orderMatters: false,
+    checkSql: `select id, customer_id, restaurant_id, total, status, created_at from orders where id = 200001`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger that raises an error',
+        postgres: `create function check_order_after_signup() returns trigger
+language plpgsql
+as $$
+begin
+  if new.created_at < (select signed_up_at from customers where id = new.customer_id) then
+    raise exception 'order % is dated before customer % signed up', new.id, new.customer_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_after_signup
+before insert on orders
+for each row execute function check_order_after_signup();
+
+insert into orders (id, customer_id, restaurant_id, total, status, created_at)
+values (200001, 1, 3, 80.00, 'delivered', '2026-06-25 12:00');`,
+        mysql: `create trigger orders_after_signup
+before insert on orders
+for each row
+begin
+  if new.created_at < (select signed_up_at from customers where id = new.customer_id) then
+    signal sqlstate '45000' set message_text = 'order is dated before the customer signed up';
+  end if;
+end;
+
+insert into orders (id, customer_id, restaurant_id, total, status, created_at)
+values (200001, 1, 3, 80.00, 'delivered', '2026-06-25 12:00');`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'A CHECK constraint cannot look at another table, so a rule across orders and customers needs a trigger. It only checks new rows: the 16,907 existing orders dated before sign-up stay as they are, and cleaning them up is a separate decision.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' },
+      { label: 'MySQL: SIGNAL', url: MY + 'signal.html' },
+    ],
+  },
+  {
+    id: 'delivery-076',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Search box for restaurants',
+    prompt:
+      'Make restaurants searchable by any word of name, cuisine and city together, with an index. A user types "urban sushi": return the restaurants matching both words (id, name, cuisine, city), by id.',
+    orderMatters: true,
+    checkSql: `select id, name, cuisine, city from restaurants
+where to_tsvector('simple', name || ' ' || cuisine || ' ' || city) @@ plainto_tsquery('simple', 'urban sushi')
+order by id`,
+    checkSqlMysql: `select id, name, cuisine, city from restaurants
+where match(name, cuisine, city) against ('+urban +sushi' in boolean mode)
+order by id`,
+    solutions: [
+      {
+        approach: 'Expression GIN index / multi-column FULLTEXT index',
+        postgres: `create index restaurants_search_idx on restaurants
+using gin (to_tsvector('simple', name || ' ' || cuisine || ' ' || city));
+
+-- search: where to_tsvector('simple', name || ' ' || cuisine || ' ' || city) @@ plainto_tsquery('simple', 'urban sushi')`,
+        mysql: `create fulltext index restaurants_search_ft on restaurants (name, cuisine, city);
+
+-- search: where match(name, cuisine, city) against ('+urban +sushi' in boolean mode)`,
+        mysqlNote: 'MATCH must list exactly the columns of one FULLTEXT index. In boolean mode + marks a word as required.',
+        explanation:
+          'plainto_tsquery turns free text into "urban & sushi", so both words must appear, in any of the three columns. The query must repeat the indexed expression exactly for the index to be used; a generated tsvector column avoids that repetition.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Parsing queries', url: PG + 'textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES' },
+      { label: 'MySQL: Boolean full-text searches', url: MY + 'fulltext-boolean.html' },
+    ],
+  },
 ]

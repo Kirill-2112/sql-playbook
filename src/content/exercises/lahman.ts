@@ -2911,4 +2911,181 @@ where ws_win = 'Y';
       { label: 'MySQL: Full-text search', url: MY + 'fulltext-search.html' },
     ],
   },
+  {
+    id: 'lahman-082',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['views', 'aggregates'],
+    title: 'One row per player season',
+    prompt:
+      'Create a view player_seasons (player_id, year_id, teams, g, ab, h, hr) that adds up all stints of a season, with teams as the number of teams the player batted for. Then Aaron Judge\'s 2022 line is a one-row query.',
+    hint: STINT_NOTE,
+    orderMatters: true,
+    checkSql: `select player_id, year_id, teams, g, ab, h, hr from player_seasons where player_id in ('judgeaa01', 'abadfe01') and year_id in (2016, 2022) order by player_id, year_id`,
+    solutions: [
+      {
+        approach: 'A grouping view',
+        postgres: `create view player_seasons as
+select player_id, year_id, count(*) as teams,
+       sum(g) as g, sum(ab) as ab, sum(h) as h, sum(hr) as hr
+from batting
+group by player_id, year_id;`,
+        mysql: `create view player_seasons as
+select player_id, year_id, count(*) as teams,
+       sum(g) as g, sum(ab) as ab, sum(h) as h, sum(hr) as hr
+from batting
+group by player_id, year_id;`,
+        explanation:
+          'Every season leaderboard needs this step, and forgetting it ranks traded players by half their season. With the view, the rule lives in one place. A filter on player_id is pushed into the view, so the one-row query reads only that player\'s rows.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' },
+      { label: 'MySQL: View processing algorithms', url: MY + 'view-algorithms.html' },
+    ],
+  },
+  {
+    id: 'lahman-083',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['control-flow', 'functions'],
+    title: 'Winning seasons in a row, with a loop',
+    prompt:
+      'Write a function winning_streak(p_franch_id, p_year) that counts how many consecutive seasons ending with p_year the franchise finished with more wins than losses, walking back one year at a time. Test it on the Yankees (NYY).',
+    orderMatters: false,
+    checkSql: `select winning_streak('NYY', 2025) as nyy_2025, winning_streak('NYY', 1992) as nyy_1992, winning_streak('XXX', 2025) as unknown`,
+    solutions: [
+      {
+        approach: 'WHILE loop with SELECT INTO',
+        postgres: `create function winning_streak(p_franch_id varchar, p_year integer) returns integer
+language plpgsql
+stable
+as $$
+declare
+  v_year   integer := p_year;
+  v_streak integer := 0;
+  v_w      integer;
+  v_l      integer;
+begin
+  loop
+    select w, l into v_w, v_l from teams where franch_id = p_franch_id and year_id = v_year;
+    exit when not found or v_w <= v_l;
+    v_streak := v_streak + 1;
+    v_year := v_year - 1;
+  end loop;
+  return v_streak;
+end;
+$$;`,
+        mysql: `create function winning_streak(p_franch_id varchar(3), p_year int) returns int
+reads sql data
+begin
+  declare v_year int default p_year;
+  declare v_streak int default 0;
+  declare v_found int;
+  declare v_w int;
+  declare v_l int;
+
+  streak: loop
+    select count(*), max(w), max(l) into v_found, v_w, v_l
+    from teams where franch_id = p_franch_id and year_id = v_year;
+    if v_found = 0 or v_w <= v_l then
+      leave streak;
+    end if;
+    set v_streak = v_streak + 1;
+    set v_year = v_year - 1;
+  end loop streak;
+  return v_streak;
+end;`,
+        mysqlNote: DELIMITER_NOTE + ' A MySQL LOOP needs a label for LEAVE; count(*) stands in for FOUND.',
+        explanation:
+          'Each pass reads one season and either stops (no season, or not a winning one) or counts it and steps back a year. The Yankees have had a winning record every season since 1993: 33 in a row up to 2025. A window-function solution exists too (gaps and islands), but the loop reads like the rule.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Loops', url: PG + 'plpgsql-control-structures.html#PLPGSQL-CONTROL-STRUCTURES-LOOPS' },
+      { label: 'MySQL: LOOP', url: MY + 'loop.html' },
+    ],
+  },
+  {
+    id: 'lahman-084',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'A function on the column hides the index',
+    prompt:
+      'Index people.debut. Then write "players who debuted in 2025" so that the index can be used, and explain why where extract(year from debut) = 2025 (year(debut) = 2025 in MySQL) cannot use it.',
+    orderMatters: false,
+    checkSql: `select count(*) as debuts_2025 from people where debut >= '2025-01-01' and debut < '2026-01-01'`,
+    solutions: [
+      {
+        approach: 'A plain range on the indexed column',
+        postgres: `create index people_debut_idx on people (debut);
+
+-- explain select count(*) from people where debut >= '2025-01-01' and debut < '2026-01-01';   -- index
+-- explain select count(*) from people where extract(year from debut) = 2025;                    -- sequential scan`,
+        mysql: `create index people_debut_idx on people (debut);
+
+-- explain select count(*) from people where debut >= '2025-01-01' and debut < '2026-01-01';   -- range on the index
+-- explain select count(*) from people where year(debut) = 2025;                                 -- full scan`,
+        explanation:
+          'The index is sorted by debut, so a range of dates is one contiguous stretch of it. extract(year from debut) is a different value that the index does not store, so the database must compute it for every row. Rewrite the condition as a range on the bare column, or index the expression itself.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Indexes on expressions', url: PG + 'indexes-expressional.html' },
+      { label: 'MySQL: Range optimization', url: MY + 'range-optimization.html' },
+    ],
+  },
+  {
+    id: 'lahman-085',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Batting split into two eras',
+    prompt:
+      'Create batting_by_era with the columns player_id, year_id, stint, team_id, hr, range-partitioned by year_id into 2010–2017 and 2018–2025, and copy those batting columns into it.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from batting_2010_2017) as early, (select count(*) from batting_2018_2025) as late`,
+    checkSqlMysql: `select (select count(*) from batting_by_era partition (p2010_2017)) as early,
+       (select count(*) from batting_by_era partition (p2018_2025)) as late`,
+    solutions: [
+      {
+        approach: 'Range partitions on an integer year',
+        postgres: `create table batting_by_era (
+  player_id varchar(9) not null,
+  year_id   smallint   not null,
+  stint     smallint   not null,
+  team_id   varchar(3) not null,
+  hr        smallint,
+  primary key (player_id, year_id, stint)
+) partition by range (year_id);
+
+create table batting_2010_2017 partition of batting_by_era for values from (2010) to (2018);
+create table batting_2018_2025 partition of batting_by_era for values from (2018) to (2026);
+
+insert into batting_by_era select player_id, year_id, stint, team_id, hr from batting;`,
+        mysql: `create table batting_by_era (
+  player_id varchar(9) not null,
+  year_id   smallint   not null,
+  stint     smallint   not null,
+  team_id   varchar(3) not null,
+  hr        smallint,
+  primary key (player_id, year_id, stint)
+)
+partition by range (year_id) (
+  partition p2010_2017 values less than (2018),
+  partition p2018_2025 values less than (2026)
+);
+
+insert into batting_by_era select player_id, year_id, stint, team_id, hr from batting;`,
+        mysqlNote: 'Plain RANGE works on an integer expression; RANGE COLUMNS is needed for dates and strings.',
+        explanation:
+          'year_id is already in the primary key, so the key needs no change. The upper bound is exclusive in both: FROM (2010) TO (2018) holds 2010–2017. 11,460 rows land in the first era and 12,816 in the second.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: RANGE partitioning', url: MY + 'partitioning-range.html' },
+    ],
+  },
 ]

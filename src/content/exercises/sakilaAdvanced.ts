@@ -2376,4 +2376,27 @@ order by f.film_id;`,
       { label: 'MySQL: JSON_CONTAINS', url: MY + 'json-search-functions.html#function_json-contains' },
     ],
   },
+  {
+    id: 'sakila-089',
+    dataset: 'sakila',
+    level: 1,
+    topics: ['distinct', 'null'],
+    title: 'Who still has a film at home',
+    prompt: 'How many rentals have not been returned (return_date is NULL), and by how many different customers?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'IS NULL with COUNT(DISTINCT …)',
+        postgres: `select count(*) as open_rentals, count(distinct customer_id) as customers
+from rental
+where return_date is null;`,
+        mysql: `select count(*) as open_rentals, count(distinct customer_id) as customers
+from rental
+where return_date is null;`,
+        explanation:
+          '"return_date = NULL" would find nothing, because a comparison with NULL is never true; IS NULL is the test. 183 open rentals belong to 159 customers, so a few customers have more than one film out.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Comparison predicates', url: PG + 'functions-comparison.html' }],
+  },
 ]

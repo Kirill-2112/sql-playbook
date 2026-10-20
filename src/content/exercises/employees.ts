@@ -3020,4 +3020,173 @@ where json_contains(depts, '["d004", "d005"]');`,
       { label: 'MySQL: JSON_CONTAINS', url: MY + 'json-search-functions.html#function_json-contains' },
     ],
   },
+  {
+    id: 'employees-079',
+    dataset: 'employees',
+    level: 1,
+    topics: ['limit', 'dates-basics'],
+    title: 'The youngest recent hires',
+    prompt: 'Among employees hired in 1999 or later, show the 5 youngest: emp_no, first_name, last_name and birth_date. On equal birth dates, lower emp_no first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ORDER BY birth date descending, LIMIT',
+        postgres: `select emp_no, first_name, last_name, birth_date
+from employees
+where hire_date >= '1999-01-01'
+order by birth_date desc, emp_no
+limit 5;`,
+        mysql: `select emp_no, first_name, last_name, birth_date
+from employees
+where hire_date >= '1999-01-01'
+order by birth_date desc, emp_no
+limit 5;`,
+        explanation:
+          'Youngest means born latest, so the birth date sorts descending. The WHERE runs before the sort and the LIMIT after it, so the 5 come only from the 29 recent hires. emp_no makes the order unique.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'employees-080',
+    dataset: 'employees',
+    level: 2,
+    topics: ['full-join', 'conditional-aggregates'],
+    title: 'Marketing in 1995 and in 2000',
+    prompt:
+      'Compare who was in department d001 (Marketing) on 1995-01-01 with who was there on 2000-01-01. Count the people who stayed, who left, and who joined.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two snapshots',
+        postgres: `with then_ as (
+  select emp_no from dept_emp where dept_no = 'd001' and from_date <= '1995-01-01' and to_date > '1995-01-01'
+),
+now_ as (
+  select emp_no from dept_emp where dept_no = 'd001' and from_date <= '2000-01-01' and to_date > '2000-01-01'
+)
+select count(*) filter (where t.emp_no is not null and n.emp_no is not null) as stayed,
+       count(*) filter (where n.emp_no is null) as left_dept,
+       count(*) filter (where t.emp_no is null) as joined
+from then_ t
+full join now_ n on n.emp_no = t.emp_no;`,
+        mysql: `with then_ as (
+  select emp_no from dept_emp where dept_no = 'd001' and from_date <= '1995-01-01' and to_date > '1995-01-01'
+),
+now_ as (
+  select emp_no from dept_emp where dept_no = 'd001' and from_date <= '2000-01-01' and to_date > '2000-01-01'
+)
+select (select count(*) from then_ t join now_ n on n.emp_no = t.emp_no) as stayed,
+       (select count(*) from then_ t where not exists (select 1 from now_ n where n.emp_no = t.emp_no)) as left_dept,
+       (select count(*) from now_ n where not exists (select 1 from then_ t where t.emp_no = n.emp_no)) as joined;`,
+        mysqlNote: 'No FULL JOIN in MySQL: count the three groups separately (or LEFT JOIN plus the anti-join).',
+        explanation:
+          'A FULL JOIN of two snapshots puts every person in one row, with NULL on the side where they were missing: both sides filled means stayed, a NULL on the 2000 side means left, a NULL on the 1995 side means joined. 215 stayed, 30 left, 106 joined.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'employees-081',
+    dataset: 'employees',
+    level: 3,
+    topics: ['window-frames', 'dates-advanced'],
+    title: 'Hires in the previous 30 days',
+    prompt:
+      'For every hire in 1999 or later (hire_date, emp_no), show how many people were hired in the 30 days up to and including that day. Order by hire_date, emp_no.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'RANGE frame with an interval',
+        postgres: `select hire_date, emp_no,
+       count(*) over (order by hire_date range between interval '29 days' preceding and current row) as hires_last_30_days
+from employees
+where hire_date >= '1999-01-01'
+order by hire_date, emp_no;`,
+        mysql: `select hire_date, emp_no,
+       count(*) over (order by hire_date range between interval 29 day preceding and current row) as hires_last_30_days
+from employees
+where hire_date >= '1999-01-01'
+order by hire_date, emp_no;`,
+        explanation:
+          'RANGE measures the frame in values of the ORDER BY column, not in rows: "29 days preceding" through today is a 30-day window, however many hires fall inside it. ROWS 29 PRECEDING would mean "the 29 previous hires", which could span months. Hires on the same day are peers and share one count. Hires before 1999 are filtered out first, so early January counts only from the 1st.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
+  {
+    id: 'employees-082',
+    dataset: 'employees',
+    level: 4,
+    topics: ['temp-tables', 'lag-lead'],
+    title: 'Every raise, computed once',
+    prompt:
+      'Store every salary change in a temporary table raises (emp_no, from_date, old_salary, new_salary, pct with 2 decimals). Then: how many changes were above 10%, how many were cuts, and the biggest raise in percent.',
+    orderMatters: false,
+    checkSql: `select count(*) filter (where pct > 10) as above_10_pct,
+       count(*) filter (where pct < 0) as cuts,
+       max(pct) as biggest_pct
+from raises`,
+    checkSqlMysql: `select sum(pct > 10) as above_10_pct,
+       sum(pct < 0) as cuts,
+       max(pct) as biggest_pct
+from raises`,
+    solutions: [
+      {
+        approach: 'LAG into a temporary table',
+        postgres: `create temporary table raises as
+select emp_no, from_date, old_salary, salary as new_salary,
+       round(100.0 * (salary - old_salary) / old_salary, 2) as pct
+from (
+  select emp_no, from_date, salary, lag(salary) over (partition by emp_no order by from_date) as old_salary
+  from salaries
+) s
+where old_salary is not null;`,
+        mysql: `create temporary table raises as
+select emp_no, from_date, old_salary, salary as new_salary,
+       round(100 * (salary - old_salary) / old_salary, 2) as pct
+from (
+  select emp_no, from_date, salary, lag(salary) over (partition by emp_no order by from_date) as old_salary
+  from salaries
+) s
+where old_salary is not null;`,
+        explanation:
+          'The window function runs once over 57,000 salary rows; every later question reads the 51,338 stored changes instead. The first salary of each person has no previous one, so it is left out. Raises in this data never exceed about 11.3%, and 5,280 changes are cuts.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'employees-083',
+    dataset: 'employees',
+    level: 5,
+    topics: ['indexes', 'query-plans'],
+    title: 'Search by title, not by person',
+    prompt:
+      'HR often lists everyone who currently holds a given title (title = … and to_date = \'9999-01-01\'). The primary key of titles is (emp_no, title, from_date). Explain why it does not help, and create an index that does.',
+    hint: CURRENT_NOTE,
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'titles' and indexdef like '%(title, to_date%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'titles' and column_name = 'title' and seq_in_index = 1`,
+    solutions: [
+      {
+        approach: 'An index that starts with title',
+        postgres: `create index titles_title_current_idx on titles (title, to_date) include (emp_no);
+
+-- explain select emp_no from titles where title = 'Technique Leader' and to_date = '9999-01-01';`,
+        mysql: `create index titles_title_current_idx on titles (title, to_date);
+
+-- explain select emp_no from titles where title = 'Technique Leader' and to_date = '9999-01-01';`,
+        mysqlNote: 'In InnoDB every secondary index already carries the primary key columns, so emp_no comes along without INCLUDE.',
+        explanation:
+          'A B-tree index is sorted by its first column first, like a phone book by last name. The primary key starts with emp_no, so finding a title means reading all of it. (title, to_date) puts all current Technique Leaders side by side; with emp_no included the query never touches the table.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Multicolumn indexes', url: PG + 'indexes-multicolumn.html' },
+      { label: 'MySQL: Multiple-column indexes', url: MY + 'multiple-column-indexes.html' },
+    ],
+  },
 ]

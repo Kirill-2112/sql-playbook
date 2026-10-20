@@ -3426,4 +3426,128 @@ where company is not null;`,
     comparison: 'The partial index is smaller and already in country order; the composite one works in MySQL.',
     docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
   },
+  {
+    id: 'chinook-118',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['full-join', 'aggregates'],
+    title: 'Catalogue size and sales, genre by genre',
+    prompt: 'For every genre: the number of tracks in the catalogue and the number of invoice lines sold, side by side, with 0 where a genre sold nothing. Only show genres with fewer than 5 lines sold, by genre name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two per-genre counts',
+        postgres: `with catalogue as (
+  select genre_id, count(*) as tracks from track group by genre_id
+),
+sales as (
+  select t.genre_id, count(*) as lines from invoice_line l join track t on t.track_id = l.track_id group by t.genre_id
+)
+select g.name, coalesce(c.tracks, 0) as tracks, coalesce(s.lines, 0) as lines_sold
+from catalogue c
+full join sales s on s.genre_id = c.genre_id
+join genre g on g.genre_id = coalesce(c.genre_id, s.genre_id)
+where coalesce(s.lines, 0) < 5
+order by g.name;`,
+        mysql: `with catalogue as (
+  select genre_id, count(*) as tracks from track group by genre_id
+),
+sales as (
+  select t.genre_id, count(*) as \`lines\` from invoice_line l join track t on t.track_id = l.track_id group by t.genre_id
+)
+select g.name, c.tracks, coalesce(s.\`lines\`, 0) as lines_sold
+from catalogue c
+left join sales s on s.genre_id = c.genre_id
+join genre g on g.genre_id = c.genre_id
+where coalesce(s.\`lines\`, 0) < 5
+order by g.name;`,
+        mysqlNote: 'No FULL JOIN in MySQL; every sold genre also has tracks, so a LEFT JOIN from the catalogue is enough. LINES is a reserved word and needs backticks.',
+        explanation:
+          'Opera has one track and never sold. A FULL JOIN keeps genres missing on either side; joining genre on coalesce(c.genre_id, s.genre_id) names them whichever side they came from.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'chinook-119',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['window-frames'],
+    title: 'A customer\'s biggest purchase so far',
+    prompt: 'For customer 5\'s invoices in date order: invoice_date, total, and the largest total up to and including that invoice.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Running MAX over a growing frame',
+        postgres: `select invoice_date, total,
+       max(total) over (order by invoice_date, invoice_id rows between unbounded preceding and current row) as best_so_far
+from invoice
+where customer_id = 5
+order by invoice_date, invoice_id;`,
+        mysql: `select invoice_date, total,
+       max(total) over (order by invoice_date, invoice_id rows between unbounded preceding and current row) as best_so_far
+from invoice
+where customer_id = 5
+order by invoice_date, invoice_id;`,
+        explanation:
+          'Any aggregate can run over a frame, not just SUM. The record stays at 5.94 until the 16.86 invoice of September 2024 sets a new one. A row where best_so_far equals total is a new personal record.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
+  {
+    id: 'chinook-120',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['views', 'aggregates'],
+    title: 'A view of the top customers',
+    prompt: 'Create a view vip_customers (customer_id, name, country, spent) for customers who spent more than 45 in total. Then list them, biggest spender first.',
+    orderMatters: true,
+    checkSql: `select customer_id, name, country, spent from vip_customers order by spent desc, customer_id`,
+    solutions: [
+      {
+        approach: 'A view with GROUP BY and HAVING',
+        postgres: `create view vip_customers as
+select c.customer_id, c.first_name || ' ' || c.last_name as name, c.country, sum(i.total) as spent
+from customer c
+join invoice i on i.customer_id = c.customer_id
+group by c.customer_id, c.first_name, c.last_name, c.country
+having sum(i.total) > 45;`,
+        mysql: `create view vip_customers as
+select c.customer_id, concat(c.first_name, ' ', c.last_name) as name, c.country, sum(i.total) as spent
+from customer c
+join invoice i on i.customer_id = c.customer_id
+group by c.customer_id, c.first_name, c.last_name, c.country
+having sum(i.total) > 45;`,
+        explanation:
+          'Five customers qualify. The threshold is fixed inside the view; views take no parameters, so a variable threshold needs a function returning a table instead. An aggregating view like this is read-only.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'chinook-121',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'Invoices of a date range',
+    prompt: 'Monthly reports filter invoice by invoice_date ranges, but invoice only has indexes on its id and customer_id. Add an index for the date filter, and write the March 2025 report (invoices and revenue) so that it can use it.',
+    orderMatters: false,
+    checkSql: `select count(*) as invoices, sum(total) as revenue from invoice where invoice_date >= '2025-03-01' and invoice_date < '2025-04-01'`,
+    solutions: [
+      {
+        approach: 'Index the date, query with a half-open range',
+        postgres: `create index invoice_date_idx on invoice (invoice_date) include (total);
+
+-- explain select count(*), sum(total) from invoice where invoice_date >= '2025-03-01' and invoice_date < '2025-04-01';`,
+        mysql: `create index invoice_date_idx on invoice (invoice_date, total);
+
+-- explain select count(*), sum(total) from invoice where invoice_date >= '2025-03-01' and invoice_date < '2025-04-01';`,
+        mysqlNote: 'MySQL has no INCLUDE; adding total as a second key column makes the index covering.',
+        explanation:
+          'The range is written on the bare column, so the index can find it; date_trunc(\'month\', invoice_date) = … would hide it. With 412 invoices the planner may still prefer a scan, which is the right choice for tiny tables: indexes pay off as tables grow.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Index-only scans', url: PG + 'indexes-index-only-scans.html' }],
+  },
 ]

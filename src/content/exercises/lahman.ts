@@ -4208,4 +4208,158 @@ insert into pitching_by_player select player_id, year_id, stint, team_id, w, l, 
       { label: 'MySQL: KEY partitioning', url: MY + 'partitioning-key.html' },
     ],
   },
+  {
+    id: 'lahman-117',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['conditions', 'aggregates'],
+    title: 'Players born in Japan',
+    prompt: 'How many people in the data were born in Japan, and how many of them debuted in 2020 or later?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'One count, one conditional count',
+        postgres: `select count(*) as born_in_japan,
+       count(*) filter (where debut >= '2020-01-01') as debut_2020_on
+from people
+where birth_country = 'Japan';`,
+        mysql: `select count(*) as born_in_japan,
+       sum(debut >= '2020-01-01') as debut_2020_on
+from people
+where birth_country = 'Japan';`,
+        explanation: '49 in all, 17 of them since 2020, a third of the total in six seasons. A NULL debut (someone who never played) is neither counted by the condition nor an error.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'lahman-118',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['conditional-aggregates'],
+    title: '30, 40 and 50 home run seasons',
+    prompt: 'For each season from 2019 to 2025: how many players hit at least 30, at least 40 and at least 50 home runs (all stints of a season added together)?',
+    hint: STINT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Season totals first, then FILTER counts',
+        postgres: `with seasons as (
+  select player_id, year_id, sum(hr) as hr
+  from batting
+  where year_id between 2019 and 2025
+  group by player_id, year_id
+)
+select year_id,
+       count(*) filter (where hr >= 30) as hr30,
+       count(*) filter (where hr >= 40) as hr40,
+       count(*) filter (where hr >= 50) as hr50
+from seasons
+group by year_id
+order by year_id;`,
+        mysql: `with seasons as (
+  select player_id, year_id, sum(hr) as hr
+  from batting
+  where year_id between 2019 and 2025
+  group by player_id, year_id
+)
+select year_id,
+       sum(hr >= 30) as hr30,
+       sum(hr >= 40) as hr40,
+       sum(hr >= 50) as hr50
+from seasons
+group by year_id
+order by year_id;`,
+        explanation: '2019, the "juiced ball" year, had 58 players with 30+. Nobody reached 30 in the 60-game 2020 season. 2025 had four 50-homer hitters, the most in the period.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'lahman-119',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['date-series'],
+    title: 'Debuts in every month of 2024',
+    prompt: 'Count debuts for all 12 months of 2024 (YYYY-MM), including months without any.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Month series LEFT JOIN people',
+        postgres: `select to_char(m.month, 'YYYY-MM') as month, count(p.player_id) as debuts
+from generate_series('2024-01-01'::date, '2024-12-01', interval '1 month') as m (month)
+left join people p on p.debut >= m.month and p.debut < m.month + interval '1 month'
+group by m.month
+order by m.month;`,
+        mysql: `with recursive months (month) as (
+  select cast('2024-01-01' as date)
+  union all
+  select month + interval 1 month from months where month < '2024-12-01'
+)
+select date_format(m.month, '%Y-%m') as month, count(p.player_id) as debuts
+from months m
+left join people p on p.debut >= m.month and p.debut < m.month + interval 1 month
+group by m.month
+order by m.month;`,
+        explanation: 'January, February and October to December show 0: debuts happen during the season, March to September. A chart of only the non-empty months would hide the off-season entirely.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'lahman-120',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['upsert', 'null'],
+    title: 'A corrections feed with gaps',
+    prompt:
+      'A feed corrects people: (judgeaa01, Judge, height 79, weight 285, bats NULL) and (ohtansh01, Ohtani, height NULL, weight 215, bats NULL). NULL means "no correction". Apply it with an upsert that keeps the stored value wherever the feed has NULL.',
+    orderMatters: true,
+    checkSql: `select player_id, height, weight, bats from people where player_id in ('judgeaa01', 'ohtansh01') order by player_id`,
+    solutions: [
+      {
+        approach: 'COALESCE(new, old) in the update part',
+        postgres: `insert into people (player_id, name_last, height, weight, bats)
+values ('judgeaa01', 'Judge', 79, 285, null), ('ohtansh01', 'Ohtani', null, 215, null)
+on conflict (player_id) do update
+  set height = coalesce(excluded.height, people.height),
+      weight = coalesce(excluded.weight, people.weight),
+      bats   = coalesce(excluded.bats, people.bats);`,
+        mysql: `insert into people (player_id, name_last, height, weight, bats)
+values ('judgeaa01', 'Judge', 79, 285, null), ('ohtansh01', 'Ohtani', null, 215, null) as new
+on duplicate key update
+  height = coalesce(new.height, people.height),
+  weight = coalesce(new.weight, people.weight),
+  bats   = coalesce(new.bats, people.bats);`,
+        explanation:
+          'A plain "set height = excluded.height" would wipe Ohtani\'s height with NULL. COALESCE takes the feed value if there is one, otherwise the old value. The feed must still carry name_last, because the proposed row has to satisfy NOT NULL before the conflict is even considered. The catch of COALESCE: a feed can never set a value back to NULL on purpose; that needs a separate marker.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'lahman-121',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['generated-columns', 'numbers'],
+    title: 'On-base percentage as a column',
+    prompt:
+      'Add a stored generated column obp to batting: (h + bb + hbp) / (ab + bb + hbp + sf), 3 decimals, NULL when the denominator is 0. Then: the top 3 of 2025 among stints with at least 500 at-bats.',
+    orderMatters: true,
+    checkSql: `select player_id, obp from batting where year_id = 2025 and ab >= 500 order by obp desc, player_id limit 3`,
+    solutions: [
+      {
+        approach: 'NULLIF in a generated column',
+        postgres: `alter table batting
+add column obp numeric(4, 3)
+generated always as (round((h + bb + hbp)::numeric / nullif(ab + bb + hbp + sf, 0), 3)) stored;`,
+        mysql: `alter table batting
+add column obp decimal(4, 3)
+generated always as (round((h + bb + hbp) / nullif(ab + bb + hbp + sf, 0), 3)) stored;`,
+        explanation:
+          'OBP counts every way of reaching base except errors. The ::numeric cast avoids integer division in PostgreSQL; NULLIF avoids division by zero for players without a plate appearance. Aaron Judge led 2025 at .457.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
 ]

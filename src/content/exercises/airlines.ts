@@ -4734,4 +4734,138 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: Mathematical functions', url: PG + 'functions-math.html' }],
   },
+  {
+    id: 'airlines-118',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['select-basics', 'subqueries'],
+    title: 'German airports with departures',
+    prompt: 'List the airports in Germany that have at least one route departing from them: airport_code, airport_name and city, by code.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'IN with a subquery',
+        postgres: `select airport_code, airport_name, city
+from airports
+where country = 'Germany'
+  and airport_code in (select departure_airport from routes)
+order by airport_code;`,
+        mysql: `select airport_code, airport_name, city
+from airports
+where country = 'Germany'
+  and airport_code in (select departure_airport from routes)
+order by airport_code;`,
+        explanation: 'Berlin, Frankfurt and Munich. IN with a subquery reads naturally as "codes that appear in that list"; duplicates in the list do not matter.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: IN with a subquery', url: PG + 'functions-subquery.html#FUNCTIONS-SUBQUERY-IN' }],
+  },
+  {
+    id: 'airlines-119',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['set-operations'],
+    title: 'Where both Frankfurt and Munich fly',
+    prompt: 'Which destinations have routes from both FRA and MUC? Alphabetically by airport code.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'INTERSECT of two destination lists',
+        postgres: `select arrival_airport from routes where departure_airport = 'FRA'
+intersect
+select arrival_airport from routes where departure_airport = 'MUC'
+order by arrival_airport;`,
+        mysql: `select arrival_airport from routes where departure_airport = 'FRA'
+intersect
+select arrival_airport from routes where departure_airport = 'MUC'
+order by arrival_airport;`,
+        mysqlNote: 'INTERSECT exists since MySQL 8.0.31.',
+        explanation: 'Eight shared destinations, including Berlin, both London airports and Milan. INTERSECT removes duplicates, so a route that has a row per month counts once.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'airlines-120',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['gaps-islands', 'dates-basics'],
+    title: 'Daily runs of one route',
+    prompt: 'Route PG0012 does not fly every day. Find its 3 longest runs of consecutive days (UTC) with a flight: first day, last day, days. Longest first, then earliest.',
+    hint: UTC_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Day minus row number',
+        postgres: `with days as (
+  select distinct scheduled_departure::date as day from flights where route_no = 'PG0012'
+),
+runs as (
+  select day, day - (row_number() over (order by day))::int as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from runs
+group by grp
+order by days desc, first_day
+limit 3;`,
+        mysql: `with days as (
+  select distinct date(scheduled_departure) as day from flights where route_no = 'PG0012'
+),
+runs as (
+  select day, day - interval (row_number() over (order by day)) day as grp from days
+)
+select min(day) as first_day, max(day) as last_day, count(*) as days
+from runs
+group by grp
+order by days desc, first_day
+limit 3;`,
+        explanation: 'The longest run is nine days over New Year, 26 December to 3 January. Runs break wherever the weekday plan of the route leaves a day out, and the plan itself changes from month to month.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'airlines-121',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['triggers', 'constraints'],
+    title: 'No landing before take-off',
+    prompt:
+      'Add a trigger that rejects an update of flights setting actual_arrival earlier than actual_departure. Then record that flight 10966 (departed 2025-11-30 15:47:11 UTC) landed at 18:02:00 and set its status to Arrived.',
+    hint: UTC_NOTE,
+    orderMatters: false,
+    checkSql: `update flights set actual_arrival = '2025-11-30 18:02:00', status = 'Arrived' where flight_id = 10966;
+select flight_id, status, actual_departure, actual_arrival from flights where flight_id = 10966`,
+    solutions: [
+      {
+        approach: 'BEFORE UPDATE trigger comparing two columns of NEW',
+        postgres: `create function check_arrival_after_departure() returns trigger
+language plpgsql
+as $$
+begin
+  if new.actual_arrival < new.actual_departure then
+    raise exception 'flight % cannot land before it departs', new.flight_id;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger flights_arrival_after_departure
+before update on flights
+for each row execute function check_arrival_after_departure();`,
+        mysql: `create trigger flights_arrival_after_departure
+before update on flights
+for each row
+begin
+  if new.actual_arrival < new.actual_departure then
+    signal sqlstate '45000' set message_text = 'a flight cannot land before it departs';
+  end if;
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'A rule between two columns of the same row could also be a CHECK constraint, check (actual_arrival >= actual_departure), and that is the better choice: it covers inserts too and needs no code. The trigger form becomes necessary once the rule needs other rows or tables. Comparisons with NULL are not true, so a flight still in the air passes.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
+  },
 ]

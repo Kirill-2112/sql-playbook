@@ -4521,4 +4521,115 @@ join department d on d.department_id = h.department_id;`,
     ],
     docs: [{ label: 'PostgreSQL: Prefix matching in tsquery', url: PG + 'textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES' }],
   },
+  {
+    id: 'adventureworks-123',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['select-basics', 'conditions'],
+    title: 'Departments of Research and Development',
+    prompt: 'List the departments in the group "Research and Development": department_id and name, by department_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Filter on group_name',
+        postgres: `select department_id, name
+from department
+where group_name = 'Research and Development'
+order by department_id;`,
+        mysql: `select department_id, name
+from department
+where group_name = 'Research and Development'
+order by department_id;`,
+        explanation: 'Three departments: Engineering, Tool Design and Research and Development itself. The group is just text repeated on each department; a groups table with a key would prevent spelling variants.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SELECT', url: PG + 'sql-select.html' }],
+  },
+  {
+    id: 'adventureworks-124',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'Re-rate vendors, deactivate the unconfirmed',
+    prompt:
+      'A rating review sends: vendor 1494 now rated 1, vendor 1550 confirmed at 5. Apply it in one statement, and deactivate (active_flag 0) every other vendor rated 5 that the review did not confirm.',
+    orderMatters: true,
+    checkSql: `select business_entity_id, credit_rating, active_flag from vendor where business_entity_id in (1494, 1550, 1652) order by business_entity_id`,
+    solutions: [
+      {
+        approach: 'MERGE with an UPDATE for NOT MATCHED BY SOURCE',
+        postgres: `merge into vendor v
+using (values (1494, 1), (1550, 5)) as review (vendor_id, rating)
+on v.business_entity_id = review.vendor_id
+when matched and v.credit_rating <> review.rating then
+  update set credit_rating = review.rating
+when not matched by source and v.credit_rating = 5 then
+  update set active_flag = 0;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          'NOT MATCHED BY SOURCE can update instead of delete: rows absent from the feed get a status change. Victory Bikes (1652), rated 5 and not confirmed, is deactivated; Merit Bikes (1550) was confirmed and stays active; 1494 is re-rated.',
+      },
+      {
+        approach: 'Two UPDATEs',
+        postgres: `update vendor set credit_rating = 1 where business_entity_id = 1494 and credit_rating <> 1;
+update vendor set active_flag = 0 where credit_rating = 5 and business_entity_id not in (1494, 1550);`,
+        mysql: `update vendor set credit_rating = 1 where business_entity_id = 1494 and credit_rating <> 1;
+update vendor set active_flag = 0 where credit_rating = 5 and business_entity_id not in (1494, 1550);`,
+        explanation: 'The same two effects; the second statement repeats the list of reviewed vendors, which MERGE gets from its source for free.',
+      },
+    ],
+    comparison: 'Same result: 1494 rated 1, 1550 unchanged, 1652 inactive.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'adventureworks-125',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'Complete a purchase order',
+    prompt:
+      'Write a procedure complete_po(p_po_id, p_date) that sets status 4 (complete) and ship_date only if the order is currently 2 (approved); unknown orders or other statuses raise an error. Complete purchase order 4001 on 2025-03-10.',
+    orderMatters: false,
+    checkSql: `select purchase_order_id, status, ship_date from purchase_order_header where purchase_order_id = 4001`,
+    solutions: [
+      {
+        approach: 'Check the current status, then update',
+        postgres: `create procedure complete_po(p_po_id integer, p_date date)
+language plpgsql
+as $$
+declare
+  v_status smallint;
+begin
+  select status into v_status from purchase_order_header where purchase_order_id = p_po_id for update;
+  if v_status is null then
+    raise exception 'purchase order % does not exist', p_po_id;
+  elsif v_status <> 2 then
+    raise exception 'purchase order % has status %, only approved (2) orders can be completed', p_po_id, v_status;
+  end if;
+  update purchase_order_header set status = 4, ship_date = p_date where purchase_order_id = p_po_id;
+end;
+$$;
+
+call complete_po(4001, '2025-03-10');`,
+        mysql: `create procedure complete_po(p_po_id int, p_date date)
+begin
+  declare v_status tinyint;
+  select status into v_status from purchase_order_header where purchase_order_id = p_po_id for update;
+  if v_status is null then
+    signal sqlstate '45000' set message_text = 'purchase order does not exist';
+  elseif v_status <> 2 then
+    signal sqlstate '45000' set message_text = 'only approved orders can be completed';
+  end if;
+  update purchase_order_header set status = 4, ship_date = p_date where purchase_order_id = p_po_id;
+end;
+
+call complete_po(4001, '2025-03-10');`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'The procedure enforces the allowed transition 2 → 4 that the status column alone cannot express. FOR UPDATE keeps another session from completing or rejecting the same order between the check and the update.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
+  },
 ]

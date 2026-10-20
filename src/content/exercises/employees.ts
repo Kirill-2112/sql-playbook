@@ -4247,4 +4247,159 @@ where table_schema = database() and table_name = 'employees' and column_name = '
     ],
     docs: [{ label: 'PostgreSQL: Index-only scans', url: PG + 'indexes-index-only-scans.html' }],
   },
+  {
+    id: 'employees-113',
+    dataset: 'employees',
+    level: 2,
+    topics: ['subqueries'],
+    title: 'Paid more than the Marketing manager',
+    prompt: 'The current manager of Marketing (d001) earns a current salary. How many employees have ever had a salary higher than that?',
+    hint: CURRENT_NOTE,
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'A scalar subquery inside another',
+        postgres: `select count(distinct emp_no) as employees
+from salaries
+where salary > (
+  select s.salary
+  from dept_manager m
+  join salaries s on s.emp_no = m.emp_no and s.to_date = '9999-01-01'
+  where m.dept_no = 'd001' and m.to_date = '9999-01-01'
+);`,
+        mysql: `select count(distinct emp_no) as employees
+from salaries
+where salary > (
+  select s.salary
+  from dept_manager m
+  join salaries s on s.emp_no = m.emp_no and s.to_date = '9999-01-01'
+  where m.dept_no = 'd001' and m.to_date = '9999-01-01'
+);`,
+        explanation:
+          'The subquery returns one value, 106,491, so it can stand where a number would. If it ever returned two rows (two current managers), the query would fail with "more than one row returned by a subquery", which is a useful alarm. 217 people have out-earned that figure at some point.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Scalar subqueries', url: PG + 'sql-expressions.html#SQL-SYNTAX-SCALAR-SUBQUERIES' }],
+  },
+  {
+    id: 'employees-114',
+    dataset: 'employees',
+    level: 3,
+    topics: ['subtotals', 'dates-basics'],
+    title: 'The first three hiring years, with totals',
+    prompt: 'Count hires by year (1985, 1986, 1987) and gender, with a subtotal per year and a grand total (label totals \'all\'). Years in order, F before M, totals after their details.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP (year, gender)',
+        postgres: `select coalesce(extract(year from hire_date)::text, 'all') as year,
+       coalesce(gender::text, 'all') as gender,
+       count(*) as hires
+from employees
+where hire_date >= '1985-01-01' and hire_date < '1988-01-01'
+group by rollup (extract(year from hire_date), gender)
+order by grouping(extract(year from hire_date)), extract(year from hire_date), grouping(gender), gender;`,
+        mysql: `select coalesce(cast(y as char), 'all') as year, coalesce(g, 'all') as gender, hires
+from (
+  select year(hire_date) as y, gender as g, count(*) as hires,
+         grouping(year(hire_date)) as gy, grouping(gender) as gg
+  from employees
+  where hire_date >= '1985-01-01' and hire_date < '1988-01-01'
+  group by year(hire_date), gender with rollup
+) t
+order by gy, y, gg, g;`,
+        mysqlNote: 'gender is an ENUM in the original MySQL schema; here it is plain text, so F sorts before M in both databases.',
+        explanation: '2,127 people were hired in the first three years, 36–40% of them women in each year. 1986 was the biggest hiring year of the three.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'employees-115',
+    dataset: 'employees',
+    level: 4,
+    topics: ['materialized-views', 'date-series'],
+    title: 'Headcount history, stored',
+    prompt: 'Store the headcount of each department on 1 January of every year from 1990 to 2002 (dept_no, year, headcount) for an HR chart. Then show d001\'s values for 1998 to 2002.',
+    orderMatters: true,
+    checkSql: `select year, headcount from dept_headcount_history where dept_no = 'd001' and year between 1998 and 2002 order by year`,
+    solutions: [
+      {
+        approach: 'Materialized view over a year series',
+        postgres: `create materialized view dept_headcount_history as
+select de.dept_no, extract(year from y.day)::int as year, count(*) as headcount
+from generate_series('1990-01-01'::date, '2002-01-01', interval '1 year') as y (day)
+join dept_emp de on de.from_date <= y.day and de.to_date > y.day
+group by de.dept_no, y.day;
+
+create unique index dept_headcount_history_key on dept_headcount_history (dept_no, year);`,
+        mysql: `create table dept_headcount_history (dept_no char(4), year int, headcount int, primary key (dept_no, year));
+
+replace into dept_headcount_history
+with recursive years (day) as (
+  select cast('1990-01-01' as date)
+  union all
+  select day + interval 1 year from years where day < '2002-01-01'
+)
+select de.dept_no, year(y.day), count(*)
+from years y
+join dept_emp de on de.from_date <= y.day and de.to_date > y.day
+group by de.dept_no, y.day;`,
+        mysqlNote: 'In MySQL a WITH clause can follow REPLACE INTO and feed its SELECT.',
+        explanation:
+          'Thirteen snapshots × nine departments = 117 stored rows, each the result of a range join over all department assignments; a chart reads them instantly. Refreshing makes sense only when history changes, which for past years should be never.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
+  {
+    id: 'employees-116',
+    dataset: 'employees',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Titles in three families',
+    prompt:
+      'Create titles_by_family (emp_no, title, from_date, to_date) list-partitioned by title: engineering (Engineer, Senior Engineer, Assistant Engineer, Technique Leader), staff (Staff, Senior Staff) and everything else. Copy the titles in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from titles_engineering) as engineering, (select count(*) from titles_staff) as staff, (select count(*) from titles_other) as other`,
+    checkSqlMysql: `select (select count(*) from titles_by_family partition (p_engineering)) as engineering,
+       (select count(*) from titles_by_family partition (p_staff)) as staff,
+       (select count(*) from titles_by_family partition (p_other)) as other`,
+    solutions: [
+      {
+        approach: 'LIST with a DEFAULT partition / an explicit list',
+        postgres: `create table titles_by_family (
+  emp_no    integer     not null,
+  title     varchar(50) not null,
+  from_date date        not null,
+  to_date   date,
+  primary key (emp_no, title, from_date)
+) partition by list (title);
+
+create table titles_engineering partition of titles_by_family
+  for values in ('Engineer', 'Senior Engineer', 'Assistant Engineer', 'Technique Leader');
+create table titles_staff partition of titles_by_family for values in ('Staff', 'Senior Staff');
+create table titles_other partition of titles_by_family default;
+
+insert into titles_by_family select emp_no, title, from_date, to_date from titles;`,
+        mysql: `create table titles_by_family (
+  emp_no    int         not null,
+  title     varchar(50) not null,
+  from_date date        not null,
+  to_date   date,
+  primary key (emp_no, title, from_date)
+)
+partition by list columns (title) (
+  partition p_engineering values in ('Engineer', 'Senior Engineer', 'Assistant Engineer', 'Technique Leader'),
+  partition p_staff       values in ('Staff', 'Senior Staff'),
+  partition p_other       values in ('Manager')
+);
+
+insert into titles_by_family select emp_no, title, from_date, to_date from titles;`,
+        mysqlNote: 'MySQL LIST partitioning has no DEFAULT: every value must be listed, and a new title would fail to insert until a partition names it.',
+        explanation: '4,922 engineering rows, 4,003 staff rows and the 24 manager rows in the default partition. In PostgreSQL a future title (say "Data Scientist") lands in titles_other instead of failing.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
+  },
 ]

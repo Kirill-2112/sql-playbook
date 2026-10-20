@@ -3522,4 +3522,168 @@ call add_copies(1, 2, 3);`,
     ],
     docs: [{ label: 'PostgreSQL: Loops', url: PG + 'plpgsql-control-structures.html#PLPGSQL-CONTROL-STRUCTURES-LOOPS' }],
   },
+  {
+    id: 'sakila-120',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['cte', 'aggregates'],
+    title: 'Big spenders for their country',
+    prompt:
+      'Compare each customer\'s total payments with the average customer total of their country. Show the 3 countries with the most above-average customers: country, customers above average, all customers.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Per-customer totals, then per-country averages',
+        postgres: `with per_customer as (
+  select c.customer_id, ci.country_id, sum(p.amount) as spent
+  from payment p
+  join customer c on c.customer_id = p.customer_id
+  join address a on a.address_id = c.address_id
+  join city ci on ci.city_id = a.city_id
+  group by c.customer_id, ci.country_id
+),
+per_country as (
+  select country_id, avg(spent) as avg_spent, count(*) as customers
+  from per_customer
+  group by country_id
+)
+select co.country, count(*) as above_average, k.customers
+from per_customer pc
+join per_country k on k.country_id = pc.country_id
+join country co on co.country_id = pc.country_id
+where pc.spent > k.avg_spent
+group by co.country, k.customers
+order by above_average desc, co.country
+limit 3;`,
+        mysql: `with per_customer as (
+  select c.customer_id, ci.country_id, sum(p.amount) as spent
+  from payment p
+  join customer c on c.customer_id = p.customer_id
+  join address a on a.address_id = c.address_id
+  join city ci on ci.city_id = a.city_id
+  group by c.customer_id, ci.country_id
+),
+per_country as (
+  select country_id, avg(spent) as avg_spent, count(*) as customers
+  from per_customer
+  group by country_id
+)
+select co.country, count(*) as above_average, k.customers
+from per_customer pc
+join per_country k on k.country_id = pc.country_id
+join country co on co.country_id = pc.country_id
+where pc.spent > k.avg_spent
+group by co.country, k.customers
+order by above_average desc, co.country
+limit 3;`,
+        explanation:
+          'India leads with 30 of its 60 customers above the Indian average. Roughly half above average is what you expect when spending is spread fairly evenly; a country where only a few are far above would show a skew.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'sakila-121',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['pivot'],
+    title: 'Rental periods by rating',
+    prompt: 'Count films per rating and rental_duration (3 to 7 days), one column per duration, and the total. Ratings in alphabetical order.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts per duration',
+        postgres: `select rating,
+       count(*) filter (where rental_duration = 3) as d3,
+       count(*) filter (where rental_duration = 4) as d4,
+       count(*) filter (where rental_duration = 5) as d5,
+       count(*) filter (where rental_duration = 6) as d6,
+       count(*) filter (where rental_duration = 7) as d7,
+       count(*) as total
+from film
+group by rating
+order by rating;`,
+        mysql: `select rating,
+       sum(rental_duration = 3) as d3,
+       sum(rental_duration = 4) as d4,
+       sum(rental_duration = 5) as d5,
+       sum(rental_duration = 6) as d6,
+       sum(rental_duration = 7) as d7,
+       count(*) as total
+from film
+group by rating
+order by cast(rating as char);`,
+        mysqlNote: 'rating is an ENUM in MySQL; ORDER BY rating would follow the ENUM definition (G, PG, PG-13, R, NC-17), so cast it to text for alphabetical order.',
+        explanation: 'The durations are spread evenly over all ratings: the sample data has no rule that, say, NC-17 films may be kept longer.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'sakila-122',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['temp-tables', 'dates-advanced'],
+    title: 'What is still out, as of the last day',
+    prompt:
+      'The data ends on 14 February 2006. Put every unreturned rental into a temporary table still_out (rental_id, store_id, days_out on 2006-02-15). Then: per store, rentals still out and the average days out (1 decimal).',
+    orderMatters: true,
+    checkSql: `select store_id, count(*) as still_out, round(avg(days_out), 1) as avg_days from still_out group by store_id order by store_id`,
+    solutions: [
+      {
+        approach: 'Snapshot of the open rentals',
+        postgres: `create temporary table still_out as
+select r.rental_id, i.store_id, date '2006-02-15' - r.rental_date::date as days_out
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+where r.return_date is null;`,
+        mysql: `create temporary table still_out as
+select r.rental_id, i.store_id, datediff('2006-02-15', r.rental_date) as days_out
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+where r.return_date is null;`,
+        explanation:
+          'A fixed reference date instead of current_date keeps the result reproducible on old sample data. 92 and 91 films are out. All but one were rented on the last day of the data; a single rental out since August 2005 pulls store 2\'s average up to almost 3 days.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'sakila-123',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['functions'],
+    title: 'Copies on the shelf right now',
+    prompt: 'Write a function copies_available(p_film_id, p_store_id) returning how many copies of the film the store has that are not rented out. Test film 2 in store 2 and in store 1.',
+    orderMatters: false,
+    checkSql: `select copies_available(2, 2) as film2_store2, copies_available(2, 1) as film2_store1`,
+    solutions: [
+      {
+        approach: 'Count inventory without an open rental',
+        postgres: `create function copies_available(p_film_id integer, p_store_id integer) returns integer
+language sql
+stable
+as $$
+  select count(*)::integer
+  from inventory i
+  where i.film_id = p_film_id and i.store_id = p_store_id
+    and not exists (select 1 from rental r where r.inventory_id = i.inventory_id and r.return_date is null);
+$$;`,
+        mysql: `create function copies_available(p_film_id int, p_store_id int) returns int
+reads sql data
+begin
+  return (
+    select count(*)
+    from inventory i
+    where i.film_id = p_film_id and i.store_id = p_store_id
+      and not exists (select 1 from rental r where r.inventory_id = i.inventory_id and r.return_date is null)
+  );
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'Store 2 has 3 copies of film 2, one of them out, so 2 are available; store 1 has none at all, and count(*) of no rows is 0, not NULL. The original Sakila ships a similar routine (inventory_in_stock) for the same question.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SQL functions', url: PG + 'xfunc-sql.html' }],
+  },
 ]

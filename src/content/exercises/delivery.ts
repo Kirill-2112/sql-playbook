@@ -3948,4 +3948,103 @@ commit;`,
       { label: 'MySQL: InnoDB locking', url: MY + 'innodb-locking.html' },
     ],
   },
+  {
+    id: 'delivery-107',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['select-basics', 'conditions'],
+    title: 'The restaurants of Jerusalem',
+    prompt: 'List the restaurants in Jerusalem: id, name and cuisine, by id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Filter on city',
+        postgres: `select id, name, cuisine
+from restaurants
+where city = 'Jerusalem'
+order by id;`,
+        mysql: `select id, name, cuisine
+from restaurants
+where city = 'Jerusalem'
+order by id;`,
+        explanation: '15 restaurants, five of them Thai. Without ORDER BY the database may return them in any order; with it the list is the same every time.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SELECT', url: PG + 'sql-select.html' }],
+  },
+  {
+    id: 'delivery-108',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['lateral', 'joins'],
+    title: 'The biggest order of each cuisine',
+    prompt: 'For each cuisine: the single largest order (by total) placed at any restaurant of that cuisine: cuisine, order id, restaurant name and total. Ties by lower order id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LATERAL over the list of cuisines',
+        postgres: `select c.cuisine, top.id as order_id, top.restaurant, top.total
+from (select distinct cuisine from restaurants) c
+cross join lateral (
+  select o.id, r.name as restaurant, o.total
+  from orders o
+  join restaurants r on r.id = o.restaurant_id
+  where r.cuisine = c.cuisine
+  order by o.total desc, o.id
+  limit 1
+) top
+order by c.cuisine;`,
+        mysql: `select c.cuisine, top.id as order_id, top.restaurant, top.total
+from (select distinct cuisine from restaurants) c
+cross join lateral (
+  select o.id, r.name as restaurant, o.total
+  from orders o
+  join restaurants r on r.id = o.restaurant_id
+  where r.cuisine = c.cuisine
+  order by o.total desc, o.id
+  limit 1
+) top
+order by c.cuisine;`,
+        explanation:
+          'The outer list does not have to be a table: here it is a subquery of the six cuisines. Each lateral run sorts only that cuisine\'s orders. Order totals top out just under 250, so the winners are close calls decided by cents.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'delivery-109',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['json'],
+    title: 'Reading a nested order payload',
+    prompt:
+      'An app sends: {"customer": {"id": 7, "city": "Haifa"}, "items": [{"name": "Pad Thai", "qty": 2}, {"name": "Spring rolls", "qty": 1}]}. Extract the customer city, the number of items and the name of the first item.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Path operators on a JSON value',
+        postgres: `with payload as (
+  select '{"customer": {"id": 7, "city": "Haifa"}, "items": [{"name": "Pad Thai", "qty": 2}, {"name": "Spring rolls", "qty": 1}]}'::jsonb as doc
+)
+select doc -> 'customer' ->> 'city' as city,
+       jsonb_array_length(doc -> 'items') as items,
+       doc -> 'items' -> 0 ->> 'name' as first_item
+from payload;`,
+        mysql: `with payload as (
+  select cast('{"customer": {"id": 7, "city": "Haifa"}, "items": [{"name": "Pad Thai", "qty": 2}, {"name": "Spring rolls", "qty": 1}]}' as json) as doc
+)
+select doc ->> '$.customer.city' as city,
+       json_length(doc, '$.items') as items,
+       doc ->> '$.items[0].name' as first_item
+from payload;`,
+        mysqlNote: 'MySQL uses one JSON path string ($.customer.city) where PostgreSQL chains -> and ->>. Arrays are indexed from 0 in both.',
+        explanation:
+          '-> returns JSON (to keep navigating), ->> returns text (the final value). JSON array positions start at 0, unlike PostgreSQL arrays, which start at 1: a classic off-by-one trap when mixing the two.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: JSON operators', url: PG + 'functions-json.html' },
+      { label: 'MySQL: JSON path syntax', url: MY + 'json.html#json-path-syntax' },
+    ],
+  },
 ]

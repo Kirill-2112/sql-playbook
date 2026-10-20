@@ -3295,4 +3295,125 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
   },
+  {
+    id: 'northwind-120',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['text-search'],
+    title: 'Four-letter product names',
+    prompt: 'Which products have a name of exactly four characters? Show product_id and product_name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LIKE with four underscores',
+        postgres: `select product_id, product_name
+from products
+where product_name like '____'
+order by product_id;`,
+        mysql: `select product_id, product_name
+from products
+where product_name like '____'
+order by product_id;`,
+        explanation: '_ matches exactly one character, % any number. Four underscores mean "exactly four characters": Chai and Tofu. length(product_name) = 4 says the same more plainly.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'northwind-121',
+    dataset: 'northwind',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'A shipping sentence',
+    prompt: 'For orders 10248 and 10249, build the text "Order 10248 shipped on 1996-07-16 for 32.38" from order_id, shipped_date and freight.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Turn each value into text, then concatenate',
+        postgres: `select 'Order ' || order_id || ' shipped on ' || to_char(shipped_date, 'YYYY-MM-DD') || ' for ' || freight as line
+from orders
+where order_id in (10248, 10249)
+order by order_id;`,
+        mysql: `select concat('Order ', order_id, ' shipped on ', date_format(shipped_date, '%Y-%m-%d'), ' for ', freight) as line
+from orders
+where order_id in (10248, 10249)
+order by order_id;`,
+        explanation:
+          '|| converts numbers to text automatically when one side is text, but a timestamp would print with its time (00:00:00), so the date is formatted explicitly. freight keeps its two decimals because it is a numeric(10,2), not a float.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Formatting functions', url: PG + 'functions-formatting.html' }],
+  },
+  {
+    id: 'northwind-122',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['recursive', 'aggregates'],
+    title: 'How many people are under each employee',
+    prompt: 'For every employee: employee_id, last_name and the number of people below them in the reporting chain at any depth. Order by that number descending, then employee_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Walk down from every employee, then count',
+        postgres: `with recursive below (top_id, employee_id) as (
+  select reports_to, employee_id from employees where reports_to is not null
+  union all
+  select b.top_id, e.employee_id
+  from below b
+  join employees e on e.reports_to = b.employee_id
+)
+select e.employee_id, e.last_name, count(b.employee_id) as team_size
+from employees e
+left join below b on b.top_id = e.employee_id
+group by e.employee_id, e.last_name
+order by team_size desc, e.employee_id;`,
+        mysql: `with recursive below (top_id, employee_id) as (
+  select reports_to, employee_id from employees where reports_to is not null
+  union all
+  select b.top_id, e.employee_id
+  from below b
+  join employees e on e.reports_to = b.employee_id
+)
+select e.employee_id, e.last_name, count(b.employee_id) as team_size
+from employees e
+left join below b on b.top_id = e.employee_id
+group by e.employee_id, e.last_name
+order by team_size desc, e.employee_id;`,
+        explanation:
+          'The anchor pairs every boss with each direct report; each recursive step keeps the boss and moves one level down. Fuller has 8 people below him, Buchanan 3, everyone else 0 (kept by the LEFT JOIN).',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'northwind-123',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Move stock between two products, deadlock-free',
+    prompt:
+      'Repacking moves 5 units from product 12 to product 11. Another job might move stock the other way at the same time. Lock both rows in a fixed order first, then update both. In PostgreSQL you are already inside a transaction.',
+    orderMatters: true,
+    checkSql: `select product_id, units_in_stock from products where product_id in (11, 12) order by product_id`,
+    solutions: [
+      {
+        approach: 'Lock in key order, then change',
+        postgres: `select product_id from products where product_id in (11, 12) order by product_id for update;
+
+update products set units_in_stock = units_in_stock - 5 where product_id = 12;
+update products set units_in_stock = units_in_stock + 5 where product_id = 11;`,
+        mysql: `start transaction;
+
+select product_id from products where product_id in (11, 12) order by product_id for update;
+
+update products set units_in_stock = units_in_stock - 5 where product_id = 12;
+update products set units_in_stock = units_in_stock + 5 where product_id = 11;
+
+commit;`,
+        explanation:
+          'Without the first step, this job would lock 12 then 11 while the other locks 11 then 12, and each would wait for the other forever until the database kills one (a deadlock). Locking both up front in product_id order means whoever comes second simply waits. 11 goes to 27 units, 12 to 81.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Deadlocks', url: PG + 'explicit-locking.html#LOCKING-DEADLOCKS' }],
+  },
 ]

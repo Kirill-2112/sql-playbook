@@ -2196,4 +2196,210 @@ group by o.employee_id, year(o.order_date);`,
     ],
     docs: [{ label: 'PostgreSQL: REFRESH MATERIALIZED VIEW', url: PG + 'sql-refreshmaterializedview.html' }],
   },
+  {
+    id: 'northwind-089',
+    dataset: 'northwind',
+    level: 2,
+    topics: ['text-aggregation', 'group-by'],
+    title: 'Suppliers with a wide range',
+    prompt: 'For suppliers with at least 4 products: company_name, the number of products, and the product names in one line, alphabetically, separated by ", ". Order by supplier_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg / GROUP_CONCAT with ORDER BY',
+        postgres: `select s.company_name, count(*) as products,
+       string_agg(p.product_name, ', ' order by p.product_name) as product_list
+from suppliers s
+join products p on p.supplier_id = s.supplier_id
+group by s.supplier_id, s.company_name
+having count(*) >= 4
+order by s.supplier_id;`,
+        mysql: `select s.company_name, count(*) as products,
+       group_concat(p.product_name order by p.product_name separator ', ') as product_list
+from suppliers s
+join products p on p.supplier_id = s.supplier_id
+group by s.supplier_id, s.company_name
+having count(*) >= 4
+order by s.supplier_id;`,
+        mysqlNote: 'GROUP_CONCAT is cut at group_concat_max_len (1,024 bytes by default); raise it for long lists.',
+        explanation:
+          'HAVING filters groups after counting, which WHERE cannot do. Four suppliers qualify, two of them with five products. Grouping by supplier_id as well as the name keeps two suppliers with the same name apart.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'northwind-090',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['pivot'],
+    title: 'Order lines per category, one column per year',
+    prompt: 'For each category: the number of order lines in 1996, 1997 and 1998, one column per year, plus the total. Order by category_name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts per year',
+        postgres: `select c.category_name,
+       count(*) filter (where extract(year from o.order_date) = 1996) as y1996,
+       count(*) filter (where extract(year from o.order_date) = 1997) as y1997,
+       count(*) filter (where extract(year from o.order_date) = 1998) as y1998,
+       count(*) as total
+from order_details d
+join orders o on o.order_id = d.order_id
+join products p on p.product_id = d.product_id
+join categories c on c.category_id = p.category_id
+group by c.category_id, c.category_name
+order by c.category_name;`,
+        mysql: `select c.category_name,
+       sum(year(o.order_date) = 1996) as y1996,
+       sum(year(o.order_date) = 1997) as y1997,
+       sum(year(o.order_date) = 1998) as y1998,
+       count(*) as total
+from order_details d
+join orders o on o.order_id = d.order_id
+join products p on p.product_id = d.product_id
+join categories c on c.category_id = p.category_id
+group by c.category_id, c.category_name
+order by c.category_name;`,
+        explanation:
+          'Rows of different years become columns of one row. 1998 only runs to early May, so its column is not comparable with the full year 1997 without scaling.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'northwind-091',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['upsert'],
+    title: 'Upsert only what changed',
+    prompt:
+      'A phone list arrives: shipper 1 (503) 555-9831 (unchanged), shipper 2 (503) 555-0000 (new number), shipper 4 Fast Freight (503) 555-4444 (new shipper). Upsert it so that unchanged rows are not rewritten at all.',
+    orderMatters: true,
+    checkSql: `select shipper_id, company_name, phone from shippers order by shipper_id`,
+    solutions: [
+      {
+        approach: 'ON CONFLICT … DO UPDATE … WHERE',
+        postgres: `insert into shippers (shipper_id, company_name, phone)
+values (1, 'Speedy Express', '(503) 555-9831'),
+       (2, 'United Package', '(503) 555-0000'),
+       (4, 'Fast Freight', '(503) 555-4444')
+on conflict (shipper_id) do update
+  set phone = excluded.phone
+  where shippers.phone is distinct from excluded.phone;`,
+        mysql: `insert into shippers (shipper_id, company_name, phone)
+values (1, 'Speedy Express', '(503) 555-9831'),
+       (2, 'United Package', '(503) 555-0000'),
+       (4, 'Fast Freight', '(503) 555-4444') as new
+on duplicate key update phone = new.phone;`,
+        mysqlNote:
+          'MySQL has no WHERE on the update part, but it notices when the new values equal the old ones, leaves such rows unchanged and counts them as 0 affected rows.',
+        explanation:
+          'The WHERE makes PostgreSQL leave shipper 1 alone instead of writing an identical new row version (which also fires update triggers and creates dead rows). IS DISTINCT FROM treats NULLs as comparable values, so a NULL phone replaced by a number still counts as a change.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: INSERT … ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'northwind-092',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['functions', 'dates-advanced'],
+    title: 'Shipping time in working days',
+    prompt:
+      'Write a function working_days(p_from, p_to) that counts the Mondays to Fridays after p_from up to and including p_to. Then show orders 10248–10250 with their calendar days and working days from order to shipment.',
+    orderMatters: true,
+    checkSql: `select order_id, shipped_date::date - order_date::date as calendar_days, working_days(order_date::date, shipped_date::date) as working_days
+from orders where order_id between 10248 and 10250 order by order_id`,
+    checkSqlMysql: `select order_id, datediff(shipped_date, order_date) as calendar_days, working_days(date(order_date), date(shipped_date)) as working_days
+from orders where order_id between 10248 and 10250 order by order_id`,
+    solutions: [
+      {
+        approach: 'Count weekdays in a day series / loop',
+        postgres: `create function working_days(p_from date, p_to date) returns integer
+language sql
+immutable
+as $$
+  select count(*)::integer
+  from generate_series(p_from + 1, p_to, interval '1 day') as d
+  where extract(isodow from d) < 6;
+$$;`,
+        mysql: `create function working_days(p_from date, p_to date) returns int
+deterministic
+begin
+  declare d date default p_from + interval 1 day;
+  declare n int default 0;
+  while d <= p_to do
+    if weekday(d) < 5 then
+      set n = n + 1;
+    end if;
+    set d = d + interval 1 day;
+  end while;
+  return n;
+end;`,
+        mysqlNote: DELIMITER_NOTE + ' WEEKDAY() is 0 for Monday … 6 for Sunday.',
+        explanation:
+          'Order 10248 took 12 calendar days but 8 working days (two weekends in between). The function is IMMUTABLE / DETERMINISTIC: the same dates always give the same count. Real calendars also need holidays, usually from a table of dates to subtract.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: SQL functions', url: PG + 'xfunc-sql.html' },
+      { label: 'MySQL: WHILE', url: MY + 'while.html' },
+    ],
+  },
+  {
+    id: 'northwind-093',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Order lines spread by hash',
+    prompt:
+      'Create order_details_hashed with the columns of order_details, hash-partitioned by order_id into 4 partitions, and copy the lines in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pg_inherits where inhparent = 'order_details_hashed'::regclass) as partitions,
+       (select count(*) from order_details_hashed) as total_rows,
+       (select count(*) from order_details_hashed where order_id = 10248) as lines_of_10248`,
+    checkSqlMysql: `select (select count(*) from information_schema.partitions
+        where table_schema = database() and table_name = 'order_details_hashed') as partitions,
+       (select count(*) from order_details_hashed) as total_rows,
+       (select count(*) from order_details_hashed where order_id = 10248) as lines_of_10248`,
+    solutions: [
+      {
+        approach: 'HASH partitioning',
+        postgres: `create table order_details_hashed (
+  order_id   integer       not null,
+  product_id integer       not null,
+  unit_price numeric(10, 2) not null,
+  quantity   smallint      not null,
+  discount   numeric(4, 2) not null,
+  primary key (order_id, product_id)
+) partition by hash (order_id);
+
+create table order_details_h0 partition of order_details_hashed for values with (modulus 4, remainder 0);
+create table order_details_h1 partition of order_details_hashed for values with (modulus 4, remainder 1);
+create table order_details_h2 partition of order_details_hashed for values with (modulus 4, remainder 2);
+create table order_details_h3 partition of order_details_hashed for values with (modulus 4, remainder 3);
+
+insert into order_details_hashed select * from order_details;`,
+        mysql: `create table order_details_hashed (
+  order_id   int           not null,
+  product_id int           not null,
+  unit_price decimal(10, 2) not null,
+  quantity   smallint      not null,
+  discount   decimal(4, 2) not null,
+  primary key (order_id, product_id)
+)
+partition by hash (order_id) partitions 4;
+
+insert into order_details_hashed select * from order_details;`,
+        mysqlNote: 'One clause creates all four partitions. MySQL\'s HASH is plain order_id MOD 4, so which partition a row lands in differs from PostgreSQL\'s.',
+        explanation:
+          'Hash partitioning spreads rows evenly when there is no natural range, and all lines of one order stay in one partition, so a query for one order reads one partition. It does not help range queries such as "orders of March".',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: HASH partitioning', url: MY + 'partitioning-hash.html' },
+    ],
+  },
 ]

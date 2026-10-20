@@ -2442,4 +2442,161 @@ where unit_price = 1.99;
     comparison: 'Both serve the page from the index. The partial one is about 16 times smaller; the composite one works in MySQL.',
     docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
   },
+  {
+    id: 'chinook-092',
+    dataset: 'chinook',
+    level: 1,
+    topics: ['select-basics', 'strings'],
+    title: 'A staff list with full names',
+    prompt: 'List the employees with employee_id, a column full_name ("first last") and their title as job_title, ordered by employee_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Concatenation and column aliases',
+        postgres: `select employee_id,
+       first_name || ' ' || last_name as full_name,
+       title as job_title
+from employee
+order by employee_id;`,
+        mysql: `select employee_id,
+       concat(first_name, ' ', last_name) as full_name,
+       title as job_title
+from employee
+order by employee_id;`,
+        mysqlNote: 'In MySQL || means OR by default, so strings are joined with CONCAT (which also works in PostgreSQL).',
+        explanation: 'AS gives a computed column a name the reader (and the application) can use. || returns NULL if any part is NULL; concat_ws or coalesce help when names can be missing.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: String functions', url: PG + 'functions-string.html' }],
+  },
+  {
+    id: 'chinook-093',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['lateral'],
+    title: 'Each customer\'s biggest invoice',
+    prompt: 'For customers 1 to 5: customer_id, last_name, and their largest invoice (invoice_id, invoice_date, total). On equal totals take the earliest invoice.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CROSS JOIN LATERAL … LIMIT 1',
+        postgres: `select c.customer_id, c.last_name, top.invoice_id, top.invoice_date, top.total
+from customer c
+cross join lateral (
+  select i.invoice_id, i.invoice_date, i.total
+  from invoice i
+  where i.customer_id = c.customer_id
+  order by i.total desc, i.invoice_date, i.invoice_id
+  limit 1
+) top
+where c.customer_id between 1 and 5
+order by c.customer_id;`,
+        mysql: `select c.customer_id, c.last_name, top.invoice_id, top.invoice_date, top.total
+from customer c
+cross join lateral (
+  select i.invoice_id, i.invoice_date, i.total
+  from invoice i
+  where i.customer_id = c.customer_id
+  order by i.total desc, i.invoice_date, i.invoice_id
+  limit 1
+) top
+where c.customer_id between 1 and 5
+order by c.customer_id;`,
+        explanation:
+          'MAX(total) alone would give the amount but not which invoice it was; the lateral subquery returns the whole row. CROSS JOIN drops customers without invoices; LEFT JOIN … ON TRUE would keep them.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'chinook-094',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['views'],
+    title: 'A view built on a view',
+    prompt:
+      'Create invoice_totals (invoice_id, customer_id, lines, total) from invoice_line, then customer_value (customer_id, invoices, revenue) on top of invoice_totals. Show the 3 customers with the highest revenue.',
+    orderMatters: true,
+    checkSql: `select customer_id, invoices, revenue from customer_value order by revenue desc, customer_id limit 3`,
+    solutions: [
+      {
+        approach: 'Two layered views',
+        postgres: `create view invoice_totals as
+select i.invoice_id, i.customer_id, count(*) as lines, sum(l.unit_price * l.quantity) as total
+from invoice i
+join invoice_line l on l.invoice_id = i.invoice_id
+group by i.invoice_id, i.customer_id;
+
+create view customer_value as
+select customer_id, count(*) as invoices, sum(total) as revenue
+from invoice_totals
+group by customer_id;`,
+        mysql: `create view invoice_totals as
+select i.invoice_id, i.customer_id, count(*) as \`lines\`, sum(l.unit_price * l.quantity) as total
+from invoice i
+join invoice_line l on l.invoice_id = i.invoice_id
+group by i.invoice_id, i.customer_id;
+
+create view customer_value as
+select customer_id, count(*) as invoices, sum(total) as revenue
+from invoice_totals
+group by customer_id;`,
+        mysqlNote: 'LINES is a reserved word in MySQL, so the column name needs backticks.',
+        explanation:
+          'Views can stack: each layer names one idea. The database now tracks the dependency, so dropping or changing invoice_totals fails while customer_value uses it (PostgreSQL), or leaves customer_value broken until it is fixed (MySQL).',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'chinook-095',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['triggers', 'ddl'],
+    title: 'A track counter on each album',
+    prompt:
+      'Add album.track_count, fill it, and keep it correct with triggers when tracks are inserted or deleted. Test: add track 3504 "Bonus Track" to album 1 (media type 1, genre 1, 200000 ms, 0.99).',
+    orderMatters: true,
+    checkSql: `insert into track (track_id, name, album_id, media_type_id, genre_id, milliseconds, unit_price) values (3504, 'Bonus Track', 1, 1, 1, 200000, 0.99);
+select album_id, track_count from album where album_id in (1, 2) order by album_id`,
+    solutions: [
+      {
+        approach: 'One trigger function for both events / two triggers',
+        postgres: `alter table album add column track_count integer not null default 0;
+update album a set track_count = (select count(*) from track t where t.album_id = a.album_id);
+
+create function maintain_track_count() returns trigger
+language plpgsql
+as $$
+begin
+  if tg_op = 'INSERT' then
+    update album set track_count = track_count + 1 where album_id = new.album_id;
+  elsif tg_op = 'DELETE' then
+    update album set track_count = track_count - 1 where album_id = old.album_id;
+  end if;
+  return null;
+end;
+$$;
+
+create trigger track_count_trg
+after insert or delete on track
+for each row execute function maintain_track_count();`,
+        mysql: `alter table album add column track_count int not null default 0;
+update album a set track_count = (select count(*) from track t where t.album_id = a.album_id);
+
+create trigger track_count_ins after insert on track
+for each row update album set track_count = track_count + 1 where album_id = new.album_id;
+
+create trigger track_count_del after delete on track
+for each row update album set track_count = track_count - 1 where album_id = old.album_id;`,
+        mysqlNote: 'A MySQL trigger handles one event, so INSERT and DELETE get one trigger each.',
+        explanation:
+          'TG_OP tells the PostgreSQL function which event fired it. An AFTER trigger\'s return value is ignored, hence RETURN NULL. Moving a track to another album (UPDATE of album_id) would need a third case; a stored counter is only as correct as the triggers that cover every change.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' },
+      { label: 'MySQL: Using triggers', url: MY + 'triggers.html' },
+    ],
+  },
 ]

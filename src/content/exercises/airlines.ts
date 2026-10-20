@@ -3654,4 +3654,194 @@ values ('0005434564152', 11091, 'Economy', 5000);`,
       { label: 'MySQL: Trigger syntax', url: MY + 'trigger-syntax.html' },
     ],
   },
+  {
+    id: 'airlines-089',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['select-basics', 'conditions'],
+    title: 'The airports of Tokyo',
+    prompt: 'List the airports in the city of Tokyo: airport_code and airport_name, by airport_code.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Filter on city',
+        postgres: `select airport_code, airport_name
+from airports
+where city = 'Tokyo'
+order by airport_code;`,
+        mysql: `select airport_code, airport_name
+from airports
+where city = 'Tokyo'
+order by airport_code;`,
+        explanation: 'Three airports: Haneda, Narita and Yokota (an air base). A city can have several airports, which is why flights point to airport codes, not to cities.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SELECT', url: PG + 'sql-select.html' }],
+  },
+  {
+    id: 'airlines-090',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['date-series'],
+    title: 'Christmas Eve at Frankfurt, hour by hour',
+    prompt: 'For every UTC hour of 24 December 2025 (0 to 23), how many flights were scheduled to depart from FRA? Show all 24 hours, including those with none.',
+    hint: `${VALIDITY_NOTE} ${UTC_NOTE}`,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Hour series LEFT JOIN departures',
+        postgres: `with fra as (
+  select extract(hour from f.scheduled_departure)::int as hour
+  from flights f
+  ${ROUTE_JOIN}
+  where r.departure_airport = 'FRA'
+    and f.scheduled_departure >= '2025-12-24' and f.scheduled_departure < '2025-12-25'
+)
+select h.hour, count(fra.hour) as departures
+from generate_series(0, 23) as h (hour)
+left join fra on fra.hour = h.hour
+group by h.hour
+order by h.hour;`,
+        mysql: `with recursive hours (hour) as (
+  select 0 union all select hour + 1 from hours where hour < 23
+),
+fra as (
+  select hour(f.scheduled_departure) as hour
+  from flights f
+  ${ROUTE_JOIN}
+  where r.departure_airport = 'FRA'
+    and f.scheduled_departure >= '2025-12-24' and f.scheduled_departure < '2025-12-25'
+)
+select h.hour, count(fra.hour) as departures
+from hours h
+left join fra on fra.hour = h.hour
+group by h.hour
+order by h.hour;`,
+        mysqlNote: 'WITH RECURSIVE is written once, at the start, even when only the first CTE is recursive.',
+        explanation:
+          'Only 7 departures that day, spread over 6 hours; the series makes the 18 empty hours visible as 0. count(fra.hour) counts matches only, so an empty hour gives 0 rather than 1.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'airlines-091',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['recursive', 'aggregates'],
+    title: 'How many airports at each distance',
+    prompt:
+      'Starting from SVX, how many airports can be reached with at best 1 flight, at best 2 flights and at best 3 flights? Ignore dates: any route counts. SVX itself does not count.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Walk the network, keep the minimum hops per airport',
+        postgres: `with recursive legs as (
+  select distinct departure_airport as a, arrival_airport as b from routes
+),
+walk (airport, hops) as (
+  select b, 1 from legs where a = 'SVX'
+  union
+  select l.b, w.hops + 1
+  from walk w
+  join legs l on l.a = w.airport
+  where w.hops < 3
+),
+best as (
+  select airport, min(hops) as hops from walk where airport <> 'SVX' group by airport
+)
+select hops, count(*) as airports
+from best
+group by hops
+order by hops;`,
+        mysql: `with recursive legs as (
+  select distinct departure_airport as a, arrival_airport as b from routes
+),
+walk (airport, hops) as (
+  select b, 1 from legs where a = 'SVX'
+  union
+  select l.b, w.hops + 1
+  from walk w
+  join legs l on l.a = w.airport
+  where w.hops < 3
+),
+best as (
+  select airport, min(hops) as hops from walk where airport <> 'SVX' group by airport
+)
+select hops, count(*) as airports
+from best
+group by hops
+order by hops;`,
+        explanation:
+          'UNION (not UNION ALL) drops a repeated (airport, hops) pair, so the walk does not multiply paths; the depth limit stops it. An airport reached in 1 and in 3 flights keeps its minimum, 1, which turns the walk into the layers of a breadth-first search.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'airlines-092',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Passengers called Anna',
+    prompt: 'With a full-text index on tickets.passenger_name, count the different passengers (passenger_id) who have Anna as a whole word in their name.',
+    orderMatters: false,
+    checkSql: `select count(distinct passenger_id) as passengers from tickets where to_tsvector('simple', passenger_name) @@ to_tsquery('simple', 'anna')`,
+    checkSqlMysql: `select count(distinct passenger_id) as passengers from tickets where match(passenger_name) against ('+anna' in boolean mode)`,
+    solutions: [
+      {
+        approach: 'GIN on to_tsvector / FULLTEXT',
+        postgres: `create index tickets_name_fts on tickets using gin (to_tsvector('simple', passenger_name));
+
+-- search: where to_tsvector('simple', passenger_name) @@ to_tsquery('simple', 'anna')`,
+        mysql: `create fulltext index tickets_name_ft on tickets (passenger_name);
+
+-- search: where match(passenger_name) against ('+anna' in boolean mode)`,
+        explanation:
+          'Word search finds Anna but not Marianne or Johanna, which a substring LIKE would also return. A passenger has one ticket per flight direction, hence count(distinct passenger_id): 36 people. Accents are a separate matter: MySQL\'s default collation treats María as Maria, PostgreSQL\'s simple configuration does not (the unaccent extension fixes that).',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Text search', url: PG + 'textsearch-intro.html' },
+      { label: 'MySQL: Full-text search', url: MY + 'fulltext-search.html' },
+    ],
+  },
+  {
+    id: 'airlines-093',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'Checked in, not yet boarded',
+    prompt:
+      'Gate agents ask "who on this flight has a boarding pass but has not boarded yet" (boarding_no is NULL). Only 97 of 12,115 passes are in that state. Create an index for exactly those rows.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'boarding_passes' and indexname <> 'boarding_passes_flight_id_boarding_no_key' and indexdef like '%boarding_no%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'boarding_passes' and column_name = 'flight_id' and seq_in_index = 1 and index_name <> 'boarding_passes_flight_id_seat_no_key' and index_name <> 'boarding_passes_flight_id_boarding_no_key'`,
+    solutions: [
+      {
+        approach: 'Partial index on IS NULL',
+        postgres: `create index boarding_passes_waiting_idx on boarding_passes (flight_id) include (ticket_no, seat_no)
+where boarding_no is null;
+
+-- used by: select ticket_no, seat_no from boarding_passes where flight_id = 11091 and boarding_no is null`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: 'The index holds 97 entries. As passengers board, their rows leave the index automatically, so it stays tiny however many flights accumulate.',
+      },
+      {
+        approach: 'The existing unique key already helps',
+        postgres: `-- boarding_passes already has unique (flight_id, boarding_no).
+-- NULLs are stored in a B-tree, so "flight_id = ? and boarding_no is null" is a range of that index.
+create index boarding_passes_flight_waiting_idx on boarding_passes (flight_id, boarding_no, ticket_no, seat_no);`,
+        mysql: `-- boarding_passes already has unique (flight_id, boarding_no).
+-- NULLs are stored in a B-tree, so "flight_id = ? and boarding_no is null" is a range of that index.
+create index boarding_passes_flight_waiting_idx on boarding_passes (flight_id, boarding_no, ticket_no, seat_no);`,
+        explanation: 'The unique key on (flight_id, boarding_no) can already find the rows; adding ticket_no and seat_no makes a covering index, so the table itself is not read.',
+      },
+    ],
+    comparison: 'Both answer the gate query from an index. The partial one is about 125 times smaller; the composite one works in MySQL.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
 ]

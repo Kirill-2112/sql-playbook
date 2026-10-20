@@ -3431,4 +3431,212 @@ call apply_raise(4, 5, '2025-07-01');`,
       { label: 'MySQL: SIGNAL', url: MY + 'signal.html' },
     ],
   },
+  {
+    id: 'adventureworks-091',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['conditions', 'select-basics'],
+    title: 'Red products between 500 and 1,500',
+    prompt: 'List the red products with a list price from 500 to 1,500 inclusive: product_id, name and list_price, most expensive first, then by product_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'AND with BETWEEN',
+        postgres: `select product_id, name, list_price
+from product
+where color = 'Red' and list_price between 500 and 1500
+order by list_price desc, product_id;`,
+        mysql: `select product_id, name, list_price
+from product
+where color = 'Red' and list_price between 500 and 1500
+order by list_price desc, product_id;`,
+        explanation: 'BETWEEN includes both ends, so it means >= 500 and <= 1500. 22 products: Road-450 and Road-650 bikes and the red road frames.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: BETWEEN', url: PG + 'functions-comparison.html' }],
+  },
+  {
+    id: 'adventureworks-092',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['cte', 'aggregates'],
+    title: 'Each territory\'s share of its group',
+    prompt:
+      'For each sales territory: its territory_group, its revenue (sub_total of orders, 2 decimals), and its share of the group\'s revenue in percent (1 decimal). Order by group, then revenue descending.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'One CTE per level, then join them',
+        postgres: `with per_territory as (
+  select t.territory_group, t.name as territory, sum(h.sub_total) as revenue
+  from sales_order_header h
+  join sales_territory t on t.territory_id = h.territory_id
+  group by t.territory_group, t.name
+),
+per_group as (
+  select territory_group, sum(revenue) as group_revenue
+  from per_territory
+  group by territory_group
+)
+select p.territory_group, p.territory, round(p.revenue, 2) as revenue,
+       round(100 * p.revenue / g.group_revenue, 1) as share_pct
+from per_territory p
+join per_group g on g.territory_group = p.territory_group
+order by p.territory_group, p.revenue desc;`,
+        mysql: `with per_territory as (
+  select t.territory_group, t.name as territory, sum(h.sub_total) as revenue
+  from sales_order_header h
+  join sales_territory t on t.territory_id = h.territory_id
+  group by t.territory_group, t.name
+),
+per_group as (
+  select territory_group, sum(revenue) as group_revenue
+  from per_territory
+  group by territory_group
+)
+select p.territory_group, p.territory, round(p.revenue, 2) as revenue,
+       round(100 * p.revenue / g.group_revenue, 1) as share_pct
+from per_territory p
+join per_group g on g.territory_group = p.territory_group
+order by p.territory_group, p.revenue desc;`,
+        explanation:
+          'The second CTE is built from the first, so the order headers are scanned once. A window SUM(revenue) OVER (PARTITION BY territory_group) would give the group total without the join; the CTE version spells out the two levels. Australia is alone in Pacific, so its share is 100%.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'adventureworks-093',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['normalization'],
+    title: 'The size, stored twice',
+    prompt:
+      'Product names like "Road-150 Red, 62" end with the size, which also lives in the size column. Check how many products carry a size in their name and how many disagree with the size column.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Take the part after the last comma and compare',
+        postgres: `select count(*) as sized_names,
+       count(*) filter (where split_part(name, ', ', -1) <> size) as mismatches
+from product
+where name like '%, %' and size is not null;`,
+        mysql: `select count(*) as sized_names,
+       sum(substring_index(name, ', ', -1) <> size) as mismatches
+from product
+where name like '%, %' and size is not null;`,
+        explanation:
+          '210 names repeat the size and all agree today. The name is a convenience for people, but storing the same fact twice means a size correction must touch two places; a view that builds the display name from model, colour and size would remove the duplicate.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: String functions', url: PG + 'functions-string.html' }],
+  },
+  {
+    id: 'adventureworks-094',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['arrays', 'json'],
+    title: 'Models made in black and in red',
+    prompt: 'Collect the colours of each product model into a list, then show the models whose list contains both Black and Red, by model name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'array_agg and @> / JSON_ARRAYAGG and JSON_CONTAINS',
+        postgres: `with model_colours as (
+  select pm.name as model, array_agg(distinct p.color) as colours
+  from product p
+  join product_model pm on pm.product_model_id = p.product_model_id
+  where p.color is not null
+  group by pm.product_model_id, pm.name
+)
+select model
+from model_colours
+where colours @> array['Black', 'Red']::varchar[]
+order by model;`,
+        mysql: `with model_colours as (
+  select pm.name as model, json_arrayagg(p.color) as colours
+  from product p
+  join product_model pm on pm.product_model_id = p.product_model_id
+  where p.color is not null
+  group by pm.product_model_id, pm.name
+)
+select model
+from model_colours
+where json_contains(colours, '["Black", "Red"]')
+order by model;`,
+        mysqlNote: 'JSON_ARRAYAGG has no DISTINCT, so colours repeat in the list; JSON_CONTAINS does not mind.',
+        explanation:
+          'Containment ignores order and duplicates: the question is only whether both values are present. Five models qualify, including the Sport-100 helmet and the road frames.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' }],
+  },
+  {
+    id: 'adventureworks-095',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'An index that starts with the wrong column',
+    prompt:
+      'sales_order_detail has an index on (special_offer_id, product_id), yet "all lines of product 712" scans the whole table. Explain why, and add an index that serves the query.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'sales_order_detail' and indexdef like '%(product_id%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'sales_order_detail' and column_name = 'product_id' and seq_in_index = 1`,
+    solutions: [
+      {
+        approach: 'An index led by product_id',
+        postgres: `create index sales_order_detail_product_idx on sales_order_detail (product_id);
+
+-- explain select * from sales_order_detail where product_id = 712;`,
+        mysql: `create index sales_order_detail_product_idx on sales_order_detail (product_id);
+
+-- explain select * from sales_order_detail where product_id = 712;`,
+        explanation:
+          'A multicolumn B-tree is sorted by its first column, then by the second within each first value. Without a condition on special_offer_id, the product_id entries are scattered across every offer, so the planner prefers a full scan. With product_id first, the lines of one product are one contiguous range.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Multicolumn indexes', url: PG + 'indexes-multicolumn.html' },
+      { label: 'MySQL: Multiple-column indexes', url: MY + 'multiple-column-indexes.html' },
+    ],
+  },
+  {
+    id: 'adventureworks-096',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'At most two reviews per product',
+    prompt:
+      'A product may have at most 2 reviews. Two sessions could both see 1 review and both insert. Use SERIALIZABLE so that check and insert behave as one step, then add review 5 for product 709 by "Ana Lee", rating 5, on 2025-07-01, only if fewer than 2 exist. In PostgreSQL the transaction has just begun.',
+    orderMatters: true,
+    checkSql: `select product_review_id, product_id, reviewer_name, rating from product_review where product_id = 709 order by product_review_id`,
+    solutions: [
+      {
+        approach: 'SERIALIZABLE, then a guarded INSERT … SELECT',
+        postgres: `set transaction isolation level serializable;
+
+insert into product_review (product_review_id, product_id, reviewer_name, review_date, rating, comments)
+select 5, 709, 'Ana Lee', '2025-07-01', 5, 'Works well.'
+where (select count(*) from product_review where product_id = 709) < 2;`,
+        mysql: `set transaction isolation level serializable;
+start transaction;
+
+insert into product_review (product_review_id, product_id, reviewer_name, review_date, rating, comments)
+select 5, 709, 'Ana Lee', '2025-07-01', 5, 'Works well.'
+from dual
+where (select count(*) from product_review where product_id = 709) < 2;
+
+commit;`,
+        mysqlNote: 'Under SERIALIZABLE, InnoDB turns plain reads into shared locks, so the second session waits (or deadlocks and is rolled back) instead of reading the same count.',
+        explanation:
+          'Product 709 has one review, so the insert goes through; run again, it would find 2 and insert nothing. Under SERIALIZABLE, PostgreSQL watches what each transaction read; if two of them would together break the rule, one fails with a serialization error and must retry. Lower levels would let both inserts through.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Serializable isolation', url: PG + 'transaction-iso.html#XACT-SERIALIZABLE' },
+      { label: 'MySQL: Transaction isolation levels', url: MY + 'innodb-transaction-isolation-levels.html' },
+    ],
+  },
 ]

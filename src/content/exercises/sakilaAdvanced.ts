@@ -2525,4 +2525,104 @@ call deactivate_customer(1);`,
       { label: 'MySQL: IF statement', url: MY + 'if.html' },
     ],
   },
+  {
+    id: 'sakila-093',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['temp-tables', 'dates-advanced'],
+    title: 'Late returns, collected once',
+    prompt:
+      'A rental is late when return_date is after rental_date plus the film\'s rental_duration days. Put the late rentals into a temporary table late_rentals (rental_id, store_id, days_late). Then: late rentals and average days late per store.',
+    orderMatters: true,
+    checkSql: `select store_id, count(*) as late_rentals, round(avg(days_late), 1) as avg_days_late from late_rentals group by store_id order by store_id`,
+    solutions: [
+      {
+        approach: 'CREATE TEMPORARY TABLE … AS with date arithmetic',
+        postgres: `create temporary table late_rentals as
+select r.rental_id, i.store_id,
+       r.return_date::date - (r.rental_date + make_interval(days => f.rental_duration))::date as days_late
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+join film f on f.film_id = i.film_id
+where r.return_date > r.rental_date + make_interval(days => f.rental_duration);`,
+        mysql: `create temporary table late_rentals as
+select r.rental_id, i.store_id,
+       datediff(r.return_date, r.rental_date + interval f.rental_duration day) as days_late
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+join film f on f.film_id = i.film_id
+where r.return_date > r.rental_date + interval f.rental_duration day;`,
+        mysqlNote: 'INTERVAL accepts a column as the amount: rental_date + INTERVAL rental_duration DAY.',
+        explanation:
+          'make_interval(days => n) builds an interval from a column, which a literal like interval \'3 days\' cannot. Half of all rentals come back late (8,121 of 16,044), split evenly between the stores. days_late counts calendar days, so a film due at 22:00 and returned at 08:00 the next morning is one day late.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: make_interval', url: PG + 'functions-datetime.html' }],
+  },
+  {
+    id: 'sakila-094',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['materialized-views', 'joins'],
+    title: 'Copies on the shelf, stored',
+    prompt:
+      'Store, per film and store, how many copies exist and how many are out (rented, not returned): film_id, store_id, copies, out_now. Then: the films with every copy of a store out right now.',
+    orderMatters: true,
+    checkSql: `select film_id, store_id, copies, out_now from film_stock where out_now = copies order by film_id, store_id`,
+    solutions: [
+      {
+        approach: 'Materialized view with a unique index',
+        postgres: `create materialized view film_stock as
+select i.film_id, i.store_id, count(*) as copies,
+       count(*) filter (where exists (
+         select 1 from rental r where r.inventory_id = i.inventory_id and r.return_date is null
+       )) as out_now
+from inventory i
+group by i.film_id, i.store_id;
+
+create unique index film_stock_key on film_stock (film_id, store_id);`,
+        mysql: `create table film_stock (
+  film_id  int,
+  store_id int,
+  copies   int,
+  out_now  int,
+  primary key (film_id, store_id)
+);
+
+replace into film_stock
+select i.film_id, i.store_id, count(*),
+       sum(exists (select 1 from rental r where r.inventory_id = i.inventory_id and r.return_date is null))
+from inventory i
+group by i.film_id, i.store_id;`,
+        mysqlNote: 'A table filled by REPLACE INTO stands in for the materialized view; EXISTS is 1 or 0, so SUM counts the copies out.',
+        explanation:
+          'Stock changes with every rental and return, so this summary is stale until refreshed: fine for a nightly report, wrong for the counter at the till, which should query live. The unique index allows REFRESH … CONCURRENTLY.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
+  {
+    id: 'sakila-095',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['generated-columns', 'numbers'],
+    title: 'Price per rental day',
+    prompt: 'Add a stored generated column rate_per_day to film: rental_rate / rental_duration, rounded to 2 decimals. Then: the 3 cheapest films per day (ties by film_id).',
+    orderMatters: true,
+    checkSql: `select film_id, title, rental_rate, rental_duration, rate_per_day from film order by rate_per_day, film_id limit 3`,
+    solutions: [
+      {
+        approach: 'GENERATED ALWAYS AS … STORED',
+        postgres: `alter table film
+add column rate_per_day numeric(5, 2)
+generated always as (round(rental_rate / rental_duration, 2)) stored;`,
+        mysql: `alter table film
+add column rate_per_day decimal(5, 2)
+generated always as (round(rental_rate / rental_duration, 2)) stored;`,
+        explanation:
+          'rental_rate is numeric, so the division keeps decimals even though rental_duration is an integer. A 0.99 film kept for 7 days costs 0.14 a day. If either column changes, the database recomputes the value; nobody can forget it.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
 ]

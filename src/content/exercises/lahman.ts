@@ -3203,4 +3203,83 @@ unlock tables;`,
       { label: 'MySQL: LOCK TABLES', url: MY + 'lock-tables.html' },
     ],
   },
+  {
+    id: 'lahman-089',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['arrays', 'json'],
+    title: 'Yankees and Red Sox, both',
+    prompt: 'Collect the teams each player batted for (2010 on) into a list, then count the players whose list contains both NYA and BOS.',
+    hint: SEASONS_NOTE,
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'array_agg and @> / JSON_ARRAYAGG and JSON_CONTAINS',
+        postgres: `with careers as (
+  select player_id, array_agg(distinct team_id) as teams
+  from batting
+  group by player_id
+)
+select count(*) as players
+from careers
+where teams @> array['NYA', 'BOS']::varchar[];`,
+        mysql: `with careers as (
+  select player_id, json_arrayagg(team_id) as teams
+  from batting
+  group by player_id
+)
+select count(*) as players
+from careers
+where json_contains(teams, '["NYA", "BOS"]');`,
+        mysqlNote: 'A JSON array replaces the PostgreSQL array; JSON_CONTAINS checks that both team ids appear in it.',
+        explanation:
+          '41 players have worn both uniforms since 2010. The list form answers "which players have played for all of these teams" for any set of teams by changing one literal; with plain joins, each extra team means another join.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' }],
+  },
+  {
+    id: 'lahman-090',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['merge'],
+    title: 'Bring a last-season table up to date',
+    prompt:
+      'franchise_last_season (franch_id, last_season) was built a year ago. Run the setup below, then update it from teams in one statement, changing only rows whose value is out of date.\n\nSetup: create table franchise_last_season as select franch_id, max(year_id) as last_season from teams where year_id < 2025 group by franch_id;',
+    orderMatters: true,
+    checkSql: `select last_season, count(*) as franchises from franchise_last_season where last_season >= 2024 group by last_season order by last_season`,
+    solutions: [
+      {
+        approach: 'MERGE with a condition on WHEN MATCHED',
+        postgres: `create table franchise_last_season as
+select franch_id, max(year_id) as last_season from teams where year_id < 2025 group by franch_id;
+
+merge into franchise_last_season f
+using (select franch_id, max(year_id) as last_season from teams group by franch_id) t
+on t.franch_id = f.franch_id
+when matched and f.last_season <> t.last_season then
+  update set last_season = t.last_season
+when not matched then
+  insert (franch_id, last_season) values (t.franch_id, t.last_season)
+returning merge_action(), f.franch_id, f.last_season;`,
+        mysql: `create table franchise_last_season as
+select franch_id, max(year_id) as last_season from teams where year_id < 2025 group by franch_id;
+
+update franchise_last_season f
+join (select franch_id, max(year_id) as last_season from teams group by franch_id) t
+  on t.franch_id = f.franch_id
+set f.last_season = t.last_season
+where f.last_season <> t.last_season;
+
+insert into franchise_last_season (franch_id, last_season)
+select t.franch_id, max(t.year_id) from teams t
+where not exists (select 1 from franchise_last_season f where f.franch_id = t.franch_id)
+group by t.franch_id;`,
+        mysqlNote: 'No MERGE: a joined UPDATE for changed rows plus an INSERT for new ones.',
+        explanation:
+          'The 30 active franchises move from 2024 to 2025; the other 90 rows already hold their last season and are not touched. RETURNING merge_action() (PostgreSQL 17+) reports for each changed row whether it was an UPDATE, INSERT or DELETE, handy for a sync log.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
 ]

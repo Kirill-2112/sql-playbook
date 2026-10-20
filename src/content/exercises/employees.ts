@@ -3335,4 +3335,129 @@ insert into salaries_by_period select emp_no, salary, from_date, to_date from sa
       { label: 'MySQL: RANGE COLUMNS partitioning', url: MY + 'partitioning-columns-range.html' },
     ],
   },
+  {
+    id: 'employees-088',
+    dataset: 'employees',
+    level: 1,
+    topics: ['dates-basics', 'aggregates'],
+    title: 'Hires in February 1990',
+    prompt: 'How many employees were hired in February 1990?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'A half-open date range',
+        postgres: `select count(*) as hires
+from employees
+where hire_date >= '1990-02-01' and hire_date < '1990-03-01';`,
+        mysql: `select count(*) as hires
+from employees
+where hire_date >= '1990-02-01' and hire_date < '1990-03-01';`,
+        explanation:
+          '"From the 1st, before the 1st of the next month" needs no knowledge of how many days February has, and it keeps working if the column ever gains a time part. It can also use an index on hire_date, which extract(month …) = 2 cannot.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Date/time types', url: PG + 'datatype-datetime.html' }],
+  },
+  {
+    id: 'employees-089',
+    dataset: 'employees',
+    level: 2,
+    topics: ['self-cross-join'],
+    title: 'Namesakes',
+    prompt: 'Find pairs of different employees with exactly the same first and last name: both emp_no values (lower first), first_name and last_name, ordered by the first emp_no.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Self-join on the name, ordered pair',
+        postgres: `select a.emp_no as emp_no_1, b.emp_no as emp_no_2, a.first_name, a.last_name
+from employees a
+join employees b
+  on b.first_name = a.first_name
+ and b.last_name = a.last_name
+ and b.emp_no > a.emp_no
+order by a.emp_no;`,
+        mysql: `select a.emp_no as emp_no_1, b.emp_no as emp_no_2, a.first_name, a.last_name
+from employees a
+join employees b
+  on b.first_name = a.first_name
+ and b.last_name = a.last_name
+ and b.emp_no > a.emp_no
+order by a.emp_no;`,
+        explanation:
+          'b.emp_no > a.emp_no does two jobs: it stops a person from matching themselves and lists each pair once instead of twice. Eight pairs share a full name, a reminder that names are not identifiers.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'employees-090',
+    dataset: 'employees',
+    level: 2,
+    topics: ['casting', 'joins'],
+    title: 'Birthdays written the European way',
+    prompt:
+      'HR sends three birth dates as text in DD.MM.YYYY form: 02.09.1953, 19.02.1958, 02.06.1964. Turn them into dates and list the employees born on them: emp_no, first_name, last_name, birth_date, by emp_no.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'to_date / STR_TO_DATE with a format',
+        postgres: `select e.emp_no, e.first_name, e.last_name, e.birth_date
+from (values ('02.09.1953'), ('19.02.1958'), ('02.06.1964')) as hr (birth_text)
+join employees e on e.birth_date = to_date(hr.birth_text, 'DD.MM.YYYY')
+order by e.emp_no;`,
+        mysql: `select e.emp_no, e.first_name, e.last_name, e.birth_date
+from (select '02.09.1953' as birth_text union all select '19.02.1958' union all select '02.06.1964') as hr
+join employees e on e.birth_date = str_to_date(hr.birth_text, '%d.%m.%Y')
+order by e.emp_no;`,
+        mysqlNote: 'STR_TO_DATE takes the same % codes as DATE_FORMAT.',
+        explanation:
+          'A plain cast would guess the order of day and month, and \'02.09.1953\' could become 9 February. An explicit format removes the guess. The third date matches nobody, so five employees come out.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: to_date', url: PG + 'functions-formatting.html' },
+      { label: 'MySQL: STR_TO_DATE', url: MY + 'date-and-time-functions.html#function_str-to-date' },
+    ],
+  },
+  {
+    id: 'employees-091',
+    dataset: 'employees',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'The longest spells without a hire',
+    prompt: 'Looking only at days on which someone was hired, find the 3 longest gaps until the next hiring day: last hiring day before the gap, next hiring day, and days between.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEAD over distinct hire dates',
+        postgres: `with days as (
+  select distinct hire_date from employees
+),
+gaps as (
+  select hire_date, lead(hire_date) over (order by hire_date) as next_hire
+  from days
+)
+select hire_date as last_hire, next_hire, next_hire - hire_date as days_between
+from gaps
+where next_hire is not null
+order by days_between desc, last_hire
+limit 3;`,
+        mysql: `with days as (
+  select distinct hire_date from employees
+),
+gaps as (
+  select hire_date, lead(hire_date) over (order by hire_date) as next_hire
+  from days
+)
+select hire_date as last_hire, next_hire, datediff(next_hire, hire_date) as days_between
+from gaps
+where next_hire is not null
+order by days_between desc, last_hire
+limit 3;`,
+        explanation:
+          'DISTINCT first, so a day with several hires counts once; then LEAD pairs each hiring day with the next. The longest gaps are all in 1999, when hiring had almost stopped: 67 days between 15 June and 21 August.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
 ]

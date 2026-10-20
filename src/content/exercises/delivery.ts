@@ -3031,4 +3031,133 @@ alter table customers modify first_name varchar(20) not null, modify last_name v
     ],
     docs: [{ label: 'PostgreSQL: ALTER TABLE', url: PG + 'sql-altertable.html' }],
   },
+  {
+    id: 'delivery-081',
+    dataset: 'delivery',
+    level: 1,
+    topics: ['conditions', 'aggregates'],
+    title: 'Haifa sign-ups of 2025',
+    prompt: 'How many customers from Haifa signed up in 2025 or later?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Two conditions joined with AND',
+        postgres: `select count(*) as customers
+from customers
+where city = 'Haifa' and signed_up_at >= '2025-01-01';`,
+        mysql: `select count(*) as customers
+from customers
+where city = 'Haifa' and signed_up_at >= '2025-01-01';`,
+        explanation: 'Both conditions must hold for a row to be counted. signed_up_at is a date, so comparing it with \'2025-01-01\' needs no conversion.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WHERE', url: PG + 'queries-table-expressions.html#QUERIES-WHERE' }],
+  },
+  {
+    id: 'delivery-082',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['full-join', 'distinct'],
+    title: 'January customers and February customers',
+    prompt: 'Compare the customers who ordered in January 2026 with those who ordered in February 2026: how many ordered in both months, only in January, only in February?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two distinct customer lists',
+        postgres: `with jan as (
+  select distinct customer_id from orders where created_at >= '2026-01-01' and created_at < '2026-02-01'
+),
+feb as (
+  select distinct customer_id from orders where created_at >= '2026-02-01' and created_at < '2026-03-01'
+)
+select count(*) filter (where j.customer_id is not null and f.customer_id is not null) as both_months,
+       count(*) filter (where f.customer_id is null) as january_only,
+       count(*) filter (where j.customer_id is null) as february_only
+from jan j
+full join feb f on f.customer_id = j.customer_id;`,
+        mysql: `with jan as (
+  select distinct customer_id from orders where created_at >= '2026-01-01' and created_at < '2026-02-01'
+),
+feb as (
+  select distinct customer_id from orders where created_at >= '2026-02-01' and created_at < '2026-03-01'
+)
+select (select count(*) from jan j join feb f on f.customer_id = j.customer_id) as both_months,
+       (select count(*) from jan j where not exists (select 1 from feb f where f.customer_id = j.customer_id)) as january_only,
+       (select count(*) from feb f where not exists (select 1 from jan j where j.customer_id = f.customer_id)) as february_only;`,
+        mysqlNote: 'No FULL JOIN in MySQL: a join and two anti-joins count the three groups.',
+        explanation:
+          'DISTINCT inside each CTE matters: without it, a customer with two January orders would appear twice and inflate the counts. Only 1,841 customers ordered in both months, against 8,336 January-only and 7,463 February-only.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'delivery-083',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['set-operations', 'dates-basics'],
+    title: 'Open last New Year, quiet this one',
+    prompt: 'Which restaurants received orders on 1 January 2025 but none on 1 January 2026? Show id and name, by id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'EXCEPT of two day lists',
+        postgres: `select r.id, r.name
+from restaurants r
+where r.id in (
+  select restaurant_id from orders where created_at >= '2025-01-01' and created_at < '2025-01-02'
+  except
+  select restaurant_id from orders where created_at >= '2026-01-01' and created_at < '2026-01-02'
+)
+order by r.id;`,
+        mysql: `select r.id, r.name
+from restaurants r
+where r.id in (
+  select restaurant_id from orders where created_at >= '2025-01-01' and created_at < '2025-01-02'
+  except
+  select restaurant_id from orders where created_at >= '2026-01-01' and created_at < '2026-01-02'
+)
+order by r.id;`,
+        mysqlNote: 'EXCEPT exists since MySQL 8.0.31.',
+        explanation:
+          'EXCEPT keeps the restaurant ids of the first list that are missing from the second; the outer query adds the names. Each day is a half-open range, so every time of day counts. Two restaurants: Blue Table and Night Table.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'delivery-084',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['subtotals', 'dates-advanced'],
+    title: '2025 revenue by quarter and month',
+    prompt:
+      'Delivered revenue of 2025 by quarter and month, with a subtotal per quarter and the year total. Show quarter (\'all\' on the total), month (\'all\' on subtotals and the total) and revenue.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP over a date hierarchy',
+        postgres: `select coalesce(extract(quarter from created_at)::text, 'all') as quarter,
+       coalesce(to_char(date_trunc('month', created_at), 'YYYY-MM'), 'all') as month,
+       sum(total) as revenue
+from orders
+where status = 'delivered' and created_at >= '2025-01-01' and created_at < '2026-01-01'
+group by rollup (extract(quarter from created_at), date_trunc('month', created_at))
+order by grouping(extract(quarter from created_at)), extract(quarter from created_at),
+         grouping(date_trunc('month', created_at)), date_trunc('month', created_at);`,
+        mysql: `select coalesce(cast(q as char), 'all') as quarter, coalesce(m, 'all') as month, revenue
+from (
+  select quarter(created_at) as q, date_format(created_at, '%Y-%m') as m, sum(total) as revenue,
+         grouping(quarter(created_at)) as gq, grouping(date_format(created_at, '%Y-%m')) as gm
+  from orders
+  where status = 'delivered' and created_at >= '2025-01-01' and created_at < '2026-01-01'
+  group by quarter(created_at), date_format(created_at, '%Y-%m') with rollup
+) t
+order by gq, q, gm, m;`,
+        explanation:
+          'ROLLUP follows the column list from left to right: month within quarter, quarter within the year. Because each month belongs to exactly one quarter, the hierarchy is clean: 12 month rows, 4 quarter subtotals, 1 total.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
 ]

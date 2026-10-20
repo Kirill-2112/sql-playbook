@@ -3639,4 +3639,160 @@ commit;`,
       { label: 'MySQL: Transaction isolation levels', url: MY + 'innodb-transaction-isolation-levels.html' },
     ],
   },
+  {
+    id: 'adventureworks-097',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['casting', 'numbers'],
+    title: 'Casting rounds, it does not cut',
+    prompt:
+      'For products 707 to 712: name, the margin in percent ((list_price − standard_cost) / list_price × 100) with 2 decimals, the margin cast to an integer, and the margin rounded down.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Cast versus floor',
+        postgres: `select product_id, name,
+       round(100 * (list_price - standard_cost) / list_price, 2) as margin_pct,
+       (100 * (list_price - standard_cost) / list_price)::integer as margin_cast,
+       floor(100 * (list_price - standard_cost) / list_price) as margin_floor
+from product
+where product_id between 707 and 712
+order by product_id;`,
+        mysql: `select product_id, name,
+       round(100 * (list_price - standard_cost) / list_price, 2) as margin_pct,
+       cast(100 * (list_price - standard_cost) / list_price as signed) as margin_cast,
+       floor(100 * (list_price - standard_cost) / list_price) as margin_floor
+from product
+where product_id between 707 and 712
+order by product_id;`,
+        mysqlNote: 'MySQL casts to SIGNED or UNSIGNED, not INTEGER.',
+        explanation:
+          'Casting a decimal to an integer rounds to the nearest whole number in both databases: the helmets\' 62.60% becomes 63. If you need "whole percent, never overstated", use floor (62). Many languages truncate on conversion, which makes this an easy surprise.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Mathematical functions', url: PG + 'functions-math.html' }],
+  },
+  {
+    id: 'adventureworks-098',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['window-frames', 'dates-advanced'],
+    title: 'Purchasing over the last 7 days',
+    prompt:
+      'For each day of January 2025 with purchase orders: the day, that day\'s total_due, and the total over that day and the 6 calendar days before it (2 decimals). Days without orders still count as calendar days.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'RANGE frame by days',
+        postgres: `with daily as (
+  select order_date::date as day, sum(total_due) as spend
+  from purchase_order_header
+  where order_date >= '2025-01-01' and order_date < '2025-02-01'
+  group by order_date::date
+)
+select day, round(spend, 2) as spend,
+       round(sum(spend) over (order by day range between interval '6 days' preceding and current row), 2) as last_7_days
+from daily
+order by day;`,
+        mysql: `with daily as (
+  select date(order_date) as day, sum(total_due) as spend
+  from purchase_order_header
+  where order_date >= '2025-01-01' and order_date < '2025-02-01'
+  group by date(order_date)
+)
+select day, round(spend, 2) as spend,
+       round(sum(spend) over (order by day range between interval 6 day preceding and current row), 2) as last_7_days
+from daily
+order by day;`,
+        explanation:
+          'Purchasing happens on some days only. ROWS 6 PRECEDING would reach back seven purchasing days, which may span two weeks; RANGE 6 days reaches back seven calendar days, whatever happened on them. The first days of January only see January, because the CTE starts there.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
+  {
+    id: 'adventureworks-099',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['date-series'],
+    title: 'Reseller orders, month by month',
+    prompt: 'Count reseller orders (online_order_flag = 0) for every month from January to September 2025 (YYYY-MM), including months with none.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Month series LEFT JOIN orders',
+        postgres: `select to_char(m.month, 'YYYY-MM') as month, count(h.sales_order_id) as reseller_orders
+from generate_series('2025-01-01'::timestamp, '2025-09-01', interval '1 month') as m (month)
+left join sales_order_header h
+  on h.online_order_flag = 0
+ and h.order_date >= m.month and h.order_date < m.month + interval '1 month'
+group by m.month
+order by m.month;`,
+        mysql: `with recursive months (month) as (
+  select cast('2025-01-01' as datetime)
+  union all
+  select month + interval 1 month from months where month < '2025-09-01'
+)
+select date_format(m.month, '%Y-%m') as month, count(h.sales_order_id) as reseller_orders
+from months m
+left join sales_order_header h
+  on h.online_order_flag = 0
+ and h.order_date >= m.month and h.order_date < m.month + interval 1 month
+group by m.month
+order by m.month;`,
+        mysqlNote: 'A recursive CTE stands in for generate_series.',
+        explanation:
+          'Reseller orders stop after April 2025; without the series the result would simply end there, and nobody would notice that May to September are empty. The conditions on h sit in ON, not WHERE: in WHERE they would remove the empty months again.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'adventureworks-100',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['triggers', 'views'],
+    title: 'Update through a joined view',
+    prompt:
+      'Create a view catalog_prices (product_id, product, subcategory, list_price) joining product and product_subcategory. Make UPDATE of list_price through the view change product. Then raise product 707 to 36.99 through the view.',
+    orderMatters: false,
+    checkSql: `select product_id, list_price from product where product_id = 707`,
+    solutions: [
+      {
+        approach: 'INSTEAD OF trigger on the view',
+        postgres: `create view catalog_prices as
+select p.product_id, p.name as product, s.name as subcategory, p.list_price
+from product p
+join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id;
+
+create function catalog_prices_update() returns trigger
+language plpgsql
+as $$
+begin
+  update product set list_price = new.list_price where product_id = old.product_id;
+  return new;
+end;
+$$;
+
+create trigger catalog_prices_upd
+instead of update on catalog_prices
+for each row execute function catalog_prices_update();
+
+update catalog_prices set list_price = 36.99 where product_id = 707;`,
+        mysql: `create view catalog_prices as
+select p.product_id, p.name as product, s.name as subcategory, p.list_price
+from product p
+join product_subcategory s on s.product_subcategory_id = p.product_subcategory_id;
+
+update catalog_prices set list_price = 36.99 where product_id = 707;`,
+        mysqlNote: 'MySQL has no INSTEAD OF triggers, but it can update a join view directly as long as the UPDATE changes columns of only one of the joined tables.',
+        explanation:
+          'PostgreSQL only updates simple single-table views by itself; for a join it needs to be told what an UPDATE means, which an INSTEAD OF trigger does. The trigger decides the rule: here only the price may change, any other column in the SET is ignored.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: INSTEAD OF triggers', url: PG + 'trigger-definition.html' },
+      { label: 'MySQL: Updatable views', url: MY + 'view-updatability.html' },
+    ],
+  },
 ]

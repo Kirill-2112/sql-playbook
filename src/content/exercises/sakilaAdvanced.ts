@@ -2625,4 +2625,143 @@ generated always as (round(rental_rate / rental_duration, 2)) stored;`,
     ],
     docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
   },
+  {
+    id: 'sakila-096',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['recursive', 'strings'],
+    title: 'Split a list with recursion',
+    prompt:
+      'special_features holds comma-separated values. Without any splitting function, use a recursive CTE to turn the features of films 1 to 3 into rows: film_id, position (1, 2, …) and feature.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Peel off the first item, recurse on the rest',
+        postgres: `with recursive parts (film_id, pos, feature, rest) as (
+  select film_id, 1,
+         split_part(special_features, ',', 1),
+         nullif(substr(special_features, strpos(special_features, ',') + 1), special_features)
+  from film
+  where film_id between 1 and 3
+  union all
+  select film_id, pos + 1,
+         split_part(rest, ',', 1),
+         nullif(substr(rest, strpos(rest, ',') + 1), rest)
+  from parts
+  where rest is not null
+)
+select film_id, pos, feature
+from parts
+order by film_id, pos;`,
+        mysql: `with recursive parts (film_id, pos, feature, rest) as (
+  select film_id, 1,
+         cast(substring_index(special_features, ',', 1) as char(100)),
+         cast(if(locate(',', special_features) > 0, substring(special_features, locate(',', special_features) + 1), null) as char(100))
+  from film
+  where film_id between 1 and 3
+  union all
+  select film_id, pos + 1,
+         substring_index(rest, ',', 1),
+         if(locate(',', rest) > 0, substring(rest, locate(',', rest) + 1), null)
+  from parts
+  where rest is not null
+)
+select film_id, pos, feature
+from parts
+order by film_id, pos;`,
+        mysqlNote: 'The anchor CASTs both text columns wide enough; special_features is a SET in MySQL and is read here as its comma-separated text.',
+        explanation:
+          'Each step takes the text before the first comma as one feature and carries the remainder on; when no comma is left, the remainder becomes NULL and the recursion stops. In PostgreSQL, strpos returns 0 when there is no comma, so substr(…, 1) gives back the whole string, and NULLIF turns that into NULL. string_to_table or JSON_TABLE do this in one call; the recursive pattern works anywhere.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'sakila-097',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['upsert', 'dates-basics'],
+    title: 'The newest score wins',
+    prompt:
+      'critic_scores (film_id primary key, score, updated_at) holds (1, 7, 2025-01-01) and (2, 5, 2025-03-01). A feed arrives: (1, 8, 2025-02-01), (2, 9, 2025-02-15), (3, 6, 2025-02-01). Upsert it so that a row is only replaced by newer data.',
+    orderMatters: true,
+    checkSql: `select film_id, score, updated_at from critic_scores order by film_id`,
+    solutions: [
+      {
+        approach: 'Conditional upsert',
+        postgres: `create table critic_scores (film_id integer primary key, score integer not null, updated_at date not null);
+insert into critic_scores values (1, 7, '2025-01-01'), (2, 5, '2025-03-01');
+
+insert into critic_scores (film_id, score, updated_at)
+values (1, 8, '2025-02-01'), (2, 9, '2025-02-15'), (3, 6, '2025-02-01')
+on conflict (film_id) do update
+  set score = excluded.score, updated_at = excluded.updated_at
+  where excluded.updated_at > critic_scores.updated_at;`,
+        mysql: `create table critic_scores (film_id int primary key, score int not null, updated_at date not null);
+insert into critic_scores values (1, 7, '2025-01-01'), (2, 5, '2025-03-01');
+
+insert into critic_scores (film_id, score, updated_at)
+values (1, 8, '2025-02-01'), (2, 9, '2025-02-15'), (3, 6, '2025-02-01') as new
+on duplicate key update
+  score      = if(new.updated_at > critic_scores.updated_at, new.score, critic_scores.score),
+  updated_at = greatest(new.updated_at, critic_scores.updated_at);`,
+        mysqlNote:
+          'No WHERE in MySQL\'s ON DUPLICATE KEY UPDATE, so each column decides with IF. Order matters: assignments run left to right, so score must be set before updated_at changes.',
+        explanation:
+          'Feeds arrive out of order; "last writer wins" would let the stale score 9 overwrite the newer 5. Comparing timestamps keeps the newest version: film 1 becomes 8, film 2 stays 5, film 3 is added.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'sakila-098',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Rentals by quarter, with a catch-all',
+    prompt:
+      'Create rental_by_quarter (rental_id, rental_date, inventory_id, customer_id) partitioned by rental_date into Q2 2005, Q3 2005 and a partition for everything else. Copy the rentals in.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from rental_2005_q2) as q2, (select count(*) from rental_2005_q3) as q3, (select count(*) from rental_other) as other`,
+    checkSqlMysql: `select (select count(*) from rental_by_quarter partition (p2005_q2)) as q2,
+       (select count(*) from rental_by_quarter partition (p2005_q3)) as q3,
+       (select count(*) from rental_by_quarter partition (p_other)) as other`,
+    solutions: [
+      {
+        approach: 'Range partitions plus a DEFAULT partition',
+        postgres: `create table rental_by_quarter (
+  rental_id    integer   not null,
+  rental_date  timestamp not null,
+  inventory_id integer   not null,
+  customer_id  integer   not null,
+  primary key (rental_id, rental_date)
+) partition by range (rental_date);
+
+create table rental_2005_q2 partition of rental_by_quarter for values from ('2005-04-01') to ('2005-07-01');
+create table rental_2005_q3 partition of rental_by_quarter for values from ('2005-07-01') to ('2005-10-01');
+create table rental_other   partition of rental_by_quarter default;
+
+insert into rental_by_quarter select rental_id, rental_date, inventory_id, customer_id from rental;`,
+        mysql: `create table rental_by_quarter (
+  rental_id    int      not null,
+  rental_date  datetime not null,
+  inventory_id int      not null,
+  customer_id  int      not null,
+  primary key (rental_id, rental_date)
+)
+partition by range columns (rental_date) (
+  partition p_before   values less than ('2005-04-01'),
+  partition p2005_q2   values less than ('2005-07-01'),
+  partition p2005_q3   values less than ('2005-10-01'),
+  partition p_other    values less than (maxvalue)
+);
+
+insert into rental_by_quarter select rental_id, rental_date, inventory_id, customer_id from rental;`,
+        mysqlNote: 'MySQL has no DEFAULT partition for RANGE: MAXVALUE catches everything later, and an extra partition everything earlier.',
+        explanation:
+          'A PostgreSQL DEFAULT partition takes any row that fits no other partition, here the 182 rentals of February 2006. Creating a new partition later checks the default first, and fails if it already holds rows for that range; move them out before adding the partition.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' }],
+  },
 ]

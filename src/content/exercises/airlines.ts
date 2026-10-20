@@ -3844,4 +3844,49 @@ create index boarding_passes_flight_waiting_idx on boarding_passes (flight_id, b
     comparison: 'Both answer the gate query from an index. The partial one is about 125 times smaller; the composite one works in MySQL.',
     docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
   },
+  {
+    id: 'airlines-094',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['lateral', 'joins'],
+    title: 'The busiest route of each airplane type',
+    prompt:
+      'For every airplane (all 10, freighters included): airplane_code, model, and the route_no it flew most often in December 2025 with that number of flights. Airplanes without flights show NULL. Ties by route_no.',
+    hint: VALIDITY_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEFT JOIN LATERAL with GROUP BY … LIMIT 1',
+        postgres: `select a.airplane_code, a.model, busiest.route_no, busiest.flights
+from airplanes a
+left join lateral (
+  select f.route_no, count(*) as flights
+  from flights f
+  ${ROUTE_JOIN}
+  where r.airplane_code = a.airplane_code
+    and f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2026-01-01'
+  group by f.route_no
+  order by flights desc, f.route_no
+  limit 1
+) busiest on true
+order by a.airplane_code;`,
+        mysql: `select a.airplane_code, a.model, busiest.route_no, busiest.flights
+from airplanes a
+left join lateral (
+  select f.route_no, count(*) as flights
+  from flights f
+  ${ROUTE_JOIN}
+  where r.airplane_code = a.airplane_code
+    and f.scheduled_departure >= '2025-12-01' and f.scheduled_departure < '2026-01-01'
+  group by f.route_no
+  order by flights desc, f.route_no
+  limit 1
+) busiest on true
+order by a.airplane_code;`,
+        explanation:
+          'The lateral subquery can group, sort and limit per airplane, which a plain join cannot. LEFT JOIN … ON TRUE keeps the two freighters (A350F, 767-300F) that have no passenger routes: their columns come back NULL instead of the rows disappearing.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
 ]

@@ -3282,4 +3282,126 @@ group by t.franch_id;`,
     ],
     docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
   },
+  {
+    id: 'lahman-091',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['full-join', 'distinct'],
+    title: 'Batters and pitchers of 2025',
+    prompt: 'Compare the players with a 2025 batting row and those with a 2025 pitching row: how many appear in both tables, only in batting, only in pitching?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two distinct player lists',
+        postgres: `with b as (select distinct player_id from batting where year_id = 2025),
+     p as (select distinct player_id from pitching where year_id = 2025)
+select count(*) filter (where b.player_id is not null and p.player_id is not null) as both_tables,
+       count(*) filter (where p.player_id is null) as batting_only,
+       count(*) filter (where b.player_id is null) as pitching_only
+from b
+full join p on p.player_id = b.player_id;`,
+        mysql: `with b as (select distinct player_id from batting where year_id = 2025),
+     p as (select distinct player_id from pitching where year_id = 2025)
+select (select count(*) from b join p on p.player_id = b.player_id) as both_tables,
+       (select count(*) from b where not exists (select 1 from p where p.player_id = b.player_id)) as batting_only,
+       (select count(*) from p where not exists (select 1 from b where b.player_id = p.player_id)) as pitching_only;`,
+        mysqlNote: 'No FULL JOIN in MySQL: one join and two anti-joins.',
+        explanation:
+          'pitching_only is 0: in this data every 2025 pitcher also has a batting row, even one who never came to the plate. A FULL JOIN is how such an assumption gets checked rather than trusted. 873 players pitched; 597 only batted.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'lahman-092',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['subtotals'],
+    title: '2025 attendance by league and by division',
+    prompt:
+      'Total 2025 home attendance per league, per division letter (E, C, W across both leagues), and overall, in one result: dimension (\'league\', \'division\' or \'total\'), value and attendance.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'GROUPING SETS of two independent groupings',
+        postgres: `select case when grouping(lg_id) = 0 then 'league'
+            when grouping(div_id) = 0 then 'division'
+            else 'total' end as dimension,
+       coalesce(lg_id, div_id, 'all') as value,
+       sum(attendance) as attendance
+from teams
+where year_id = 2025
+group by grouping sets ((lg_id), (div_id), ())
+order by dimension, value;`,
+        mysql: `select 'league' as dimension, lg_id as value, sum(attendance) as attendance from teams where year_id = 2025 group by lg_id
+union all
+select 'division', div_id, sum(attendance) from teams where year_id = 2025 group by div_id
+union all
+select 'total', 'all', sum(attendance) from teams where year_id = 2025
+order by dimension, value;`,
+        mysqlNote: 'No GROUPING SETS in MySQL; three GROUP BYs joined with UNION ALL return the same rows.',
+        explanation:
+          'ROLLUP (lg_id, div_id) would give divisions within leagues; here the division letters are grouped across leagues, which only GROUPING SETS can list side by side. The West divisions draw the most fans.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUPING SETS', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'lahman-093',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['normalization'],
+    title: 'Does the team decide the league?',
+    prompt:
+      'Someone proposes moving lg_id out of teams into a lookup table keyed by team_id. Check whether team_id determines lg_id: list every team_id that played in more than one league, with the leagues and the years.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Test a functional dependency with GROUP BY … HAVING',
+        postgres: `select team_id,
+       string_agg(distinct lg_id, ', ' order by lg_id) as leagues,
+       min(year_id) as first_season, max(year_id) as last_season
+from teams
+group by team_id
+having count(distinct lg_id) > 1
+order by team_id;`,
+        mysql: `select team_id,
+       group_concat(distinct lg_id order by lg_id separator ', ') as leagues,
+       min(year_id) as first_season, max(year_id) as last_season
+from teams
+group by team_id
+having count(distinct lg_id) > 1
+order by team_id;`,
+        explanation:
+          'A dependency team_id → lg_id holds only if every team_id has one league. Houston breaks it: the Astros moved from the NL to the AL in 2013. The league belongs to a team-season, so (team_id, year_id) → lg_id is the real dependency, and the proposed lookup table would be wrong for Houston.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUP BY and HAVING', url: PG + 'queries-table-expressions.html#QUERIES-GROUP' }],
+  },
+  {
+    id: 'lahman-094',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['full-text', 'text-search'],
+    title: 'Born in San something',
+    prompt: 'With a full-text index on people.birth_city, count the people born in a city containing the word San (San Diego, San Pedro de Macoris, …), not merely starting with "San" (Santo Domingo, Santiago).',
+    orderMatters: false,
+    checkSql: `select count(*) as people from people where to_tsvector('simple', birth_city) @@ to_tsquery('simple', 'san')`,
+    checkSqlMysql: `select count(*) as people from people where match(birth_city) against ('+san' in boolean mode)`,
+    solutions: [
+      {
+        approach: 'Word search instead of a prefix',
+        postgres: `create index people_birth_city_fts on people using gin (to_tsvector('simple', birth_city));
+
+-- search: where to_tsvector('simple', birth_city) @@ to_tsquery('simple', 'san')`,
+        mysql: `create fulltext index people_birth_city_ft on people (birth_city);
+
+-- search: where match(birth_city) against ('+san' in boolean mode)`,
+        mysqlNote: '"San" has exactly the minimum token length (3) MySQL indexes by default.',
+        explanation:
+          'LIKE \'San%\' finds 607 people, because Santo Domingo and Santiago also start with those letters; the word search finds 319. A NULL birth_city produces an empty tsvector and simply never matches.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Text search', url: PG + 'textsearch-intro.html' }],
+  },
 ]

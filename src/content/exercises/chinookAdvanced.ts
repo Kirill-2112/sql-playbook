@@ -2599,4 +2599,232 @@ for each row update album set track_count = track_count - 1 where album_id = old
       { label: 'MySQL: Using triggers', url: MY + 'triggers.html' },
     ],
   },
+  {
+    id: 'chinook-096',
+    dataset: 'chinook',
+    level: 1,
+    topics: ['text-search'],
+    title: 'Live recordings',
+    prompt: 'How many tracks have "(Live" in their name, as in "My Funny Valentine (Live)"?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'LIKE with the parenthesis in the pattern',
+        postgres: `select count(*) as live_tracks
+from track
+where name like '%(Live%';`,
+        mysql: `select count(*) as live_tracks
+from track
+where name like '%(Live%';`,
+        explanation:
+          'Only % and _ are special in LIKE; a parenthesis is an ordinary character, so \'%(Live%\' finds names containing "(Live" anywhere. Including the parenthesis avoids matching words such as "Liver" or "Lives". To search for a real % or _, escape it: LIKE \'%10\\%%\'.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'chinook-097',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['self-cross-join', 'distinct'],
+    title: 'The same song on different albums',
+    prompt:
+      'Count pairs of tracks with exactly the same name (same letters, case and accents) on different albums, and how many different names are involved.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Self-join on the name, exact comparison',
+        postgres: `select count(*) as pairs, count(distinct a.name) as names
+from track a
+join track b
+  on b.name = a.name
+ and b.track_id > a.track_id
+ and b.album_id <> a.album_id;`,
+        mysql: `select count(*) as pairs, count(distinct a.name collate utf8mb4_bin) as names
+from track a
+join track b
+  on b.name = a.name collate utf8mb4_bin
+ and b.track_id > a.track_id
+ and b.album_id <> a.album_id;`,
+        mysqlNote:
+          'MySQL\'s default collation ignores case and accents, so without COLLATE utf8mb4_bin "Minha Historia" would equal "Minha História" and the count would be higher. COUNT(DISTINCT …) compares with the collation too, so it needs the same COLLATE.',
+        explanation:
+          'Live versions and compilations repeat songs: 309 pairs over 192 names. Text equality depends on the collation: PostgreSQL here compares exactly, MySQL by default does not. Decide which you mean and say it in the query.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Collation support', url: PG + 'collation.html' },
+      { label: 'MySQL: Collations', url: MY + 'charset-collation-names.html' },
+    ],
+  },
+  {
+    id: 'chinook-098',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['gaps-islands', 'dates-advanced'],
+    title: 'Months in a row with US sales',
+    prompt: 'Find the 3 longest runs of consecutive calendar months with at least one invoice billed to the USA: first month, last month (YYYY-MM) and length. Longest first, then earliest.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Month number minus row number',
+        postgres: `with months as (
+  select distinct extract(year from invoice_date)::int * 12 + extract(month from invoice_date)::int - 1 as m
+  from invoice
+  where billing_country = 'USA'
+),
+runs as (
+  select m, m - row_number() over (order by m) as grp from months
+)
+select to_char(make_date(min(m) / 12, min(m) % 12 + 1, 1), 'YYYY-MM') as first_month,
+       to_char(make_date(max(m) / 12, max(m) % 12 + 1, 1), 'YYYY-MM') as last_month,
+       count(*) as months
+from runs
+group by grp
+order by months desc, first_month
+limit 3;`,
+        mysql: `with months as (
+  select distinct year(invoice_date) * 12 + month(invoice_date) - 1 as m
+  from invoice
+  where billing_country = 'USA'
+),
+runs as (
+  select m, m - row_number() over (order by m) as grp from months
+)
+select concat(min(m) div 12, '-', lpad(min(m) % 12 + 1, 2, '0')) as first_month,
+       concat(max(m) div 12, '-', lpad(max(m) % 12 + 1, 2, '0')) as last_month,
+       count(*) as months
+from runs
+group by grp
+order by months desc, first_month
+limit 3;`,
+        mysqlNote: 'DIV is integer division in MySQL; / would give a decimal.',
+        explanation:
+          'Turning each month into one number (year × 12 + month) makes "consecutive months" mean "consecutive integers", and the usual number-minus-row-number trick finds the runs. The longest: September 2021 to June 2022, ten months.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'chinook-099',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['temp-tables', 'aggregates'],
+    title: 'Tracks on many playlists',
+    prompt:
+      'Store each track\'s number of playlists in a temporary table track_reach (track_id, playlists). Then: how many tracks are on 5 playlists, and the average reach per genre for the 3 genres with the highest average (2 decimals).',
+    orderMatters: true,
+    checkSql: `select g.name as genre, round(avg(r.playlists), 2) as avg_playlists
+from track_reach r
+join track t on t.track_id = r.track_id
+join genre g on g.genre_id = t.genre_id
+group by g.genre_id, g.name
+order by avg_playlists desc, genre
+limit 3`,
+    solutions: [
+      {
+        approach: 'CREATE TEMPORARY TABLE … AS, keyed',
+        postgres: `create temporary table track_reach as
+select track_id, count(*) as playlists
+from playlist_track
+group by track_id;
+
+alter table track_reach add primary key (track_id);
+
+select count(*) as tracks_on_5 from track_reach where playlists = 5;`,
+        mysql: `create temporary table track_reach as
+select track_id, count(*) as playlists
+from playlist_track
+group by track_id;
+
+alter table track_reach add primary key (track_id);
+
+select count(*) as tracks_on_5 from track_reach where playlists = 5;`,
+        explanation:
+          'The count is computed once and reused for several questions. 41 tracks sit on 5 playlists, the maximum. Tracks on no playlist are not in the table at all; a LEFT JOIN from track with coalesce(playlists, 0) would include them.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'chinook-100',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'Add a track to a playlist, safely',
+    prompt:
+      'Write a procedure add_to_playlist(p_playlist_id, p_track_id) that raises an error if the playlist or the track does not exist, does nothing if the track is already on the playlist, and inserts it otherwise. Add track 1 to playlist 18, twice.',
+    orderMatters: true,
+    checkSql: `select playlist_id, track_id from playlist_track where playlist_id = 18 order by track_id`,
+    solutions: [
+      {
+        approach: 'Checks, then an insert that ignores duplicates',
+        postgres: `create procedure add_to_playlist(p_playlist_id integer, p_track_id integer)
+language plpgsql
+as $$
+begin
+  if not exists (select 1 from playlist where playlist_id = p_playlist_id) then
+    raise exception 'playlist % does not exist', p_playlist_id;
+  end if;
+  if not exists (select 1 from track where track_id = p_track_id) then
+    raise exception 'track % does not exist', p_track_id;
+  end if;
+
+  insert into playlist_track (playlist_id, track_id)
+  values (p_playlist_id, p_track_id)
+  on conflict do nothing;
+end;
+$$;
+
+call add_to_playlist(18, 1);
+call add_to_playlist(18, 1);`,
+        mysql: `create procedure add_to_playlist(p_playlist_id int, p_track_id int)
+begin
+  if not exists (select 1 from playlist where playlist_id = p_playlist_id) then
+    signal sqlstate '45000' set message_text = 'playlist does not exist';
+  end if;
+  if not exists (select 1 from track where track_id = p_track_id) then
+    signal sqlstate '45000' set message_text = 'track does not exist';
+  end if;
+
+  insert into playlist_track (playlist_id, track_id)
+  values (p_playlist_id, p_track_id)
+  on duplicate key update track_id = track_id;
+end;
+
+call add_to_playlist(18, 1);
+call add_to_playlist(18, 1);`,
+        mysqlNote: DELIMITER_NOTE + ' The no-op ON DUPLICATE KEY UPDATE plays the role of DO NOTHING.',
+        explanation:
+          'Foreign keys would also reject a missing playlist or track, but with a generic message; the procedure says which one. The second call finds the pair already there and changes nothing, so the procedure is safe to retry.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE PROCEDURE', url: PG + 'sql-createprocedure.html' }],
+  },
+  {
+    id: 'chinook-101',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'An index nobody needs',
+    prompt:
+      'playlist_track has a primary key (playlist_id, track_id) and separate indexes on playlist_id and on track_id. One of the separate indexes is redundant. Find it, explain why, and drop it.',
+    orderMatters: false,
+    checkSql: `select count(*) as indexes from pg_indexes where tablename = 'playlist_track'`,
+    checkSqlMysql: `select count(distinct index_name) as indexes from information_schema.statistics where table_schema = database() and table_name = 'playlist_track'`,
+    solutions: [
+      {
+        approach: 'Drop the index that is a prefix of the primary key',
+        postgres: `drop index playlist_track_playlist_id_idx;`,
+        mysql: `drop index playlist_track_playlist_id_idx on playlist_track;`,
+        mysqlNote: 'MySQL needs the table name in DROP INDEX.',
+        explanation:
+          'The primary key index is sorted by playlist_id first, so it already serves every lookup by playlist_id alone. The separate index only costs space and slows down every insert and delete. The index on track_id stays: track_id is the second key column, and a lookup by it alone cannot use the primary key.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Multicolumn indexes', url: PG + 'indexes-multicolumn.html' },
+      { label: 'MySQL: DROP INDEX', url: MY + 'drop-index.html' },
+    ],
+  },
 ]

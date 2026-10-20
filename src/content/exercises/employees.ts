@@ -3460,4 +3460,145 @@ limit 3;`,
     ],
     docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
   },
+  {
+    id: 'employees-092',
+    dataset: 'employees',
+    level: 2,
+    topics: ['text-aggregation', 'joins'],
+    title: 'Every manager of each department',
+    prompt: 'For each department: dept_name and the last names of all its managers ever, in the order they started, separated by " → ". Order by dept_no.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg / GROUP_CONCAT ordered by start date',
+        postgres: `select d.dept_name,
+       string_agg(e.last_name, ' → ' order by m.from_date) as managers
+from departments d
+join dept_manager m on m.dept_no = d.dept_no
+join employees e on e.emp_no = m.emp_no
+group by d.dept_no, d.dept_name
+order by d.dept_no;`,
+        mysql: `select d.dept_name,
+       group_concat(e.last_name order by m.from_date separator ' → ') as managers
+from departments d
+join dept_manager m on m.dept_no = d.dept_no
+join employees e on e.emp_no = m.emp_no
+group by d.dept_no, d.dept_name
+order by d.dept_no;`,
+        explanation:
+          'The ORDER BY inside the aggregate decides the order of names in the string, independent of the query\'s final ORDER BY. Production, Quality Management and Customer Service had four managers each; the others two.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'employees-093',
+    dataset: 'employees',
+    level: 3,
+    topics: ['pivot', 'dates-basics'],
+    title: 'Current staff by department and hire year',
+    prompt: 'For current employees: per department (dept_no), how many were hired in each year from 1995 to 1999, one column per year. Order by dept_no.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts per hire year',
+        postgres: `select de.dept_no,
+       count(*) filter (where extract(year from e.hire_date) = 1995) as h1995,
+       count(*) filter (where extract(year from e.hire_date) = 1996) as h1996,
+       count(*) filter (where extract(year from e.hire_date) = 1997) as h1997,
+       count(*) filter (where extract(year from e.hire_date) = 1998) as h1998,
+       count(*) filter (where extract(year from e.hire_date) = 1999) as h1999
+from dept_emp de
+join employees e on e.emp_no = de.emp_no
+where de.to_date = '9999-01-01'
+group by de.dept_no
+order by de.dept_no;`,
+        mysql: `select de.dept_no,
+       sum(year(e.hire_date) = 1995) as h1995,
+       sum(year(e.hire_date) = 1996) as h1996,
+       sum(year(e.hire_date) = 1997) as h1997,
+       sum(year(e.hire_date) = 1998) as h1998,
+       sum(year(e.hire_date) = 1999) as h1999
+from dept_emp de
+join employees e on e.emp_no = de.emp_no
+where de.to_date = '9999-01-01'
+group by de.dept_no
+order by de.dept_no;`,
+        explanation:
+          'Each column filters the same group by a different year. Hiring falls sharply towards 1999: the company hired less and less in its last years.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'employees-094',
+    dataset: 'employees',
+    level: 4,
+    topics: ['materialized-views'],
+    title: 'Salary bands, stored',
+    prompt:
+      'Store how many current salaries fall into each 10,000 band (band = lower bound, e.g. 60000 for 60,000–69,999) for a pay-equity dashboard that is refreshed nightly. Then list the bands.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    checkSql: `select band, salaries from salary_bands order by band`,
+    solutions: [
+      {
+        approach: 'Materialized view keyed by band',
+        postgres: `create materialized view salary_bands as
+select (salary / 10000) * 10000 as band, count(*) as salaries
+from salaries
+where to_date = '9999-01-01'
+group by (salary / 10000) * 10000;
+
+create unique index salary_bands_key on salary_bands (band);
+-- nightly: refresh materialized view concurrently salary_bands;`,
+        mysql: `create table salary_bands (band int primary key, salaries int);
+
+replace into salary_bands
+select (salary div 10000) * 10000, count(*)
+from salaries
+where to_date = '9999-01-01'
+group by (salary div 10000) * 10000;`,
+        mysqlNote: 'DIV is integer division in MySQL; / would give a decimal such as 6.3241.',
+        explanation:
+          'In PostgreSQL integer / integer already drops the fraction, which is exactly what banding needs. A band with no salaries (140,000 here) simply has no row; a date-series-style join with a band series would show it as 0.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
+  {
+    id: 'employees-095',
+    dataset: 'employees',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for six-figure salaries',
+    prompt:
+      'A compliance report lists salary rows of 100,000 or more by emp_no. They are 1,836 of 57,362 rows. Create an index holding only those rows that answers the report without reading the table.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'salaries' and indexdef like '%salary%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'salaries' and column_name = 'salary' and seq_in_index = 1`,
+    solutions: [
+      {
+        approach: 'Partial covering index',
+        postgres: `create index salaries_six_figures_idx on salaries (emp_no, from_date) include (salary)
+where salary >= 100000;
+
+-- used by: select emp_no, from_date, salary from salaries where salary >= 100000 order by emp_no, from_date`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: 'About 3% of the rows, already in report order, with the salary included: an index-only scan with no sort.',
+      },
+      {
+        approach: 'Index led by salary',
+        postgres: `create index salaries_salary_idx on salaries (salary, emp_no, from_date);`,
+        mysql: `create index salaries_salary_idx on salaries (salary, emp_no, from_date);`,
+        explanation: 'salary >= 100000 is one range at the end of this index, and the other columns make it covering; the result still needs a sort by emp_no.',
+      },
+    ],
+    comparison: 'Both avoid reading the table. The partial index is smaller and pre-sorted; the full one also serves other salary thresholds and works in MySQL.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
 ]

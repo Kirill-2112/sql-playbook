@@ -53,6 +53,8 @@ Audit of 2026-10-15:
 
 - Make answers deterministic: full tie-breakers in ORDER BY; avoid ordering by text that differs by collation
   (PGlite uses C collation, MySQL utf8mb4_0900_ai_ci: "USA" vs "United Kingdom", accents, case).
+  Equality, joins and COUNT(DISTINCT) on text follow the collation too ("Historia" = "História" in MySQL):
+  add COLLATE utf8mb4_bin on the MySQL side when PostgreSQL compares exactly.
 - PG sorts NULLs last, MySQL first; MySQL ORDER BY on ENUM uses definition order.
 - Always ROUND averages and ratios (PG numeric vs MySQL decimal precision). Use `100.0 *` to avoid integer division in PG.
 - Avoid MySQL reserved words as aliases/columns: change, lines, empty, rank, group, rows, key, order…
@@ -77,7 +79,7 @@ Audit of 2026-10-15:
   AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
   every 200th booking), Lahman (SABR CSVs, CC BY-SA, major leagues only, player data from 2010), Delivery (own,
   generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
-  737 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
+  767 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
 - Next: go deep on existing datasets (topics with few exercises first), two replacement datasets with commercial licenses,
   a functions reference section; a licenses/credits page;

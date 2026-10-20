@@ -3160,4 +3160,133 @@ order by gq, q, gm, m;`,
     ],
     docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
   },
+  {
+    id: 'delivery-085',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'A feed that adds, renames and removes',
+    prompt:
+      'Run the setup, then apply the restaurant feed in one statement: each row has an op, \'upsert\' (insert or update) or \'delete\'. Feed: (101, delete), (102, Harbor Fish, Sushi, Haifa, upsert), (3, Blue Fork Sushi, Sushi, Tel Aviv, upsert).\n\nSetup: insert into restaurants values (101, \'Pop-up Grill\', \'Burgers\', \'Haifa\');',
+    orderMatters: true,
+    checkSql: `select id, name, cuisine, city from restaurants where id in (3, 101, 102) order by id`,
+    solutions: [
+      {
+        approach: 'MERGE with conditions on each action',
+        postgres: `insert into restaurants values (101, 'Pop-up Grill', 'Burgers', 'Haifa');
+
+merge into restaurants r
+using (values (101, null, null, null, 'delete'),
+              (102, 'Harbor Fish', 'Sushi', 'Haifa', 'upsert'),
+              (3, 'Blue Fork Sushi', 'Sushi', 'Tel Aviv', 'upsert')) as feed (id, name, cuisine, city, op)
+on r.id = feed.id
+when matched and feed.op = 'delete' then
+  delete
+when matched then
+  update set name = feed.name, cuisine = feed.cuisine, city = feed.city
+when not matched and feed.op = 'upsert' then
+  insert (id, name, cuisine, city) values (feed.id, feed.name, feed.cuisine, feed.city);`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          'WHEN clauses are tried in order and the first match wins, so the delete test must come before the general update. A delete for an id that does not exist matches no clause and is ignored. Deleting a restaurant that has orders would still fail on the foreign key, which is why the feed only removes the pop-up.',
+      },
+      {
+        approach: 'One statement per action',
+        postgres: `insert into restaurants values (101, 'Pop-up Grill', 'Burgers', 'Haifa');
+
+delete from restaurants where id = 101;
+
+insert into restaurants (id, name, cuisine, city)
+values (102, 'Harbor Fish', 'Sushi', 'Haifa'), (3, 'Blue Fork Sushi', 'Sushi', 'Tel Aviv')
+on conflict (id) do update set name = excluded.name, cuisine = excluded.cuisine, city = excluded.city;`,
+        mysql: `insert into restaurants values (101, 'Pop-up Grill', 'Burgers', 'Haifa');
+
+delete from restaurants where id = 101;
+
+insert into restaurants (id, name, cuisine, city)
+values (102, 'Harbor Fish', 'Sushi', 'Haifa'), (3, 'Blue Fork Sushi', 'Sushi', 'Tel Aviv') as new
+on duplicate key update name = new.name, cuisine = new.cuisine, city = new.city;`,
+        explanation: 'Deletes first, then an upsert for the rest; wrap both in a transaction so readers never see half of the feed applied.',
+      },
+    ],
+    comparison: 'Same three rows afterwards. MERGE reads the feed once and keeps the rules together; two statements work in MySQL.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'delivery-086',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['views', 'subqueries'],
+    title: 'A "last 7 days" view that keeps up',
+    prompt:
+      'Create a view recent_orders with the orders of the 7 days up to the newest order in the table (not up to today: the data ends in June 2026). Then count them by status.',
+    orderMatters: true,
+    checkSql: `select status, count(*) as orders from recent_orders group by status order by status`,
+    solutions: [
+      {
+        approach: 'A view relative to MAX(created_at)',
+        postgres: `create view recent_orders as
+select *
+from orders
+where created_at >= (select max(created_at) from orders) - interval '7 days';`,
+        mysql: `create view recent_orders as
+select *
+from orders
+where created_at >= (select max(created_at) from orders) - interval 7 day;`,
+        explanation:
+          'A view stores the query, not the rows, so the window moves forward as new orders arrive. Live systems would use now() or current_date instead of MAX; the subquery keeps the example working on sample data that ends in the past. SELECT * in a view is expanded when the view is created: a column added to orders later does not appear in the view.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'delivery-087',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['functions', 'procedures'],
+    title: 'Top restaurants of a city, as a table',
+    prompt:
+      'Create a routine top_restaurants(p_city, p_n) returning the p_n restaurants of the city with the most delivered revenue (id, name, revenue). In PostgreSQL, let p_n default to 3. Ask for Haifa.',
+    orderMatters: false,
+    checkSql: `select * from top_restaurants('Haifa')`,
+    checkSqlMysql: `call top_restaurants('Haifa', 3)`,
+    solutions: [
+      {
+        approach: 'Set-returning function with a default / procedure',
+        postgres: `create function top_restaurants(p_city text, p_n integer default 3)
+returns table (id integer, name text, revenue numeric)
+language sql
+stable
+as $$
+  select r.id, r.name, sum(o.total)
+  from restaurants r
+  join orders o on o.restaurant_id = r.id
+  where r.city = p_city and o.status = 'delivered'
+  group by r.id, r.name
+  order by sum(o.total) desc, r.id
+  limit p_n;
+$$;`,
+        mysql: `create procedure top_restaurants(in p_city varchar(20), in p_n int)
+reads sql data
+begin
+  select r.id, r.name, sum(o.total) as revenue
+  from restaurants r
+  join orders o on o.restaurant_id = r.id
+  where r.city = p_city and o.status = 'delivered'
+  group by r.id, r.name
+  order by revenue desc, r.id
+  limit p_n;
+end;`,
+        mysqlNote:
+          DELIMITER_NOTE + ' MySQL functions return single values, so a procedure that ends in a SELECT returns the rows. Procedure parameters have no defaults: every call passes p_n. LIMIT accepts a parameter inside a routine.',
+        explanation:
+          'A default parameter keeps the common call short, top_restaurants(\'Haifa\'), while top_restaurants(\'Haifa\', 10) still works. Because it returns a table, the PostgreSQL function can be joined or filtered like one. Sunny Fork leads Haifa.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Functions returning tables', url: PG + 'xfunc-sql.html#XFUNC-SQL-FUNCTIONS-RETURNING-TABLE' },
+      { label: 'MySQL: CREATE PROCEDURE', url: MY + 'create-procedure.html' },
+    ],
+  },
 ]

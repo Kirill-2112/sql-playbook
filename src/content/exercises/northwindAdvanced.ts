@@ -2402,4 +2402,177 @@ insert into order_details_hashed select * from order_details;`,
       { label: 'MySQL: HASH partitioning', url: MY + 'partitioning-hash.html' },
     ],
   },
+  {
+    id: 'northwind-094',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['limit', 'conditions'],
+    title: 'The emptiest shelves',
+    prompt: 'Among products that are not discontinued, show the 5 with the fewest units in stock: product_id, product_name, units_in_stock. On a tie, lower product_id first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Filter, sort ascending, LIMIT',
+        postgres: `select product_id, product_name, units_in_stock
+from products
+where discontinued = 0
+order by units_in_stock, product_id
+limit 5;`,
+        mysql: `select product_id, product_name, units_in_stock
+from products
+where discontinued = 0
+order by units_in_stock, product_id
+limit 5;`,
+        explanation: 'Ascending order puts the smallest values first, so LIMIT 5 keeps the five lowest stocks. Gorgonzola Telino is out of stock entirely.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'northwind-095',
+    dataset: 'northwind',
+    level: 2,
+    topics: ['set-operations', 'joins'],
+    title: 'Sold in 1996, never in 1998',
+    prompt: 'Which products were ordered in 1996 but not at all in 1998? Show product_id and product_name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'EXCEPT of two product lists',
+        postgres: `select p.product_id, p.product_name
+from products p
+where p.product_id in (
+  select d.product_id from order_details d join orders o on o.order_id = d.order_id
+  where o.order_date >= '1996-01-01' and o.order_date < '1997-01-01'
+  except
+  select d.product_id from order_details d join orders o on o.order_id = d.order_id
+  where o.order_date >= '1998-01-01' and o.order_date < '1999-01-01'
+)
+order by p.product_id;`,
+        mysql: `select p.product_id, p.product_name
+from products p
+where p.product_id in (
+  select d.product_id from order_details d join orders o on o.order_id = d.order_id
+  where o.order_date >= '1996-01-01' and o.order_date < '1997-01-01'
+  except
+  select d.product_id from order_details d join orders o on o.order_id = d.order_id
+  where o.order_date >= '1998-01-01' and o.order_date < '1999-01-01'
+)
+order by p.product_id;`,
+        mysqlNote: 'EXCEPT exists since MySQL 8.0.31.',
+        explanation:
+          'Only Genen Shouyu. Keep in mind that 1998 covers just four months here, so "not in 1998" means "not since January"; on such data, a gap may be the calendar rather than lost interest.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'northwind-096',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['cte', 'aggregates'],
+    title: 'Big customers for their country',
+    prompt:
+      'Compare each customer\'s revenue with the average customer revenue of their country. Show the 5 customers with the highest ratio: customer_id, country, revenue, country average and ratio (all 2 decimals). Ties by customer_id.',
+    hint: REVENUE_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Revenue per customer, then average per country',
+        postgres: `with per_customer as (
+  select o.customer_id, c.country, sum(d.unit_price * d.quantity * (1 - d.discount)) as revenue
+  from orders o
+  join customers c on c.customer_id = o.customer_id
+  join order_details d on d.order_id = o.order_id
+  group by o.customer_id, c.country
+),
+per_country as (
+  select country, avg(revenue) as country_avg from per_customer group by country
+)
+select p.customer_id, p.country, round(p.revenue, 2) as revenue, round(k.country_avg, 2) as country_avg,
+       round(p.revenue / k.country_avg, 2) as ratio
+from per_customer p
+join per_country k on k.country = p.country
+order by ratio desc, p.customer_id
+limit 5;`,
+        mysql: `with per_customer as (
+  select o.customer_id, c.country, sum(d.unit_price * d.quantity * (1 - d.discount)) as revenue
+  from orders o
+  join customers c on c.customer_id = o.customer_id
+  join order_details d on d.order_id = o.order_id
+  group by o.customer_id, c.country
+),
+per_country as (
+  select country, avg(revenue) as country_avg from per_customer group by country
+)
+select p.customer_id, p.country, round(p.revenue, 2) as revenue, round(k.country_avg, 2) as country_avg,
+       round(p.revenue / k.country_avg, 2) as ratio
+from per_customer p
+join per_country k on k.country = p.country
+order by ratio desc, p.customer_id
+limit 5;`,
+        explanation:
+          'Two levels of aggregation: first per customer, then the average of those totals per country. Averaging order lines directly would weight customers by how many lines they have. SAVEA earns over five times the average US customer.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'northwind-097',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['generated-columns', 'conditions'],
+    title: 'A reorder flag the database keeps',
+    prompt:
+      'Add a stored generated column needs_reorder to products: true when units_in_stock + units_on_order is at or below reorder_level. Then count the products that need reordering.',
+    orderMatters: false,
+    checkSql: `select count(*) as to_reorder from products where needs_reorder`,
+    solutions: [
+      {
+        approach: 'A boolean generated column',
+        postgres: `alter table products
+add column needs_reorder boolean
+generated always as (units_in_stock + units_on_order <= reorder_level) stored;`,
+        mysql: `alter table products
+add column needs_reorder boolean
+generated always as (units_in_stock + units_on_order <= reorder_level) stored;`,
+        mysqlNote: 'In MySQL the comparison yields 1 or 0, stored in a TINYINT(1) column.',
+        explanation:
+          'A comparison is itself a true/false value, so it can be the whole expression. Stock arriving (units_on_order) counts too, otherwise products already on the way would be flagged again. Six products need reordering.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'northwind-098',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'Wait for a lock, but not forever',
+    prompt:
+      'A price update on product 11 might wait behind another session\'s lock. Make this transaction wait at most 2 seconds for any lock, then raise the price of product 11 by 5% (2 decimals). In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select product_id, unit_price from products where product_id = 11`,
+    solutions: [
+      {
+        approach: 'lock_timeout / innodb_lock_wait_timeout',
+        postgres: `set local lock_timeout = '2s';
+
+update products set unit_price = round(unit_price * 1.05, 2) where product_id = 11;`,
+        mysql: `set session innodb_lock_wait_timeout = 2;
+start transaction;
+
+update products set unit_price = round(unit_price * 1.05, 2) where product_id = 11;
+
+commit;`,
+        mysqlNote: 'innodb_lock_wait_timeout is in whole seconds (default 50). On timeout MySQL rolls back only the statement, not the whole transaction.',
+        explanation:
+          'Without a limit, a session can hang behind a forgotten open transaction. With one, it fails fast ("canceling statement due to lock timeout") and the application can retry or report. SET LOCAL lasts only until the end of the transaction. 21.00 becomes 22.05.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: lock_timeout', url: PG + 'runtime-config-client.html#GUC-LOCK-TIMEOUT' },
+      { label: 'MySQL: innodb_lock_wait_timeout', url: MY + 'innodb-parameters.html#sysvar_innodb_lock_wait_timeout' },
+    ],
+  },
 ]

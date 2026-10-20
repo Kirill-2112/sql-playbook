@@ -3235,4 +3235,61 @@ group by g.genre_id, g.name;`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
   },
+  {
+    id: 'chinook-112',
+    dataset: 'chinook',
+    level: 1,
+    topics: ['limit', 'conditions'],
+    title: 'The shortest audio tracks',
+    prompt: 'Among tracks that are not videos (media_type_id is not 3), show the 5 shortest: name and milliseconds, shortest first.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Filter, sort ascending, LIMIT',
+        postgres: `select name, milliseconds
+from track
+where media_type_id <> 3
+order by milliseconds, track_id
+limit 5;`,
+        mysql: `select name, milliseconds
+from track
+where media_type_id <> 3
+order by milliseconds, track_id
+limit 5;`,
+        explanation: 'The shortest lasts about one second. <> means "not equal"; != works too in both databases.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' }],
+  },
+  {
+    id: 'chinook-113',
+    dataset: 'chinook',
+    level: 2,
+    topics: ['text-aggregation', 'group-by'],
+    title: 'Discographies in one line',
+    prompt: 'For artists with at least 5 albums: name, the number of albums, and the album titles in album_id order, separated by " | ". Most albums first, then name.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg ordered by album_id',
+        postgres: `select ar.name, count(*) as albums,
+       string_agg(al.title, ' | ' order by al.album_id) as titles
+from artist ar
+join album al on al.artist_id = ar.artist_id
+group by ar.artist_id, ar.name
+having count(*) >= 5
+order by albums desc, ar.name;`,
+        mysql: `select ar.name, count(*) as albums,
+       group_concat(al.title order by al.album_id separator ' | ') as titles
+from artist ar
+join album al on al.artist_id = ar.artist_id
+group by ar.artist_id, ar.name
+having count(*) >= 5
+order by albums desc, ar.name;`,
+        mysqlNote: 'Iron Maiden\'s 21 titles fit easily into the default group_concat_max_len of 1,024 bytes; longer lists are cut off silently unless you raise it.',
+        explanation: 'Seven artists have five or more albums, led by Iron Maiden with 21. Ordering by album_id keeps the catalogue order; ordering by title would depend on the collation.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
 ]

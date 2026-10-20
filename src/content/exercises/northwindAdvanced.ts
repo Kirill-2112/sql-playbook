@@ -2980,4 +2980,173 @@ delete from employee_territories where employee_id = 1 and territory_id not in (
     comparison: 'Same two territories for employee 1 and nothing else changed.',
     docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
   },
+  {
+    id: 'northwind-111',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['lateral'],
+    title: 'The priciest product of each German supplier',
+    prompt: 'For suppliers in Germany: supplier_id, company_name, and their most expensive product (product_name, unit_price). Order by supplier_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CROSS JOIN LATERAL … LIMIT 1',
+        postgres: `select s.supplier_id, s.company_name, top.product_name, top.unit_price
+from suppliers s
+cross join lateral (
+  select p.product_name, p.unit_price
+  from products p
+  where p.supplier_id = s.supplier_id
+  order by p.unit_price desc, p.product_id
+  limit 1
+) top
+where s.country = 'Germany'
+order by s.supplier_id;`,
+        mysql: `select s.supplier_id, s.company_name, top.product_name, top.unit_price
+from suppliers s
+cross join lateral (
+  select p.product_name, p.unit_price
+  from products p
+  where p.supplier_id = s.supplier_id
+  order by p.unit_price desc, p.product_id
+  limit 1
+) top
+where s.country = 'Germany'
+order by s.supplier_id;`,
+        explanation: 'Three German suppliers; Plutzer\'s top product is the Thüringer Rostbratwurst. The outer WHERE runs first in effect, so the lateral subquery only runs for the three German suppliers.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'northwind-112',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['date-series', 'dates-basics'],
+    title: 'Two weeks of April 1998, weekends included',
+    prompt: 'Count orders for every calendar day from 1 to 14 April 1998, including days without orders, and show the ISO day of week (1 = Monday).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Day series LEFT JOIN orders',
+        postgres: `select d.day::date as day, extract(isodow from d.day)::int as weekday, count(o.order_id) as orders
+from generate_series('1998-04-01'::date, '1998-04-14', interval '1 day') as d (day)
+left join orders o on o.order_date >= d.day and o.order_date < d.day + interval '1 day'
+group by d.day
+order by d.day;`,
+        mysql: `with recursive days (day) as (
+  select cast('1998-04-01' as date)
+  union all
+  select day + interval 1 day from days where day < '1998-04-14'
+)
+select d.day, weekday(d.day) + 1 as weekday, count(o.order_id) as orders
+from days d
+left join orders o on o.order_date >= d.day and o.order_date < d.day + interval 1 day
+group by d.day
+order by d.day;`,
+        mysqlNote: 'WEEKDAY() is 0 for Monday, so add 1 to match ISO numbering.',
+        explanation: 'The weekend days (4–5 and 11–12 April) show 0: Northwind takes orders on weekdays only. Without the series those days would be absent, and an average per day would come out too high.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'northwind-113',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['views', 'joins'],
+    title: 'A catalogue view for the web shop',
+    prompt:
+      'Create a view shop_catalog (product_id, product_name, category, supplier, unit_price) of products that are not discontinued and have stock. Then: how many products does the shop show, and how many per category (top 3)?',
+    orderMatters: true,
+    checkSql: `select category, count(*) as products from shop_catalog group by category order by products desc, category limit 3`,
+    solutions: [
+      {
+        approach: 'A filtering, joining view',
+        postgres: `create view shop_catalog as
+select p.product_id, p.product_name, c.category_name as category, s.company_name as supplier, p.unit_price
+from products p
+join categories c on c.category_id = p.category_id
+join suppliers s on s.supplier_id = p.supplier_id
+where p.discontinued = 0 and p.units_in_stock > 0;`,
+        mysql: `create view shop_catalog as
+select p.product_id, p.product_name, c.category_name as category, s.company_name as supplier, p.unit_price
+from products p
+join categories c on c.category_id = p.category_id
+join suppliers s on s.supplier_id = p.supplier_id
+where p.discontinued = 0 and p.units_in_stock > 0;`,
+        explanation:
+          'The shop\'s rule ("sellable" = active and in stock) lives in one place; 68 products pass it. Do not put ORDER BY in such a view: callers sort as they need, and an ORDER BY inside a view is not guaranteed to survive anyway.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'northwind-114',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['json', 'ddl'],
+    title: 'Customer preferences in a JSON column',
+    prompt:
+      'Add a JSON column preferences to customers. Store {"newsletter": true, "language": "de"} for ALFKI and {"newsletter": false, "language": "en"} for AROUT. Then list customers whose preferences say newsletter true, with their language.',
+    orderMatters: true,
+    checkSql: `select customer_id, preferences ->> 'language' as language
+from customers
+where preferences @> '{"newsletter": true}'
+order by customer_id`,
+    checkSqlMysql: `select customer_id, preferences ->> '$.language' as language
+from customers
+where json_contains(preferences, '{"newsletter": true}')
+order by customer_id`,
+    solutions: [
+      {
+        approach: 'jsonb column / JSON column',
+        postgres: `alter table customers add column preferences jsonb;
+
+update customers set preferences = '{"newsletter": true, "language": "de"}' where customer_id = 'ALFKI';
+update customers set preferences = '{"newsletter": false, "language": "en"}' where customer_id = 'AROUT';`,
+        mysql: `alter table customers add column preferences json;
+
+update customers set preferences = '{"newsletter": true, "language": "de"}' where customer_id = 'ALFKI';
+update customers set preferences = '{"newsletter": false, "language": "en"}' where customer_id = 'AROUT';`,
+        explanation:
+          'A JSON column suits optional settings that differ between customers; @> (PostgreSQL) and JSON_CONTAINS (MySQL) test "contains this key with this value", and a GIN index on a jsonb column makes that fast. Values the application filters on all the time are better as real columns.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: jsonb containment', url: PG + 'datatype-json.html#JSON-CONTAINMENT' },
+      { label: 'MySQL: JSON_CONTAINS', url: MY + 'json-search-functions.html#function_json-contains' },
+    ],
+  },
+  {
+    id: 'northwind-115',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['functions'],
+    title: 'Customer since …',
+    prompt:
+      'Write a function customer_since(p_customer_id) returning the date of the customer\'s first order (NULL if none). Use it to show ALFKI, ANATR and BERGS with their first order date.',
+    orderMatters: true,
+    checkSql: `select customer_id, customer_since(customer_id) as since from customers where customer_id in ('ALFKI', 'ANATR', 'BERGS') order by customer_id`,
+    solutions: [
+      {
+        approach: 'A scalar SQL function',
+        postgres: `create function customer_since(p_customer_id varchar) returns date
+language sql
+stable
+as $$
+  select min(order_date)::date from orders where customer_id = p_customer_id;
+$$;`,
+        mysql: `create function customer_since(p_customer_id varchar(5)) returns date
+reads sql data
+begin
+  return (select date(min(order_date)) from orders where customer_id = p_customer_id);
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'MIN over no rows is NULL, so a customer without orders gets NULL rather than an error. Convenient in a SELECT list for a few rows; for every customer at once, a GROUP BY on orders is faster than calling the function once per row.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SQL functions', url: PG + 'xfunc-sql.html' }],
+  },
 ]

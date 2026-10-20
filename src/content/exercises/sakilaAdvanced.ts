@@ -3268,4 +3268,91 @@ for each row
     ],
     docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
   },
+  {
+    id: 'sakila-113',
+    dataset: 'sakila',
+    level: 1,
+    topics: ['text-search'],
+    title: 'Dinosaur films',
+    prompt: 'List the films with "dinosaur" in the title, in any letter case. Show film_id and title.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ILIKE / LIKE',
+        postgres: `select film_id, title
+from film
+where title ilike '%dinosaur%'
+order by film_id;`,
+        mysql: `select film_id, title
+from film
+where title like '%dinosaur%'
+order by film_id;`,
+        mysqlNote: 'MySQL\'s default collation ignores case, so LIKE already matches DINOSAUR.',
+        explanation: 'Sakila titles are stored in capitals, so a case-sensitive LIKE \'%dinosaur%\' in PostgreSQL finds nothing; ILIKE ignores case. Three films: ACADEMY DINOSAUR, CENTER DINOSAUR and DINOSAUR SECRETARY.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE and ILIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'sakila-114',
+    dataset: 'sakila',
+    level: 2,
+    topics: ['casting', 'dates-basics'],
+    title: 'A timestamp split into date and time',
+    prompt: 'For rentals 1 to 3: rental_id, the rental date as \'YYYY-MM-DD\' text, the time as \'HH:MM\' text, and the date as a real date value.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Format for text, cast for a date',
+        postgres: `select rental_id,
+       to_char(rental_date, 'YYYY-MM-DD') as day_text,
+       to_char(rental_date, 'HH24:MI') as time_text,
+       rental_date::date as day
+from rental
+where rental_id between 1 and 3
+order by rental_id;`,
+        mysql: `select rental_id,
+       date_format(rental_date, '%Y-%m-%d') as day_text,
+       date_format(rental_date, '%H:%i') as time_text,
+       cast(rental_date as date) as day
+from rental
+where rental_id between 1 and 3
+order by rental_id;`,
+        explanation:
+          'Text versions are for display: they sort correctly only because the format puts the year first, and date arithmetic on them is impossible. The cast to date keeps a real date, which can be compared, grouped and added to.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Formatting functions', url: PG + 'functions-formatting.html' }],
+  },
+  {
+    id: 'sakila-115',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for unusually large payments',
+    prompt: 'Payments of 10.00 or more are reviewed per customer. They are 114 of 16,044. Create an index holding only those payments that serves "large payments of customer X".',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'payment' and indexdef like '%amount%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'payment' and column_name = 'amount'`,
+    solutions: [
+      {
+        approach: 'Partial index',
+        postgres: `create index payment_large_idx on payment (customer_id) include (amount, payment_date)
+where amount >= 10;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: 'Fewer than 1% of the rows. The index stays small, and a payment that crosses the threshold enters it automatically.',
+      },
+      {
+        approach: 'Composite index',
+        postgres: `create index payment_customer_amount_idx on payment (customer_id, amount);`,
+        mysql: `create index payment_customer_amount_idx on payment (customer_id, amount);`,
+        explanation: 'For one customer, amount >= 10 is a short range at the end of that customer\'s section of the index. It indexes every payment, though.',
+      },
+    ],
+    comparison: 'Both find a customer\'s large payments directly; the partial one is about 140 times smaller.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
 ]

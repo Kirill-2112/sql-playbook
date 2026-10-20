@@ -3887,4 +3887,243 @@ commit;`,
     ],
     docs: [{ label: 'PostgreSQL: Row-level locks', url: PG + 'explicit-locking.html#LOCKING-ROWS' }],
   },
+  {
+    id: 'employees-104',
+    dataset: 'employees',
+    level: 3,
+    topics: ['cte', 'joins'],
+    title: 'Do managers earn more than their staff?',
+    prompt: 'For each department: the current manager\'s current salary, the average current salary of the department (whole number), and the difference. Order by dept_no.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'One CTE per side, then join',
+        postgres: `with manager_pay as (
+  select dm.dept_no, s.salary
+  from dept_manager dm
+  join salaries s on s.emp_no = dm.emp_no and s.to_date = '9999-01-01'
+  where dm.to_date = '9999-01-01'
+),
+dept_pay as (
+  select de.dept_no, round(avg(s.salary)) as avg_salary
+  from dept_emp de
+  join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+  where de.to_date = '9999-01-01'
+  group by de.dept_no
+)
+select m.dept_no, m.salary as manager_salary, d.avg_salary, m.salary - d.avg_salary as difference
+from manager_pay m
+join dept_pay d on d.dept_no = m.dept_no
+order by m.dept_no;`,
+        mysql: `with manager_pay as (
+  select dm.dept_no, s.salary
+  from dept_manager dm
+  join salaries s on s.emp_no = dm.emp_no and s.to_date = '9999-01-01'
+  where dm.to_date = '9999-01-01'
+),
+dept_pay as (
+  select de.dept_no, round(avg(s.salary)) as avg_salary
+  from dept_emp de
+  join salaries s on s.emp_no = de.emp_no and s.to_date = '9999-01-01'
+  where de.to_date = '9999-01-01'
+  group by de.dept_no
+)
+select m.dept_no, m.salary as manager_salary, d.avg_salary, m.salary - d.avg_salary as difference
+from manager_pay m
+join dept_pay d on d.dept_no = m.dept_no
+order by m.dept_no;`,
+        explanation:
+          'Not always: the managers of Production (d004) and Customer Service (d009) earn less than their department average. In this sample database salaries are generated, so "managers earn more" is an assumption worth checking, not a law.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'employees-105',
+    dataset: 'employees',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'Hand a department to a new manager',
+    prompt:
+      'From 2002-08-01 employee 10300 manages d004 (Production). In one statement, end the current manager\'s term on that day and start the new term (to 9999-01-01).',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    checkSql: `select emp_no, from_date, to_date from dept_manager where dept_no = 'd004' and to_date >= '2002-01-01' order by from_date`,
+    solutions: [
+      {
+        approach: 'MERGE with a two-row source: the old term and the new one',
+        postgres: `merge into dept_manager m
+using (
+  select emp_no, dept_no, from_date, date '2002-08-01' as new_to
+  from dept_manager where dept_no = 'd004' and to_date = '9999-01-01'
+  union all
+  select 10300, 'd004', date '2002-08-01', date '9999-01-01'
+) s
+on m.emp_no = s.emp_no and m.dept_no = s.dept_no and m.from_date = s.from_date
+when matched then
+  update set to_date = s.new_to
+when not matched then
+  insert (emp_no, dept_no, from_date, to_date) values (s.emp_no, s.dept_no, s.from_date, s.new_to);`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          'The source has one row that matches (the current term, to be closed) and one that does not (the new term, to be inserted), so both changes happen in one atomic statement. ON uses the full key (emp_no, dept_no, from_date) of dept_manager.',
+      },
+      {
+        approach: 'UPDATE then INSERT in a transaction',
+        postgres: `update dept_manager set to_date = '2002-08-01' where dept_no = 'd004' and to_date = '9999-01-01';
+insert into dept_manager (emp_no, dept_no, from_date, to_date) values (10300, 'd004', '2002-08-01', '9999-01-01');`,
+        mysql: `start transaction;
+update dept_manager set to_date = '2002-08-01' where dept_no = 'd004' and to_date = '9999-01-01';
+insert into dept_manager (emp_no, dept_no, from_date, to_date) values (10300, 'd004', '2002-08-01', '9999-01-01');
+commit;`,
+        explanation: 'Two statements; the transaction makes sure no reader ever sees a department with zero or two current managers.',
+      },
+    ],
+    comparison: 'Same history afterwards: 110420 until 2002-08-01, then 10300.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'employees-106',
+    dataset: 'employees',
+    level: 4,
+    topics: ['normalization', 'lag-lead'],
+    title: 'A to_date you could compute',
+    prompt:
+      'In salaries, each period\'s to_date is supposed to equal the next period\'s from_date. Check it: count periods where a next period exists and matches, where it exists and does not match, and last periods.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Compare to_date with LEAD(from_date)',
+        postgres: `with s as (
+  select to_date, lead(from_date) over (partition by emp_no order by from_date) as next_from
+  from salaries
+)
+select count(*) filter (where next_from = to_date) as matching,
+       count(*) filter (where next_from <> to_date) as mismatching,
+       count(*) filter (where next_from is null) as last_periods
+from s;`,
+        mysql: `with s as (
+  select to_date, lead(from_date) over (partition by emp_no order by from_date) as next_from
+  from salaries
+)
+select sum(next_from = to_date) as matching,
+       sum(next_from <> to_date) as mismatching,
+       sum(next_from is null) as last_periods
+from s;`,
+        explanation:
+          'All 51,338 inner periods match, so their to_date is derivable and, strictly, redundant. Only the last period of each person carries information: 9999-01-01 (still current) or the date they left. Keeping to_date anyway makes "salary on a date" a simple range lookup instead of a window query, a classic, deliberate trade-off.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'employees-107',
+    dataset: 'employees',
+    level: 5,
+    topics: ['procedures', 'transactions'],
+    title: 'Someone leaves the company',
+    prompt:
+      'Write a procedure offboard(p_emp_no, p_date, OUT p_closed) that ends every open period of the employee (dept_emp, titles, salaries, dept_manager) on p_date and reports how many rows it closed. Offboard 10050 on 2002-08-01.',
+    hint: CURRENT_NOTE,
+    orderMatters: false,
+    checkSql: `select (select count(*) from dept_emp where emp_no = 10050 and to_date = '9999-01-01')
+     + (select count(*) from titles where emp_no = 10050 and to_date = '9999-01-01')
+     + (select count(*) from salaries where emp_no = 10050 and to_date = '9999-01-01') as still_open,
+       (select count(*) from salaries where emp_no = 10050 and to_date = '2002-08-01') as closed_salary`,
+    solutions: [
+      {
+        approach: 'Four UPDATEs, row counts added up',
+        postgres: `create procedure offboard(p_emp_no integer, p_date date, out p_closed integer)
+language plpgsql
+as $$
+declare
+  n integer;
+begin
+  p_closed := 0;
+  update dept_emp set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  get diagnostics n = row_count; p_closed := p_closed + n;
+  update titles set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  get diagnostics n = row_count; p_closed := p_closed + n;
+  update salaries set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  get diagnostics n = row_count; p_closed := p_closed + n;
+  update dept_manager set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  get diagnostics n = row_count; p_closed := p_closed + n;
+end;
+$$;
+
+call offboard(10050, '2002-08-01', null);`,
+        mysql: `create procedure offboard(p_emp_no int, p_date date, out p_closed int)
+begin
+  set p_closed = 0;
+  update dept_emp set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  set p_closed = p_closed + row_count();
+  update titles set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  set p_closed = p_closed + row_count();
+  update salaries set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  set p_closed = p_closed + row_count();
+  update dept_manager set to_date = p_date where emp_no = p_emp_no and to_date = '9999-01-01';
+  set p_closed = p_closed + row_count();
+end;
+
+call offboard(10050, '2002-08-01', @closed);
+select @closed;`,
+        mysqlNote: DELIMITER_NOTE + ' ROW_COUNT() after each UPDATE gives the rows it changed.',
+        explanation:
+          'One call closes everything consistently, so no report ever sees someone with a closed department but an open salary. 10050 had three open rows (department, title, salary) and no manager term, so p_closed is 3.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GET DIAGNOSTICS', url: PG + 'plpgsql-statements.html#PLPGSQL-STATEMENTS-DIAGNOSTICS' }],
+  },
+  {
+    id: 'employees-108',
+    dataset: 'employees',
+    level: 5,
+    topics: ['triggers', 'constraints'],
+    title: 'No overlapping salary periods',
+    prompt:
+      'Add a trigger that rejects a new salary row whose period overlaps an existing one of the same employee. Then do a correct raise for 10200: close the current period on 2002-08-01 and insert 59,000 from that day.',
+    orderMatters: true,
+    checkSql: `update salaries set to_date = '2002-08-01' where emp_no = 10200 and to_date = '9999-01-01';
+insert into salaries (emp_no, salary, from_date, to_date) values (10200, 59000, '2002-08-01', '9999-01-01');
+select salary, from_date, to_date from salaries where emp_no = 10200 and from_date >= '2001-01-01' order by from_date`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger with an overlap test',
+        postgres: `create function check_salary_overlap() returns trigger
+language plpgsql
+as $$
+begin
+  if exists (
+    select 1 from salaries s
+    where s.emp_no = new.emp_no and s.from_date < new.to_date and new.from_date < s.to_date
+  ) then
+    raise exception 'salary period of % overlaps an existing one', new.emp_no;
+  end if;
+  return new;
+end;
+$$;
+
+create trigger salaries_no_overlap
+before insert on salaries
+for each row execute function check_salary_overlap();`,
+        mysql: `create trigger salaries_no_overlap
+before insert on salaries
+for each row
+begin
+  if exists (
+    select 1 from salaries s
+    where s.emp_no = new.emp_no and s.from_date < new.to_date and new.from_date < s.to_date
+  ) then
+    signal sqlstate '45000' set message_text = 'salary period overlaps an existing one';
+  end if;
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'Two periods [a, b) and [c, d) overlap exactly when a < d and c < b. Inserting the raise without first closing the current period would now fail. PostgreSQL can also enforce this declaratively with an exclusion constraint on a date range; a trigger works in both databases.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
+  },
 ]

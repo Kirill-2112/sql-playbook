@@ -4272,4 +4272,37 @@ where table_schema = database() and table_name = 'sales_order_header' and column
     ],
     docs: [{ label: 'PostgreSQL: Indexes and ORDER BY', url: PG + 'indexes-ordering.html' }],
   },
+  {
+    id: 'adventureworks-116',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['ddl', 'constraints'],
+    title: 'Half stars for reviews',
+    prompt:
+      'Reviews may now have half stars. Change product_review.rating from an integer to a number with one decimal (0.5 steps are the application\'s job), add a CHECK that it is between 1 and 5, and add review 5: product 709, "Ana Lee", 2025-07-01, rating 4.5.',
+    orderMatters: true,
+    checkSql: `select product_review_id, product_id, rating from product_review order by product_review_id`,
+    solutions: [
+      {
+        approach: 'ALTER COLUMN TYPE / MODIFY, then a CHECK',
+        postgres: `alter table product_review alter column rating type numeric(2, 1);
+alter table product_review add constraint product_review_rating_range check (rating between 1 and 5);
+
+insert into product_review (product_review_id, product_id, reviewer_name, review_date, rating)
+values (5, 709, 'Ana Lee', '2025-07-01', 4.5);`,
+        mysql: `alter table product_review modify rating decimal(2, 1) not null;
+alter table product_review add constraint product_review_rating_range check (rating between 1 and 5);
+
+insert into product_review (product_review_id, product_id, reviewer_name, review_date, rating)
+values (5, 709, 'Ana Lee', '2025-07-01', 4.5);`,
+        mysqlNote: 'MODIFY restates the full column, so NOT NULL must be repeated or it is lost.',
+        explanation:
+          'Every existing rating (5, 4, 2, 5) converts without loss to 5.0, 4.0, 2.0, 5.0. Changing a type rewrites the table and checks every row; if a value did not fit, PostgreSQL would need USING to say how to convert it.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: ALTER TABLE', url: PG + 'sql-altertable.html' },
+      { label: 'MySQL: ALTER TABLE', url: MY + 'alter-table.html' },
+    ],
+  },
 ]

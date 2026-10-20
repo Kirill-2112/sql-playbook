@@ -3881,4 +3881,168 @@ where salary >= 20000000;`,
     comparison: 'Both answer from the index. The partial one is tiny and pre-sorted by year.',
     docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
   },
+  {
+    id: 'lahman-108',
+    dataset: 'lahman',
+    level: 2,
+    topics: ['self-cross-join'],
+    title: 'Same name, different player',
+    prompt: 'Among people who debuted in 2010 or later, how many pairs of different players have exactly the same first and last name (same letters and accents)?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Self-join on both name columns, exact comparison',
+        postgres: `select count(*) as pairs
+from people a
+join people b
+  on b.name_first = a.name_first
+ and b.name_last = a.name_last
+ and b.player_id > a.player_id
+where a.debut >= '2010-01-01' and b.debut >= '2010-01-01';`,
+        mysql: `select count(*) as pairs
+from people a
+join people b
+  on b.name_first = a.name_first collate utf8mb4_bin
+ and b.name_last = a.name_last collate utf8mb4_bin
+ and b.player_id > a.player_id
+where a.debut >= '2010-01-01' and b.debut >= '2010-01-01';`,
+        mysqlNote: 'Without COLLATE utf8mb4_bin MySQL would also pair "Jose" with "José" and count 36 instead of 33.',
+        explanation:
+          '33 pairs, such as the two Josh Bells and two Logan Allens; Lahman tells them apart by the number at the end of player_id. Names are not identifiers, and whether "Jose" equals "José" is a collation decision you must make on purpose.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'lahman-109',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['subtotals', 'null'],
+    title: 'How the new players bat and throw',
+    prompt:
+      'For players who debuted in 2020 or later: count by bats and throws, with a subtotal per bats value and a grand total. Label totals \'all\', and keep them apart from real missing values.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP with GROUPING() for the labels',
+        postgres: `select case when grouping(bats) = 1 then 'all' else coalesce(bats, '?') end as bats,
+       case when grouping(throws) = 1 then 'all' else coalesce(throws, '?') end as throws,
+       count(*) as players
+from people
+where debut >= '2020-01-01'
+group by rollup (bats, throws)
+order by grouping(bats), bats, grouping(throws), throws;`,
+        mysql: `select case when gb = 1 then 'all' else coalesce(b, '?') end as bats,
+       case when gt = 1 then 'all' else coalesce(t, '?') end as throws,
+       players
+from (
+  select bats as b, throws as t, count(*) as players, grouping(bats) as gb, grouping(throws) as gt
+  from people
+  where debut >= '2020-01-01'
+  group by bats, throws with rollup
+) x
+order by gb, b, gt, t;`,
+        explanation:
+          'COALESCE(bats, \'all\') would also relabel a player whose bats value is genuinely unknown; GROUPING() tells a total row (1) from a real NULL (0), so only totals say \'all\'. Most new players bat and throw right (949); 6 switch-hitters throw left.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUPING', url: PG + 'functions-aggregate.html#FUNCTIONS-GROUPING-TABLE' }],
+  },
+  {
+    id: 'lahman-110',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['materialized-views'],
+    title: 'A run-differential leaderboard, stored',
+    prompt: 'Store per team season since 2010: year_id, team_id, name, runs scored, runs allowed and run differential. Refresh it after each season. Then: the 3 best 2025 differentials.',
+    orderMatters: true,
+    checkSql: `select team_id, name, run_diff from team_run_diff where year_id = 2025 order by run_diff desc, team_id limit 3`,
+    solutions: [
+      {
+        approach: 'Materialized view keyed by (year_id, team_id)',
+        postgres: `create materialized view team_run_diff as
+select year_id, team_id, name, r as runs, ra as runs_allowed, r - ra as run_diff
+from teams
+where year_id >= 2010;
+
+create unique index team_run_diff_key on team_run_diff (year_id, team_id);`,
+        mysql: `create table team_run_diff (
+  year_id      smallint,
+  team_id      char(3),
+  name         varchar(50),
+  runs         smallint,
+  runs_allowed smallint,
+  run_diff     smallint,
+  primary key (year_id, team_id)
+);
+
+replace into team_run_diff
+select year_id, team_id, name, r, ra, r - ra from teams where year_id >= 2010;`,
+        mysqlNote: 'A keyed table refreshed by REPLACE INTO stands in for the materialized view.',
+        explanation: 'Milwaukee outscored opponents by 172 runs in 2025, ahead of the Yankees (164). Run differential predicts future records better than wins do, which is why analysts keep it handy.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
+  {
+    id: 'lahman-111',
+    dataset: 'lahman',
+    level: 4,
+    topics: ['arrays', 'aggregates'],
+    title: 'One-club players',
+    prompt: 'Collect the distinct teams each player batted for since 2010 into a list. Show the players whose list has exactly one team and who played at least 12 seasons: player_id, name, team, seasons. Most seasons first.',
+    hint: SEASONS_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'cardinality of an aggregated array',
+        postgres: `select b.player_id, p.name_first || ' ' || p.name_last as name,
+       (array_agg(distinct b.team_id))[1] as team, count(distinct b.year_id) as seasons
+from batting b
+join people p on p.player_id = b.player_id
+group by b.player_id, p.name_first, p.name_last
+having cardinality(array_agg(distinct b.team_id)) = 1 and count(distinct b.year_id) >= 12
+order by seasons desc, b.player_id;`,
+        mysql: `select b.player_id, concat(p.name_first, ' ', p.name_last) as name,
+       min(b.team_id) as team, count(distinct b.year_id) as seasons
+from batting b
+join people p on p.player_id = b.player_id
+group by b.player_id, p.name_first, p.name_last
+having count(distinct b.team_id) = 1 and count(distinct b.year_id) >= 12
+order by seasons desc, b.player_id;`,
+        mysqlNote: 'Without arrays, COUNT(DISTINCT team_id) = 1 asks the same question, and MIN() returns that single team.',
+        explanation:
+          'Clayton Kershaw leads with 16 seasons, all with the Dodgers. "One club" here means since 2010: Miguel Cabrera appears because his Florida years are earlier than this data.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Array functions', url: PG + 'functions-array.html' }],
+  },
+  {
+    id: 'lahman-112',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'All seasons of one team',
+    prompt:
+      'batting has an index on (year_id, team_id). A team page asks for all batting rows of NYA across seasons (where team_id = \'NYA\'). Explain why that index cannot help, and add one that does.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'batting' and indexdef like '%(team_id%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'batting' and column_name = 'team_id' and seq_in_index = 1`,
+    solutions: [
+      {
+        approach: 'Lead with the column you filter on',
+        postgres: `create index batting_team_year_idx on batting (team_id, year_id);
+
+-- explain select * from batting where team_id = 'NYA' order by year_id;`,
+        mysql: `create index batting_team_year_idx on batting (team_id, year_id);
+
+-- explain select * from batting where team_id = 'NYA' order by year_id;`,
+        explanation:
+          'The existing index is sorted by year first; NYA rows are spread over 16 separate year sections, so a filter on team alone means visiting all of them (PostgreSQL may still try a full index scan, MySQL 8 a skip scan, but neither is a direct lookup). With team_id first, all NYA rows are one contiguous range, already in year order.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Multicolumn indexes', url: PG + 'indexes-multicolumn.html' }],
+  },
 ]

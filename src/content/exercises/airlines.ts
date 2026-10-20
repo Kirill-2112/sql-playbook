@@ -4339,4 +4339,189 @@ insert into segments_by_class select ticket_no, flight_id, fare_conditions, pric
     ],
     docs: [{ label: 'PostgreSQL: Partitioning limitations', url: PG + 'ddl-partitioning.html#DDL-PARTITIONING-DECLARATIVE-LIMITATIONS' }],
   },
+  {
+    id: 'airlines-107',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['distinct', 'aggregates'],
+    title: 'How many countries and time zones',
+    prompt: 'In the airports table, how many different countries and how many different time zones are there?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Two COUNT(DISTINCT …)',
+        postgres: `select count(distinct country) as countries, count(distinct timezone) as time_zones
+from airports;`,
+        mysql: `select count(distinct country) as countries, count(distinct timezone) as time_zones
+from airports;`,
+        explanation:
+          '230 countries but 311 time zone names: big countries span several zones, and the tz database has separate names for regions that share an offset today but had different rules in the past. The airline itself serves only a small part of this list.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'airlines-108',
+    dataset: 'airlines',
+    level: 1,
+    topics: ['numbers', 'limit'],
+    title: 'How long can each airplane stay up',
+    prompt: 'For the 4 airplanes with the longest range: model, range_km, speed_kmh and the hours they could fly at cruising speed (range / speed, 1 decimal).',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Make the division decimal',
+        postgres: `select model, range_km, speed_kmh, round(range_km::numeric / speed_kmh, 1) as hours
+from airplanes
+order by range_km desc, model
+limit 4;`,
+        mysql: `select model, range_km, speed_kmh, round(range_km / speed_kmh, 1) as hours
+from airplanes
+order by range_km desc, model
+limit 4;`,
+        mysqlNote: 'In MySQL / always returns a decimal, even for two integers.',
+        explanation:
+          'Both columns are integers. In PostgreSQL 16700 / 913 is integer division and gives 18, losing the fraction; casting one side to numeric gives 18.3. The A350-1000 can stay up about 18 hours.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Mathematical operators', url: PG + 'functions-math.html' }],
+  },
+  {
+    id: 'airlines-109',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['window-frames', 'dates-basics'],
+    title: 'The week before Christmas, cumulatively',
+    prompt: 'For each day from 20 to 26 December 2025 (UTC): flights scheduled that day, the running total since the 20th, and the running share of the week\'s flights in percent (1 decimal).',
+    hint: UTC_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'A running frame and an empty window in one query',
+        postgres: `with daily as (
+  select scheduled_departure::date as day, count(*) as flights
+  from flights
+  where scheduled_departure >= '2025-12-20' and scheduled_departure < '2025-12-27'
+  group by scheduled_departure::date
+)
+select day, flights,
+       sum(flights) over (order by day rows between unbounded preceding and current row) as running,
+       round(100.0 * sum(flights) over (order by day rows between unbounded preceding and current row)
+             / sum(flights) over (), 1) as running_pct
+from daily
+order by day;`,
+        mysql: `with daily as (
+  select date(scheduled_departure) as day, count(*) as flights
+  from flights
+  where scheduled_departure >= '2025-12-20' and scheduled_departure < '2025-12-27'
+  group by date(scheduled_departure)
+)
+select day, flights,
+       sum(flights) over (order by day rows between unbounded preceding and current row) as running,
+       round(100 * sum(flights) over (order by day rows between unbounded preceding and current row)
+             / sum(flights) over (), 1) as running_pct
+from daily
+order by day;`,
+        explanation:
+          'Two windows on the same rows: one framed from the first row to the current one (running total), one over everything (the week\'s total). The last day reaches 100%. Flights stay at about 170–195 a day; the schedule does not slow down for Christmas.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
+  {
+    id: 'airlines-110',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['pivot', 'joins'],
+    title: 'Average fare by class, per airplane model',
+    prompt: 'For each airplane model: the average segment price in Economy, Comfort and Business (whole numbers), one column per class; NULL where the model has no such cabin. Order by model.',
+    hint: VALIDITY_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'AVG with FILTER / CASE per class',
+        postgres: `select a.model,
+       round(avg(s.price) filter (where s.fare_conditions = 'Economy')) as economy,
+       round(avg(s.price) filter (where s.fare_conditions = 'Comfort')) as comfort,
+       round(avg(s.price) filter (where s.fare_conditions = 'Business')) as business
+from segments s
+join flights f on f.flight_id = s.flight_id
+${ROUTE_JOIN}
+join airplanes a on a.airplane_code = r.airplane_code
+group by a.model
+order by a.model;`,
+        mysql: `select a.model,
+       round(avg(case when s.fare_conditions = 'Economy' then s.price end)) as economy,
+       round(avg(case when s.fare_conditions = 'Comfort' then s.price end)) as comfort,
+       round(avg(case when s.fare_conditions = 'Business' then s.price end)) as business
+from segments s
+join flights f on f.flight_id = s.flight_id
+${ROUTE_JOIN}
+join airplanes a on a.airplane_code = r.airplane_code
+group by a.model
+order by a.model;`,
+        explanation:
+          'AVG over no rows is NULL, which is the honest answer for a model without a Comfort cabin; COUNT would say 0 instead. Business costs about twice Economy on every model; the 777 shows the lowest averages in this sample.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'airlines-111',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['upsert'],
+    title: 'Change a seat map',
+    prompt: 'The CRJ700 (CR7) cabin is refitted: seat 2A becomes Comfort, and a new seat 30A (Economy) is added. Apply both in one statement.',
+    orderMatters: true,
+    checkSql: `select airplane_code, seat_no, fare_conditions from seats where airplane_code = 'CR7' and seat_no in ('2A', '30A') order by seat_no`,
+    solutions: [
+      {
+        approach: 'Upsert on the composite key',
+        postgres: `insert into seats (airplane_code, seat_no, fare_conditions)
+values ('CR7', '2A', 'Comfort'), ('CR7', '30A', 'Economy')
+on conflict (airplane_code, seat_no) do update set fare_conditions = excluded.fare_conditions;`,
+        mysql: `insert into seats (airplane_code, seat_no, fare_conditions)
+values ('CR7', '2A', 'Comfort'), ('CR7', '30A', 'Economy') as new
+on duplicate key update fare_conditions = new.fare_conditions;`,
+        explanation:
+          'The key of seats is (airplane_code, seat_no), so ON CONFLICT names both columns. 2A exists and changes class; 30A is new and inserted. Boarding passes already issued for 2A are unaffected, because they store the seat number, not the class.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'airlines-112',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'One boarding-number counter per flight',
+    prompt:
+      'Boarding numbers of a flight must be 1, 2, 3, … without duplicates even if agents work in parallel. Take an application lock for flight 11091 only, then give ticket 0005433158988 seat 1A with the next boarding number. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select ticket_no, flight_id, seat_no, boarding_no from boarding_passes where flight_id = 11091`,
+    solutions: [
+      {
+        approach: 'An advisory lock keyed by the flight',
+        postgres: `select pg_advisory_xact_lock(11091);
+
+insert into boarding_passes (ticket_no, flight_id, seat_no, boarding_no)
+select '0005433158988', 11091, '1A', coalesce(max(boarding_no), 0) + 1
+from boarding_passes
+where flight_id = 11091;`,
+        mysql: `select get_lock('boarding-11091', 10);
+
+insert into boarding_passes (ticket_no, flight_id, seat_no, boarding_no)
+select '0005433158988', 11091, '1A', coalesce(max(boarding_no), 0) + 1
+from boarding_passes
+where flight_id = 11091;
+
+select release_lock('boarding-11091');`,
+        mysqlNote: 'GET_LOCK names the lock with a string and waits up to 10 seconds; it is tied to the session, so release it explicitly.',
+        explanation:
+          'MAX + 1 is only safe if nobody else computes it at the same moment. There is no row to lock yet for a flight without passes, so a row lock cannot help; an advisory lock on the flight id serialises exactly the agents of this flight and nobody else. The unique key on (flight_id, boarding_no) is the safety net.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Advisory locks', url: PG + 'explicit-locking.html#ADVISORY-LOCKS' }],
+  },
 ]

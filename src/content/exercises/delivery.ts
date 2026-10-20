@@ -3592,4 +3592,247 @@ order by city;`,
       { label: 'MySQL: JSON_OBJECTAGG', url: MY + 'aggregate-functions.html#function_json-objectagg' },
     ],
   },
+  {
+    id: 'delivery-097',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['full-join', 'conditional-aggregates'],
+    title: 'Refunds and cancellations, restaurant by restaurant',
+    prompt: 'For June 2026, compare restaurants with refunded orders and restaurants with cancelled orders: how many restaurants have both, only refunds, only cancellations?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two per-restaurant counts',
+        postgres: `with rf as (
+  select restaurant_id, count(*) as n from orders
+  where status = 'refunded' and created_at >= '2026-06-01' and created_at < '2026-07-01' group by restaurant_id
+),
+cn as (
+  select restaurant_id, count(*) as n from orders
+  where status = 'cancelled' and created_at >= '2026-06-01' and created_at < '2026-07-01' group by restaurant_id
+)
+select count(*) filter (where rf.restaurant_id is not null and cn.restaurant_id is not null) as both_kinds,
+       count(*) filter (where cn.restaurant_id is null) as refunds_only,
+       count(*) filter (where rf.restaurant_id is null) as cancellations_only
+from rf
+full join cn on cn.restaurant_id = rf.restaurant_id;`,
+        mysql: `with rf as (
+  select restaurant_id, count(*) as n from orders
+  where status = 'refunded' and created_at >= '2026-06-01' and created_at < '2026-07-01' group by restaurant_id
+),
+cn as (
+  select restaurant_id, count(*) as n from orders
+  where status = 'cancelled' and created_at >= '2026-06-01' and created_at < '2026-07-01' group by restaurant_id
+)
+select (select count(*) from rf join cn on cn.restaurant_id = rf.restaurant_id) as both_kinds,
+       (select count(*) from rf where not exists (select 1 from cn where cn.restaurant_id = rf.restaurant_id)) as refunds_only,
+       (select count(*) from cn where not exists (select 1 from rf where rf.restaurant_id = cn.restaurant_id)) as cancellations_only;`,
+        mysqlNote: 'No FULL JOIN in MySQL: a join and two anti-joins.',
+        explanation: '95 restaurants had both, 3 only refunds, 2 only cancellations. With about four problem orders per restaurant a month, a restaurant missing from one list is chance, not a sign of quality.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'delivery-098',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['recursive', 'numbers'],
+    title: 'Three installments that add up',
+    prompt:
+      'Split each of orders 1 to 3 into 3 installments: each installment is the remaining amount divided by the installments left, rounded to 2 decimals, so the last one absorbs the rounding. Show order id, installment number and amount.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Recursive CTE carrying the remaining amount',
+        postgres: `with recursive parts (order_id, n, amount, remaining) as (
+  select id, 1, round(total / 3, 2), total - round(total / 3, 2)
+  from orders where id between 1 and 3
+  union all
+  select order_id, n + 1, round(remaining / (3 - n), 2), remaining - round(remaining / (3 - n), 2)
+  from parts
+  where n < 3
+)
+select order_id, n as installment, amount
+from parts
+order by order_id, n;`,
+        mysql: `with recursive parts (order_id, n, amount, remaining) as (
+  select id, 1, round(total / 3, 2), total - round(total / 3, 2)
+  from orders where id between 1 and 3
+  union all
+  select order_id, n + 1, round(remaining / (3 - n), 2), remaining - round(remaining / (3 - n), 2)
+  from parts
+  where n < 3
+)
+select order_id, n as installment, amount
+from parts
+order by order_id, n;`,
+        explanation:
+          'Dividing the original total by 3 three times would lose or gain a cent: 174.16 / 3 = 58.0533…, and 3 × 58.05 is 174.15. Recomputing from what is left keeps the sum exact (58.05 + 58.06 + 58.05). Each row depends on the previous remainder, which is what recursion carries.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'delivery-099',
+    dataset: 'delivery',
+    level: 3,
+    topics: ['gaps-islands', 'lag-lead'],
+    title: 'The longest silence',
+    prompt: 'Across all orders, find the 2 longest gaps between one order and the next (by created_at): the order before the gap, its time, the next order time, and the gap in minutes.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'LEAD over the whole order stream',
+        postgres: `with stream as (
+  select id, created_at, lead(created_at) over (order by created_at, id) as next_at
+  from orders
+)
+select id, created_at, next_at,
+       floor(extract(epoch from next_at - created_at) / 60)::int as gap_minutes
+from stream
+where next_at is not null
+order by next_at - created_at desc, id
+limit 2;`,
+        mysql: `with stream as (
+  select id, created_at, lead(created_at) over (order by created_at, id) as next_at
+  from orders
+)
+select id, created_at, next_at,
+       timestampdiff(minute, created_at, next_at) as gap_minutes
+from stream
+where next_at is not null
+order by timestampdiff(second, created_at, next_at) desc, id
+limit 2;`,
+        mysqlNote: 'TIMESTAMPDIFF(MINUTE, …) counts whole minutes, like floor(… / 60).',
+        explanation:
+          'With an order every few minutes on average, the longest silence is only 45 minutes, on 4 April 2025 in the morning, followed by 44 minutes in November. Below that, several gaps are within seconds of each other, so a "top 3" would hinge on exact timestamps. In a live system, such a gap is what monitoring alerts on: it often means the ordering service was down, not that nobody was hungry.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'delivery-100',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['temp-tables', 'dates-advanced'],
+    title: 'Customer lifetimes, computed once',
+    prompt:
+      'Store per customer the first and last order time and the lifetime in whole days between them in a temporary table lifetimes (customer_id, first_at, last_at, days). Then: how many customers have a lifetime of 0 days (one day of orders only), under 180 days, and 180 or more?',
+    orderMatters: false,
+    checkSql: `select count(*) filter (where days = 0) as one_day,
+       count(*) filter (where days > 0 and days < 180) as under_180,
+       count(*) filter (where days >= 180) as at_least_180
+from lifetimes`,
+    checkSqlMysql: `select sum(days = 0) as one_day,
+       sum(days > 0 and days < 180) as under_180,
+       sum(days >= 180) as at_least_180
+from lifetimes`,
+    solutions: [
+      {
+        approach: 'Aggregate once into a temporary table',
+        postgres: `create temporary table lifetimes as
+select customer_id, min(created_at) as first_at, max(created_at) as last_at,
+       max(created_at)::date - min(created_at)::date as days
+from orders
+group by customer_id;`,
+        mysql: `create temporary table lifetimes as
+select customer_id, min(created_at) as first_at, max(created_at) as last_at,
+       datediff(max(created_at), min(created_at)) as days
+from orders
+group by customer_id;`,
+        explanation:
+          'Lifetime is the span between first and last order in calendar days. Customers who never ordered are not in orders and so not in the table; for churn analysis you would LEFT JOIN from customers.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE TABLE AS', url: PG + 'sql-createtableas.html' }],
+  },
+  {
+    id: 'delivery-101',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['generated-columns', 'indexes'],
+    title: 'A size band the database maintains',
+    prompt:
+      'Add a stored generated column size_band to orders: \'small\' under 50, \'medium\' under 150, otherwise \'large\', and index it. Then count orders per band.',
+    orderMatters: true,
+    checkSql: `select size_band, count(*) as orders from orders group by size_band order by min(total)`,
+    solutions: [
+      {
+        approach: 'CASE in a generated column',
+        postgres: `alter table orders
+add column size_band varchar(6)
+generated always as (case when total < 50 then 'small' when total < 150 then 'medium' else 'large' end) stored;
+
+create index orders_size_band_idx on orders (size_band);`,
+        mysql: `alter table orders
+add column size_band varchar(6)
+generated always as (case when total < 50 then 'small' when total < 150 then 'medium' else 'large' end) stored;
+
+create index orders_size_band_idx on orders (size_band);`,
+        explanation:
+          'The band is defined once in the schema, so every report uses the same boundaries. Adding a stored generated column rewrites all 200,000 rows; a VIRTUAL one (MySQL, PostgreSQL 18) would be computed on read instead.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'delivery-102',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['partitioning', 'ddl'],
+    title: 'Archive a half-year by detaching it',
+    prompt:
+      'Create orders_by_half (id, customer_id, total, status, created_at) range-partitioned into 2025 H1, 2025 H2 and 2026 H1, copy the orders in, then take 2025 H1 out of the table as a standalone archive table orders_2025_h1, without copying rows.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from orders_by_half) as still_partitioned, (select count(*) from orders_2025_h1) as archived`,
+    solutions: [
+      {
+        approach: 'DETACH PARTITION / EXCHANGE PARTITION',
+        postgres: `create table orders_by_half (
+  id          integer       not null,
+  customer_id integer       not null,
+  total       numeric(8, 2) not null,
+  status      text          not null,
+  created_at  timestamp     not null,
+  primary key (id, created_at)
+) partition by range (created_at);
+
+create table orders_2025_h1 partition of orders_by_half for values from ('2025-01-01') to ('2025-07-01');
+create table orders_2025_h2 partition of orders_by_half for values from ('2025-07-01') to ('2026-01-01');
+create table orders_2026_h1 partition of orders_by_half for values from ('2026-01-01') to ('2026-07-01');
+
+insert into orders_by_half select id, customer_id, total, status, created_at from orders;
+
+alter table orders_by_half detach partition orders_2025_h1;`,
+        mysql: `create table orders_by_half (
+  id          int           not null,
+  customer_id int           not null,
+  total       decimal(8, 2) not null,
+  status      varchar(10)   not null,
+  created_at  datetime      not null,
+  primary key (id, created_at)
+)
+partition by range columns (created_at) (
+  partition p2025_h1 values less than ('2025-07-01'),
+  partition p2025_h2 values less than ('2026-01-01'),
+  partition p2026_h1 values less than ('2026-07-01')
+);
+
+insert into orders_by_half select id, customer_id, total, status, created_at from orders;
+
+create table orders_2025_h1 like orders_by_half;
+alter table orders_2025_h1 remove partitioning;
+alter table orders_by_half exchange partition p2025_h1 with table orders_2025_h1;
+alter table orders_by_half drop partition p2025_h1;`,
+        mysqlNote: 'MySQL swaps a partition with an empty, unpartitioned table of the same structure (EXCHANGE PARTITION), then drops the now-empty partition.',
+        explanation:
+          'Detaching only changes the catalog: the 66,786 rows of 2025 H1 stay where they are and become an ordinary table, while orders_by_half keeps the 133,214 newer ones. That is how big tables retire old data without a long DELETE.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Partition maintenance', url: PG + 'ddl-partitioning.html#DDL-PARTITIONING-DECLARATIVE-MAINTENANCE' },
+      { label: 'MySQL: Exchanging partitions', url: MY + 'partitioning-management-exchange.html' },
+    ],
+  },
 ]

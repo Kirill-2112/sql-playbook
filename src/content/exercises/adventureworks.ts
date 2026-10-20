@@ -4305,4 +4305,220 @@ values (5, 709, 'Ana Lee', '2025-07-01', 4.5);`,
       { label: 'MySQL: ALTER TABLE', url: MY + 'alter-table.html' },
     ],
   },
+  {
+    id: 'adventureworks-117',
+    dataset: 'adventureworks',
+    level: 1,
+    topics: ['limit', 'group-by'],
+    title: 'The most common colours',
+    prompt: 'Which 3 colours have the most products? Show color and the number of products, ignoring products without a colour.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'GROUP BY, ORDER BY the count, LIMIT',
+        postgres: `select color, count(*) as products
+from product
+where color is not null
+group by color
+order by products desc, color
+limit 3;`,
+        mysql: `select color, count(*) as products
+from product
+where color is not null
+group by color
+order by products desc, color
+limit 3;`,
+        explanation: 'Black (93), Silver (43) and Red (38). Without the WHERE, NULL would form its own group, and here it would even be the largest one.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: GROUP BY', url: PG + 'queries-table-expressions.html#QUERIES-GROUP' }],
+  },
+  {
+    id: 'adventureworks-118',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['set-operations'],
+    title: 'Managers without "Manager" in the title',
+    prompt: 'How many employees have someone reporting to them (they appear as manager_id) but no "Manager" in their job_title?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'EXCEPT of two id lists',
+        postgres: `select count(*) as people
+from (
+  select manager_id from employee where manager_id is not null
+  except
+  select business_entity_id from employee where job_title like '%Manager%'
+) x;`,
+        mysql: `select count(*) as people
+from (
+  select manager_id from employee where manager_id is not null
+  except
+  select business_entity_id from employee where job_title like '%Manager%'
+) x;`,
+        mysqlNote: 'EXCEPT exists since MySQL 8.0.31.',
+        explanation:
+          '31 people lead others without the word in their title: supervisors, vice presidents, the CEO, a master scheduler. Job titles are labels, the manager_id link is the structure; questions about who leads whom belong to the link.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Combining queries', url: PG + 'queries-union.html' }],
+  },
+  {
+    id: 'adventureworks-119',
+    dataset: 'adventureworks',
+    level: 2,
+    topics: ['subqueries'],
+    title: 'Pricier than their subcategory',
+    prompt: 'How many products cost more than the average list price of their own subcategory?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Correlated subquery',
+        postgres: `select count(*) as products
+from product p
+where p.list_price > (
+  select avg(q.list_price) from product q where q.product_subcategory_id = p.product_subcategory_id
+);`,
+        mysql: `select count(*) as products
+from product p
+where p.list_price > (
+  select avg(q.list_price) from product q where q.product_subcategory_id = p.product_subcategory_id
+);`,
+        explanation:
+          'The inner query is re-evaluated for each product\'s subcategory: 116 products are above their group\'s average. Products without a subcategory compare against an average of no rows (NULL), so they never qualify, which is what you want here.',
+      },
+      {
+        approach: 'Window average',
+        postgres: `select count(*) as products
+from (
+  select list_price, avg(list_price) over (partition by product_subcategory_id) as sub_avg, product_subcategory_id
+  from product
+) p
+where p.product_subcategory_id is not null and p.list_price > p.sub_avg;`,
+        mysql: `select count(*) as products
+from (
+  select list_price, avg(list_price) over (partition by product_subcategory_id) as sub_avg, product_subcategory_id
+  from product
+) p
+where p.product_subcategory_id is not null and p.list_price > p.sub_avg;`,
+        explanation: 'The window computes each subcategory\'s average once and attaches it to every row. Note the extra NULL filter: a window partition of NULLs does have an average, unlike the correlated version.',
+      },
+    ],
+    comparison: 'Same 116. The window form scans once; the correlated form is easier to read and, with an index on product_subcategory_id, also fine.',
+    docs: [{ label: 'PostgreSQL: Subquery expressions', url: PG + 'functions-subquery.html' }],
+  },
+  {
+    id: 'adventureworks-120',
+    dataset: 'adventureworks',
+    level: 3,
+    topics: ['recursive', 'normalization'],
+    title: 'Is the stored org level right?',
+    prompt:
+      'employee.organization_level stores each person\'s depth in the org chart. Compute the real depth by walking manager_id from the top (depth 0) and count employees whose stored level matches, does not match, or is NULL.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Recursive depth, then compare',
+        postgres: `with recursive org (id, depth) as (
+  select business_entity_id, 0 from employee where manager_id is null
+  union all
+  select e.business_entity_id, o.depth + 1
+  from employee e
+  join org o on e.manager_id = o.id
+)
+select count(*) filter (where e.organization_level = o.depth) as matching,
+       count(*) filter (where e.organization_level <> o.depth) as mismatching,
+       count(*) filter (where e.organization_level is null) as missing
+from org o
+join employee e on e.business_entity_id = o.id;`,
+        mysql: `with recursive org (id, depth) as (
+  select business_entity_id, 0 from employee where manager_id is null
+  union all
+  select e.business_entity_id, o.depth + 1
+  from employee e
+  join org o on e.manager_id = o.id
+)
+select sum(e.organization_level = o.depth) as matching,
+       sum(e.organization_level <> o.depth) as mismatching,
+       sum(e.organization_level is null) as missing
+from org o
+join employee e on e.business_entity_id = o.id;`,
+        explanation:
+          '289 match and none disagree; only the CEO has NULL instead of 0. The column is derived data (it follows from manager_id) and is correct today, but nothing keeps it so when someone moves; a view computing the depth would always be right.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Recursive queries', url: PG + 'queries-with.html#QUERIES-WITH-RECURSIVE' }],
+  },
+  {
+    id: 'adventureworks-121',
+    dataset: 'adventureworks',
+    level: 4,
+    topics: ['views', 'self-cross-join'],
+    title: 'An employee directory with managers',
+    prompt: 'Create a view directory (employee_id, name, job_title, manager_name, department) for employees in their current department. Then: the directory entries of the Engineering department, by employee_id.',
+    orderMatters: true,
+    checkSql: `select employee_id, name, job_title, manager_name from directory where department = 'Engineering' order by employee_id`,
+    solutions: [
+      {
+        approach: 'A view with a self-join for the manager',
+        postgres: `create view directory as
+select e.business_entity_id as employee_id,
+       p.first_name || ' ' || p.last_name as name,
+       e.job_title,
+       mp.first_name || ' ' || mp.last_name as manager_name,
+       d.name as department
+from employee e
+join person p on p.business_entity_id = e.business_entity_id
+left join employee m on m.business_entity_id = e.manager_id
+left join person mp on mp.business_entity_id = m.business_entity_id
+join employee_department_history h on h.business_entity_id = e.business_entity_id and h.end_date is null
+join department d on d.department_id = h.department_id;`,
+        mysql: `create view directory as
+select e.business_entity_id as employee_id,
+       concat(p.first_name, ' ', p.last_name) as name,
+       e.job_title,
+       concat(mp.first_name, ' ', mp.last_name) as manager_name,
+       d.name as department
+from employee e
+join person p on p.business_entity_id = e.business_entity_id
+left join employee m on m.business_entity_id = e.manager_id
+left join person mp on mp.business_entity_id = m.business_entity_id
+join employee_department_history h on h.business_entity_id = e.business_entity_id and h.end_date is null
+join department d on d.department_id = h.department_id;`,
+        explanation:
+          'employee appears twice: once as the person, once (aliased m) as their manager, with person joined twice for both names. LEFT JOIN keeps the CEO, whose manager_name is NULL. The view hides five joins behind one name.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE VIEW', url: PG + 'sql-createview.html' }],
+  },
+  {
+    id: 'adventureworks-122',
+    dataset: 'adventureworks',
+    level: 5,
+    topics: ['full-text'],
+    title: 'Light, lighter, lightweight',
+    prompt: 'With a full-text index on product_description.description, count descriptions containing the word "light", and those containing any word starting with "light".',
+    orderMatters: false,
+    checkSql: `select (select count(*) from product_description where to_tsvector('simple', description) @@ to_tsquery('simple', 'light')) as word,
+       (select count(*) from product_description where to_tsvector('simple', description) @@ to_tsquery('simple', 'light:*')) as prefix`,
+    checkSqlMysql: `select (select count(*) from product_description where match(description) against ('+light' in boolean mode)) as word,
+       (select count(*) from product_description where match(description) against ('+light*' in boolean mode)) as prefix`,
+    solutions: [
+      {
+        approach: 'Word query versus prefix query',
+        postgres: `create index product_description_fts on product_description using gin (to_tsvector('simple', description));
+
+-- word:   to_tsquery('simple', 'light')
+-- prefix: to_tsquery('simple', 'light:*')`,
+        mysql: `create fulltext index product_description_ft on product_description (description);
+
+-- word:   against ('+light' in boolean mode)
+-- prefix: against ('+light*' in boolean mode)`,
+        mysqlNote: 'In boolean mode a trailing * makes a word a prefix.',
+        explanation:
+          ':* in tsquery (and * in MySQL) matches every word that starts with the given letters, so "lightweight" and "lighter" count too. The same GIN or FULLTEXT index serves both: prefix search stays an index lookup, unlike LIKE \'%light%\'.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Prefix matching in tsquery', url: PG + 'textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES' }],
+  },
 ]

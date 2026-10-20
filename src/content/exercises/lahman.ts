@@ -4045,4 +4045,167 @@ where table_schema = database() and table_name = 'batting' and column_name = 'te
     ],
     docs: [{ label: 'PostgreSQL: Multicolumn indexes', url: PG + 'indexes-multicolumn.html' }],
   },
+  {
+    id: 'lahman-113',
+    dataset: 'lahman',
+    level: 1,
+    topics: ['select-basics', 'conditions'],
+    title: 'The active franchises',
+    prompt: 'List the franchises that are still active (active = \'Y\'): franch_id and franch_name, by franch_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'A filter on a flag column',
+        postgres: `select franch_id, franch_name
+from teams_franchises
+where active = 'Y'
+order by franch_id;`,
+        mysql: `select franch_id, franch_name
+from teams_franchises
+where active = 'Y'
+order by franch_id;`,
+        explanation: 'Thirty franchises, one per current team. The others are historic clubs (active = \'N\') or entries from the 1870s National Association (\'NA\'), which is why the column is text rather than a true/false flag.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: SELECT', url: PG + 'sql-select.html' }],
+  },
+  {
+    id: 'lahman-114',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['cte', 'ranking'],
+    title: 'The best starter of each league, against the league',
+    prompt:
+      'For 2025: the league ERA (earned runs × 27 / outs, 2 decimals) of AL and NL, and in each league the starter with the lowest ERA among pitchers with at least 25 starts, with his ERA.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'League totals and qualified starters in separate CTEs',
+        postgres: `with league as (
+  select lg_id, round(27.0 * sum(er) / sum(ipouts), 2) as league_era
+  from pitching where year_id = 2025 group by lg_id
+),
+starters as (
+  select player_id, lg_id, round(27.0 * sum(er) / sum(ipouts), 2) as era
+  from pitching where year_id = 2025
+  group by player_id, lg_id
+  having sum(gs) >= 25
+),
+best as (
+  select lg_id, player_id, era, row_number() over (partition by lg_id order by era, player_id) as n
+  from starters
+)
+select l.lg_id, l.league_era, b.player_id, b.era
+from league l
+join best b on b.lg_id = l.lg_id and b.n = 1
+order by l.lg_id;`,
+        mysql: `with league as (
+  select lg_id, round(27 * sum(er) / sum(ipouts), 2) as league_era
+  from pitching where year_id = 2025 group by lg_id
+),
+starters as (
+  select player_id, lg_id, round(27 * sum(er) / sum(ipouts), 2) as era
+  from pitching where year_id = 2025
+  group by player_id, lg_id
+  having sum(gs) >= 25
+),
+best as (
+  select lg_id, player_id, era, row_number() over (partition by lg_id order by era, player_id) as n
+  from starters
+)
+select l.lg_id, l.league_era, b.player_id, b.era
+from league l
+join best b on b.lg_id = l.lg_id and b.n = 1
+order by l.lg_id;`,
+        explanation:
+          'ERA is computed from summed earned runs and outs, never by averaging per-pitcher ERAs, which would weight a 10-inning reliever like a 200-inning starter. Paul Skenes (1.97) and Tarik Skubal (2.21) led their leagues at roughly half the league ERA.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' }],
+  },
+  {
+    id: 'lahman-115',
+    dataset: 'lahman',
+    level: 3,
+    topics: ['window-frames', 'numbers'],
+    title: 'A five-season winning percentage',
+    prompt:
+      'For the Yankees (franch_id NYY), 2015 to 2025: each season\'s wins, losses and the winning percentage over that season and the four before it (wins ÷ games over the frame, 3 decimals). Seasons before 2015 do not count.',
+    hint: SHORT_SEASON_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Sum wins and games over a 5-row frame, then divide',
+        postgres: `select year_id, w, l,
+       round((sum(w) over f)::numeric / sum(w + l) over f, 3) as pct_5_seasons
+from teams
+where franch_id = 'NYY' and year_id between 2015 and 2025
+window f as (order by year_id rows between 4 preceding and current row)
+order by year_id;`,
+        mysql: `select year_id, w, l,
+       round(sum(w) over f / sum(w + l) over f, 3) as pct_5_seasons
+from teams
+where franch_id = 'NYY' and year_id between 2015 and 2025
+window f as (order by year_id rows between 4 preceding and current row)
+order by year_id;`,
+        explanation:
+          'Dividing summed wins by summed games weights each season by its length, so the 60-game 2020 season counts for less than a full one; averaging five yearly percentages would treat it as a full season. Early rows have fewer than five seasons in their frame.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window frames', url: PG + 'sql-expressions.html#SYNTAX-WINDOW-FUNCTIONS' }],
+  },
+  {
+    id: 'lahman-116',
+    dataset: 'lahman',
+    level: 5,
+    topics: ['partitioning'],
+    title: 'Pitching spread by player',
+    prompt:
+      'Create pitching_by_player (player_id, year_id, stint, team_id, w, l, so) partitioned into 4 parts by a hash of player_id, and copy the pitching rows in. Check the total and the rows of player ohtansh01.',
+    orderMatters: false,
+    checkSql: `select (select count(*) from pitching_by_player) as total_rows,
+       (select count(*) from pitching_by_player where player_id = 'ohtansh01') as ohtani_rows`,
+    solutions: [
+      {
+        approach: 'HASH partitions on a text key / KEY partitioning',
+        postgres: `create table pitching_by_player (
+  player_id varchar(9) not null,
+  year_id   smallint   not null,
+  stint     smallint   not null,
+  team_id   varchar(3) not null,
+  w         smallint,
+  l         smallint,
+  so        smallint,
+  primary key (player_id, year_id, stint)
+) partition by hash (player_id);
+
+create table pitching_by_player_0 partition of pitching_by_player for values with (modulus 4, remainder 0);
+create table pitching_by_player_1 partition of pitching_by_player for values with (modulus 4, remainder 1);
+create table pitching_by_player_2 partition of pitching_by_player for values with (modulus 4, remainder 2);
+create table pitching_by_player_3 partition of pitching_by_player for values with (modulus 4, remainder 3);
+
+insert into pitching_by_player select player_id, year_id, stint, team_id, w, l, so from pitching;`,
+        mysql: `create table pitching_by_player (
+  player_id varchar(9) not null,
+  year_id   smallint   not null,
+  stint     smallint   not null,
+  team_id   char(3)    not null,
+  w         smallint,
+  l         smallint,
+  so        smallint,
+  primary key (player_id, year_id, stint)
+)
+partition by key (player_id) partitions 4;
+
+insert into pitching_by_player select player_id, year_id, stint, team_id, w, l, so from pitching;`,
+        mysqlNote: 'MySQL HASH partitioning needs an integer expression; for a string column use PARTITION BY KEY, which hashes it internally.',
+        explanation:
+          'A player\'s rows always land in the same partition, so "one player\'s career" reads one partition. Which partition that is depends on each database\'s hash function, so the per-partition counts differ between PostgreSQL and MySQL; the totals (13,610 rows) do not.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Table partitioning', url: PG + 'ddl-partitioning.html' },
+      { label: 'MySQL: KEY partitioning', url: MY + 'partitioning-key.html' },
+    ],
+  },
 ]

@@ -3149,4 +3149,150 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: SQL functions', url: PG + 'xfunc-sql.html' }],
   },
+  {
+    id: 'northwind-116',
+    dataset: 'northwind',
+    level: 1,
+    topics: ['distinct', 'aggregates'],
+    title: 'Where the orders went',
+    prompt: 'Across all orders: how many different ship countries, different ship cities and different shippers (ship_via) were used?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Three COUNT(DISTINCT …) in one pass',
+        postgres: `select count(distinct ship_country) as countries,
+       count(distinct ship_city) as cities,
+       count(distinct ship_via) as shippers
+from orders;`,
+        mysql: `select count(distinct ship_country) as countries,
+       count(distinct ship_city) as cities,
+       count(distinct ship_via) as shippers
+from orders;`,
+        explanation: '21 countries, 70 cities, all 3 shippers. Each COUNT(DISTINCT …) is independent, so one scan answers all three questions.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate functions', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'northwind-117',
+    dataset: 'northwind',
+    level: 3,
+    topics: ['gaps-islands', 'text-aggregation'],
+    title: 'Product ids as ranges',
+    prompt: 'Order 11077 has 25 lines. Write its product ids compactly as ranges of consecutive numbers, like "2-4, 6-8, 10, 12-14, …", in one text value.',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Islands of consecutive ids, then aggregate',
+        postgres: `with ids as (
+  select product_id, product_id - row_number() over (order by product_id) as grp
+  from order_details
+  where order_id = 11077
+),
+ranges as (
+  select min(product_id) as lo, max(product_id) as hi from ids group by grp
+)
+select string_agg(case when lo = hi then lo::text else lo || '-' || hi end, ', ' order by lo) as products
+from ranges;`,
+        mysql: `with ids as (
+  select product_id, product_id - row_number() over (order by product_id) as grp
+  from order_details
+  where order_id = 11077
+),
+ranges as (
+  select min(product_id) as lo, max(product_id) as hi from ids group by grp
+)
+select group_concat(case when lo = hi then lo else concat(lo, '-', hi) end order by lo separator ', ') as products
+from ranges;`,
+        explanation:
+          'Consecutive ids share the same "id minus row number", which identifies each run; MIN and MAX give its ends. A single-id run is written alone. The result starts "2-4, 6-8, 10, 12-14, 16, 20, …", the same idea page-number ranges in a book index use.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Window functions', url: PG + 'functions-window.html' }],
+  },
+  {
+    id: 'northwind-118',
+    dataset: 'northwind',
+    level: 4,
+    topics: ['arrays', 'group-by'],
+    title: 'Baskets bought more than once',
+    prompt: 'Treat each order\'s sorted list of product ids as its basket. Among baskets with at least 2 products, which were ordered in more than one order? Show the basket (as text like "36,52"), how often, and its first order_id; most frequent first, then by that order_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'GROUP BY an aggregated array',
+        postgres: `with baskets as (
+  select order_id, array_agg(product_id order by product_id) as basket
+  from order_details
+  group by order_id
+)
+select array_to_string(basket, ',') as basket, count(*) as orders, min(order_id) as first_order
+from baskets
+where cardinality(basket) >= 2
+group by basket
+having count(*) > 1
+order by orders desc, first_order
+limit 5;`,
+        mysql: `with baskets as (
+  select order_id, group_concat(product_id order by product_id) as basket, count(*) as items
+  from order_details
+  group by order_id
+)
+select basket, count(*) as orders, min(order_id) as first_order
+from baskets
+where items >= 2
+group by basket
+having count(*) > 1
+order by orders desc, first_order
+limit 5;`,
+        mysqlNote: 'No arrays: the sorted GROUP_CONCAT string is the basket, and equal strings mean equal baskets.',
+        explanation:
+          'Arrays can be compared and grouped like any value, and sorting inside array_agg makes {36,52} and {52,36} the same basket. 36 and 52 together appear in three orders. Ties are broken by the first order id rather than by the basket text, whose sort order would depend on how the collation treats commas and digits.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Arrays', url: PG + 'arrays.html' }],
+  },
+  {
+    id: 'northwind-119',
+    dataset: 'northwind',
+    level: 5,
+    topics: ['triggers', 'dates-basics'],
+    title: 'A required date by default',
+    prompt:
+      'When an order is inserted without a required_date, set it to 28 days after order_date. (A column DEFAULT cannot refer to another column.) Test: insert order 11078 for ALFKI, employee 1, ordered 1998-05-07, ship_via 1.',
+    orderMatters: false,
+    checkSql: `insert into orders (order_id, customer_id, employee_id, order_date, ship_via) values (11078, 'ALFKI', 1, '1998-05-07', 1);
+select order_id, order_date, required_date from orders where order_id = 11078`,
+    solutions: [
+      {
+        approach: 'BEFORE INSERT trigger filling the column',
+        postgres: `create function default_required_date() returns trigger
+language plpgsql
+as $$
+begin
+  if new.required_date is null then
+    new.required_date := new.order_date + interval '28 days';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger orders_default_required
+before insert on orders
+for each row execute function default_required_date();`,
+        mysql: `create trigger orders_default_required
+before insert on orders
+for each row
+begin
+  if new.required_date is null then
+    set new.required_date = new.order_date + interval 28 day;
+  end if;
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'A BEFORE trigger can change NEW before the row is stored. It only fills the gap: an explicit required_date in the INSERT is kept. Note that an UPDATE setting required_date back to NULL is not covered; that would need the trigger on UPDATE too.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
+  },
 ]

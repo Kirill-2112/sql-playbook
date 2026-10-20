@@ -3835,4 +3835,117 @@ alter table orders_by_half drop partition p2025_h1;`,
       { label: 'MySQL: Exchanging partitions', url: MY + 'partitioning-management-exchange.html' },
     ],
   },
+  {
+    id: 'delivery-103',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['text-aggregation'],
+    title: 'A customer\'s order outcomes in a row',
+    prompt: 'For customers 1 to 3: the statuses of all their orders in time order, joined with " → ", and the number of orders.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'string_agg ordered by created_at',
+        postgres: `select customer_id, count(*) as orders,
+       string_agg(status, ' → ' order by created_at, id) as history
+from orders
+where customer_id between 1 and 3
+group by customer_id
+order by customer_id;`,
+        mysql: `select customer_id, count(*) as orders,
+       group_concat(status order by created_at, id separator ' → ') as history
+from orders
+where customer_id between 1 and 3
+group by customer_id
+order by customer_id;`,
+        explanation: 'Customer 3 started with a refund and later had a cancellation; customer 1 only ever had deliveries. Such one-line histories are easy to scan by eye before building a real churn model.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
+  },
+  {
+    id: 'delivery-104',
+    dataset: 'delivery',
+    level: 2,
+    topics: ['casting', 'strings'],
+    title: 'Order numbers for the receipt',
+    prompt: 'Receipts show orders as "ORD-" plus the id padded with zeros to 6 digits (ORD-000001). Show id, the order number and the total for orders 1 to 3.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Number to text, then pad',
+        postgres: `select id, 'ORD-' || lpad(id::text, 6, '0') as order_number, total
+from orders
+where id between 1 and 3
+order by id;`,
+        mysql: `select id, concat('ORD-', lpad(id, 6, '0')) as order_number, total
+from orders
+where id between 1 and 3
+order by id;`,
+        mysqlNote: 'MySQL converts the number to text by itself inside LPAD and CONCAT.',
+        explanation:
+          'lpad works on text, so PostgreSQL needs the explicit cast; MySQL converts silently. Store the plain number and format only for display: "ORD-000010" sorts and compares as text, 10 as a number.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: String functions', url: PG + 'functions-string.html' }],
+  },
+  {
+    id: 'delivery-105',
+    dataset: 'delivery',
+    level: 4,
+    topics: ['normalization', 'strings'],
+    title: 'An email built from other columns',
+    prompt: 'Check whether customers.email can be derived from other columns: count customers whose email equals the name in lower case with "." instead of the space, then the id, then "@mail.com".',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Rebuild the value and compare',
+        postgres: `select count(*) as customers,
+       count(*) filter (where email = lower(replace(name, ' ', '.')) || id || '@mail.com') as derivable
+from customers;`,
+        mysql: `select count(*) as customers,
+       sum(email = concat(lower(replace(name, ' ', '.')), id, '@mail.com')) as derivable
+from customers;`,
+        explanation:
+          'All 50,000 match: in this generated data the email is fully determined by name and id. In real life it is not (people choose their addresses, and change names), so the column must stay; a dependency that holds by accident in the data is not a rule of the design.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: String functions', url: PG + 'functions-string.html' }],
+  },
+  {
+    id: 'delivery-106',
+    dataset: 'delivery',
+    level: 5,
+    topics: ['locks-isolation', 'transactions'],
+    title: 'A loyalty credit on locked orders',
+    prompt:
+      'Give customer 16177 a 5% credit on every 2026 order (lower total, 2 decimals). Lock all those orders first so nobody edits them meanwhile. In PostgreSQL you are already inside a transaction.',
+    orderMatters: false,
+    checkSql: `select count(*) as orders, sum(total) as total_after from orders where customer_id = 16177 and created_at >= '2026-01-01'`,
+    solutions: [
+      {
+        approach: 'SELECT … FOR UPDATE on a set of rows, then UPDATE',
+        postgres: `select id from orders where customer_id = 16177 and created_at >= '2026-01-01' order by id for update;
+
+update orders set total = round(total * 0.95, 2)
+where customer_id = 16177 and created_at >= '2026-01-01';`,
+        mysql: `start transaction;
+
+select id from orders where customer_id = 16177 and created_at >= '2026-01-01' order by id for update;
+
+update orders set total = round(total * 0.95, 2)
+where customer_id = 16177 and created_at >= '2026-01-01';
+
+commit;`,
+        mysqlNote:
+          'Under REPEATABLE READ, InnoDB also locks the gaps around the scanned index entries, so a new order for this customer may wait until COMMIT. PostgreSQL locks only existing rows; it prevents phantoms with SERIALIZABLE instead.',
+        explanation:
+          'Locking in id order (ORDER BY id) gives every transaction the same order, which avoids deadlocks between two sessions locking overlapping sets. Seven orders are credited; their total drops from 844.17 by about 5%.',
+      },
+    ],
+    docs: [
+      { label: 'PostgreSQL: Row-level locks', url: PG + 'explicit-locking.html#LOCKING-ROWS' },
+      { label: 'MySQL: InnoDB locking', url: MY + 'innodb-locking.html' },
+    ],
+  },
 ]

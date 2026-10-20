@@ -4524,4 +4524,214 @@ select release_lock('boarding-11091');`,
     ],
     docs: [{ label: 'PostgreSQL: Advisory locks', url: PG + 'explicit-locking.html#ADVISORY-LOCKS' }],
   },
+  {
+    id: 'airlines-113',
+    dataset: 'airlines',
+    level: 2,
+    topics: ['self-cross-join'],
+    title: 'Cities the airline serves twice',
+    prompt: 'Find pairs of different airports in the same city and country that both have departures in routes: city, both airport codes (alphabetically lower first). Order by city, then codes.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Self-join airports on city and country, restricted to served ones',
+        postgres: `with served as (
+  select distinct departure_airport as airport_code from routes
+)
+select a.city, a.airport_code as airport_1, b.airport_code as airport_2
+from airports a
+join served sa on sa.airport_code = a.airport_code
+join airports b on b.city = a.city and b.country = a.country and b.airport_code > a.airport_code
+join served sb on sb.airport_code = b.airport_code
+order by a.city, a.airport_code, b.airport_code;`,
+        mysql: `with served as (
+  select distinct departure_airport as airport_code from routes
+)
+select a.city, a.airport_code as airport_1, b.airport_code as airport_2
+from airports a
+join served sa on sa.airport_code = a.airport_code
+join airports b on b.city = a.city and b.country = a.country and b.airport_code > a.airport_code
+join served sb on sb.airport_code = b.airport_code
+order by a.city, a.airport_code, b.airport_code;`,
+        explanation:
+          'Nine pairs; Moscow alone gives three (DME, SVO, VKO). Joining on country too matters: there are several cities called San José or Portland in the world, and they are not the same place.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'airlines-114',
+    dataset: 'airlines',
+    level: 3,
+    topics: ['subtotals', 'joins'],
+    title: 'Seats sold from Russia and Germany, with totals',
+    prompt: 'Count segments of flights departing from airports in Russia and in Germany, by country and fare class, with a subtotal per country and a grand total (label totals \'All\').',
+    hint: VALIDITY_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'ROLLUP (country, class)',
+        postgres: `select coalesce(a.country, 'All') as country, coalesce(s.fare_conditions, 'All') as fare_class, count(*) as segments
+from segments s
+join flights f on f.flight_id = s.flight_id
+${ROUTE_JOIN}
+join airports a on a.airport_code = r.departure_airport
+where a.country in ('Russia', 'Germany')
+group by rollup (a.country, s.fare_conditions)
+order by grouping(a.country), a.country, grouping(s.fare_conditions), s.fare_conditions;`,
+        mysql: `select coalesce(country, 'All') as country, coalesce(fare_conditions, 'All') as fare_class, segments
+from (
+  select a.country, s.fare_conditions, count(*) as segments,
+         grouping(a.country) as gc, grouping(s.fare_conditions) as gf
+  from segments s
+  join flights f on f.flight_id = s.flight_id
+  ${ROUTE_JOIN}
+  join airports a on a.airport_code = r.departure_airport
+  where a.country in ('Russia', 'Germany')
+  group by a.country, s.fare_conditions with rollup
+) t
+order by gc, country, gf, fare_conditions;`,
+        explanation: 'Germany 1,338 segments, Russia 1,276, 2,614 together; Economy is about 80% everywhere. The subtotal rows come after their country\'s details because GROUPING() is sorted first.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ROLLUP', url: PG + 'queries-table-expressions.html#QUERIES-GROUPING-SETS' }],
+  },
+  {
+    id: 'airlines-115',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['merge', 'dml'],
+    title: 'A new fleet list',
+    prompt:
+      'The fleet list says: 77W now has a range of 14,700 km, a new A21 (Airbus A321neo, 7,400 km, 830 km/h) joins, and airplanes missing from the list are retired, but only if no route or seat refers to them. The list: 77W, A21, plus every airplane used by a route. Apply it in one statement.',
+    orderMatters: true,
+    checkSql: `select airplane_code, model, range_km from airplanes order by airplane_code`,
+    solutions: [
+      {
+        approach: 'MERGE with a guarded delete',
+        postgres: `merge into airplanes a
+using (
+  select '77W' as airplane_code, 'Boeing 777-300ER' as model, 14700 as range_km, 905 as speed_kmh
+  union all
+  select 'A21', 'Airbus A321neo', 7400, 830
+  union all
+  select distinct p.airplane_code, p.model, p.range_km, p.speed_kmh
+  from airplanes p join routes r on r.airplane_code = p.airplane_code
+  where p.airplane_code <> '77W'
+) fleet
+on a.airplane_code = fleet.airplane_code
+when matched and a.range_km <> fleet.range_km then
+  update set range_km = fleet.range_km
+when not matched by target then
+  insert (airplane_code, model, range_km, speed_kmh) values (fleet.airplane_code, fleet.model, fleet.range_km, fleet.speed_kmh)
+when not matched by source
+  and not exists (select 1 from routes r where r.airplane_code = a.airplane_code)
+  and not exists (select 1 from seats s where s.airplane_code = a.airplane_code) then
+  delete;`,
+        mysql: null,
+        mysqlNote: 'No MERGE in MySQL; see solution B.',
+        explanation:
+          'The two freighters (35X, 76F) are not on the list and have no routes or seats, so they are retired; the extra conditions keep the statement from failing on foreign keys if a listed-out airplane were still in use. The list is partly computed from routes, so it can never forget an airplane that flies.',
+      },
+      {
+        approach: 'Three statements',
+        postgres: `update airplanes set range_km = 14700 where airplane_code = '77W';
+insert into airplanes (airplane_code, model, range_km, speed_kmh) values ('A21', 'Airbus A321neo', 7400, 830);
+delete from airplanes a
+where a.airplane_code not in ('77W', 'A21')
+  and not exists (select 1 from routes r where r.airplane_code = a.airplane_code)
+  and not exists (select 1 from seats s where s.airplane_code = a.airplane_code);`,
+        mysql: `update airplanes set range_km = 14700 where airplane_code = '77W';
+insert into airplanes (airplane_code, model, range_km, speed_kmh) values ('A21', 'Airbus A321neo', 7400, 830);
+delete from airplanes
+where airplane_code not in ('77W', 'A21')
+  and not exists (select 1 from routes r where r.airplane_code = airplanes.airplane_code)
+  and not exists (select 1 from seats s where s.airplane_code = airplanes.airplane_code);`,
+        explanation: 'The same changes spelled out; in a transaction they appear to readers all at once.',
+      },
+    ],
+    comparison: 'Same fleet afterwards: nine airplanes, 77W with 14,700 km, A21 added, the freighters gone.',
+    docs: [{ label: 'PostgreSQL: MERGE', url: PG + 'sql-merge.html' }],
+  },
+  {
+    id: 'airlines-116',
+    dataset: 'airlines',
+    level: 4,
+    topics: ['json', 'arrays'],
+    title: 'A route as a JSON document',
+    prompt: 'Return the December 2025 version of route PG0001 as one JSON object with keys route, from, to, airplane and days (the weekday list).',
+    hint: DECEMBER_NOTE,
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'jsonb_build_object with an array value / JSON_OBJECT',
+        postgres: `select jsonb_build_object(
+         'route', route_no,
+         'from', departure_airport,
+         'to', arrival_airport,
+         'airplane', airplane_code,
+         'days', to_jsonb(days_of_week)
+       ) as route
+from routes
+where route_no = 'PG0001' and valid_from = '2025-12-01';`,
+        mysql: `select json_object(
+         'route', route_no,
+         'from', departure_airport,
+         'to', arrival_airport,
+         'airplane', airplane_code,
+         'days', days_of_week
+       ) as route
+from routes
+where route_no = 'PG0001' and valid_from = '2025-12-01';`,
+        mysqlNote: 'days_of_week is already a JSON array in MySQL, so it nests as it is.',
+        explanation:
+          'to_jsonb turns the integer[] into a JSON array, so the document has a real list, not the text "{2,3,4,5,6,7}". A typical API response: a route that flies every day except Monday.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: JSON functions', url: PG + 'functions-json.html' }],
+  },
+  {
+    id: 'airlines-117',
+    dataset: 'airlines',
+    level: 5,
+    topics: ['functions', 'numbers'],
+    title: 'Distance between two airports, as a function',
+    prompt:
+      'Write a function distance_km(p_from, p_to) returning the great-circle distance between two airports by code, rounded to whole km (Earth radius 6371 km), NULL if a code is unknown. Test SVO–LED and SVX–WUH.',
+    hint: 'Haversine: d = 2R · asin(√(sin²(Δlat/2) + cos lat1 · cos lat2 · sin²(Δlon/2))), angles in radians.',
+    orderMatters: false,
+    checkSql: `select distance_km('SVO', 'LED') as svo_led, distance_km('SVX', 'WUH') as svx_wuh, distance_km('SVO', 'XXX') as unknown`,
+    solutions: [
+      {
+        approach: 'Haversine inside a SQL function',
+        postgres: `create function distance_km(p_from varchar, p_to varchar) returns integer
+language sql
+stable
+as $$
+  select round(6371 * 2 * asin(sqrt(
+           power(sin(radians(b.latitude - a.latitude) / 2), 2)
+         + cos(radians(a.latitude)) * cos(radians(b.latitude)) * power(sin(radians(b.longitude - a.longitude) / 2), 2)
+         )))::integer
+  from airports a, airports b
+  where a.airport_code = p_from and b.airport_code = p_to;
+$$;`,
+        mysql: `create function distance_km(p_from varchar(3), p_to varchar(3)) returns int
+reads sql data
+begin
+  return (
+    select round(6371 * 2 * asin(sqrt(
+             power(sin(radians(b.latitude - a.latitude) / 2), 2)
+           + cos(radians(a.latitude)) * cos(radians(b.latitude)) * power(sin(radians(b.longitude - a.longitude) / 2), 2)
+           )))
+    from airports a, airports b
+    where a.airport_code = p_from and b.airport_code = p_to
+  );
+end;`,
+        mysqlNote: DELIMITER_NOTE,
+        explanation:
+          'Moscow Sheremetyevo to St Petersburg is about 599 km, Yekaterinburg to Wuhan about 4,988 km. An unknown code finds no row, and a scalar function returns NULL for no row. Wrapping the formula once means every query uses the same Earth radius and rounding.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Mathematical functions', url: PG + 'functions-math.html' }],
+  },
 ]

@@ -4126,4 +4126,125 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: Trigger functions', url: PG + 'plpgsql-trigger.html' }],
   },
+  {
+    id: 'employees-109',
+    dataset: 'employees',
+    level: 1,
+    topics: ['text-search', 'strings'],
+    title: '"ann" anywhere in the first name',
+    prompt: 'How many employees have "ann" anywhere in their first name, in any letter case (Anneke, JoAnna, Kannan, …)?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'Lower-case the column, then LIKE',
+        postgres: `select count(*) as employees
+from employees
+where lower(first_name) like '%ann%';`,
+        mysql: `select count(*) as employees
+from employees
+where lower(first_name) like '%ann%';`,
+        explanation:
+          'In PostgreSQL LIKE is case-sensitive: first_name LIKE \'%ann%\' would miss Anneke and JoAnna, whose "Ann" has a capital A. lower() makes the test case-blind in both databases (MySQL\'s default collation already ignores case, so there it makes no difference). 80 employees match.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LIKE', url: PG + 'functions-matching.html#FUNCTIONS-LIKE' }],
+  },
+  {
+    id: 'employees-110',
+    dataset: 'employees',
+    level: 3,
+    topics: ['pivot'],
+    title: 'Current titles by gender',
+    prompt: 'For each current title: the number of men, the number of women, and the share of women in percent (1 decimal), one column each. Order by title.',
+    hint: CURRENT_NOTE,
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Conditional counts in one GROUP BY',
+        postgres: `select t.title,
+       count(*) filter (where e.gender = 'M') as men,
+       count(*) filter (where e.gender = 'F') as women,
+       round(100.0 * count(*) filter (where e.gender = 'F') / count(*), 1) as women_pct
+from titles t
+join employees e on e.emp_no = t.emp_no
+where t.to_date = '9999-01-01'
+group by t.title
+order by t.title;`,
+        mysql: `select t.title,
+       sum(e.gender = 'M') as men,
+       sum(e.gender = 'F') as women,
+       round(100 * sum(e.gender = 'F') / count(*), 1) as women_pct
+from titles t
+join employees e on e.emp_no = t.emp_no
+where t.to_date = '9999-01-01'
+group by t.title
+order by t.title;`,
+        explanation: 'The share of women is close to 40% in every title, the same as in the whole staff; this sample shows no title where women are much rarer. A pivot like this makes such a check one glance.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Aggregate FILTER', url: PG + 'sql-expressions.html#SYNTAX-AGGREGATES' }],
+  },
+  {
+    id: 'employees-111',
+    dataset: 'employees',
+    level: 4,
+    topics: ['temp-tables', 'dates-advanced'],
+    title: 'Tenure of the current staff',
+    prompt:
+      'Store each current employee with full years of service on 2002-08-01 in a temporary table tenure (emp_no, years). Then count employees with under 5, 5 to 9, and 10 or more years.',
+    hint: CURRENT_NOTE,
+    orderMatters: false,
+    checkSql: `select count(*) filter (where years < 5) as under_5,
+       count(*) filter (where years between 5 and 9) as from_5_to_9,
+       count(*) filter (where years >= 10) as at_least_10
+from tenure`,
+    checkSqlMysql: `select sum(years < 5) as under_5,
+       sum(years between 5 and 9) as from_5_to_9,
+       sum(years >= 10) as at_least_10
+from tenure`,
+    solutions: [
+      {
+        approach: 'age() / TIMESTAMPDIFF into a temporary table',
+        postgres: `create temporary table tenure as
+select e.emp_no, extract(year from age('2002-08-01', e.hire_date))::int as years
+from employees e
+where exists (select 1 from dept_emp de where de.emp_no = e.emp_no and de.to_date = '9999-01-01');`,
+        mysql: `create temporary table tenure as
+select e.emp_no, timestampdiff(year, e.hire_date, '2002-08-01') as years
+from employees e
+where exists (select 1 from dept_emp de where de.emp_no = e.emp_no and de.to_date = '9999-01-01');`,
+        explanation:
+          'Both count completed years, so someone hired on 2 August 1992 has 9, not 10. Three quarters of the current staff (3,599 people) have been there 10 years or more; the company barely hired after the mid-nineties.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: age', url: PG + 'functions-datetime.html' }],
+  },
+  {
+    id: 'employees-112',
+    dataset: 'employees',
+    level: 5,
+    topics: ['query-plans', 'indexes'],
+    title: 'Counting hires from the index alone',
+    prompt:
+      'A dashboard counts hires per year (where hire_date between … and …). employees has only its primary key. Add an index that lets such counts be answered without reading the table rows.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'employees' and indexdef like '%(hire_date%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'employees' and column_name = 'hire_date' and seq_in_index = 1`,
+    solutions: [
+      {
+        approach: 'An index on the filtered column',
+        postgres: `create index employees_hire_date_idx on employees (hire_date);
+
+-- explain select count(*) from employees where hire_date >= '1990-01-01' and hire_date < '1991-01-01';`,
+        mysql: `create index employees_hire_date_idx on employees (hire_date);
+
+-- explain select count(*) from employees where hire_date >= '1990-01-01' and hire_date < '1991-01-01';`,
+        explanation:
+          'A count needs no columns besides the one filtered, so the plan becomes an index-only scan (PostgreSQL) or "Using index" (MySQL): the rows themselves are never read. In PostgreSQL this works fully once VACUUM has marked the table pages as all-visible.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Index-only scans', url: PG + 'indexes-index-only-scans.html' }],
+  },
 ]

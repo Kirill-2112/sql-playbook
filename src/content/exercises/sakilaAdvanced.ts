@@ -3355,4 +3355,171 @@ where amount >= 10;`,
     comparison: 'Both find a customer\'s large payments directly; the partial one is about 140 times smaller.',
     docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
   },
+  {
+    id: 'sakila-116',
+    dataset: 'sakila',
+    level: 2,
+    topics: ['full-join', 'distinct'],
+    title: 'August films, store against store',
+    prompt: 'Compare the films rented from store 1 and from store 2 since 1 August 2005: how many films were rented at both stores, only at store 1, only at store 2?',
+    orderMatters: false,
+    solutions: [
+      {
+        approach: 'FULL JOIN of two distinct film lists',
+        postgres: `with s1 as (
+  select distinct i.film_id from rental r join inventory i on i.inventory_id = r.inventory_id
+  where i.store_id = 1 and r.rental_date >= '2005-08-01'
+),
+s2 as (
+  select distinct i.film_id from rental r join inventory i on i.inventory_id = r.inventory_id
+  where i.store_id = 2 and r.rental_date >= '2005-08-01'
+)
+select count(*) filter (where s1.film_id is not null and s2.film_id is not null) as both_stores,
+       count(*) filter (where s2.film_id is null) as store_1_only,
+       count(*) filter (where s1.film_id is null) as store_2_only
+from s1
+full join s2 on s2.film_id = s1.film_id;`,
+        mysql: `with s1 as (
+  select distinct i.film_id from rental r join inventory i on i.inventory_id = r.inventory_id
+  where i.store_id = 1 and r.rental_date >= '2005-08-01'
+),
+s2 as (
+  select distinct i.film_id from rental r join inventory i on i.inventory_id = r.inventory_id
+  where i.store_id = 2 and r.rental_date >= '2005-08-01'
+)
+select (select count(*) from s1 join s2 on s2.film_id = s1.film_id) as both_stores,
+       (select count(*) from s1 where not exists (select 1 from s2 where s2.film_id = s1.film_id)) as store_1_only,
+       (select count(*) from s2 where not exists (select 1 from s1 where s1.film_id = s2.film_id)) as store_2_only;`,
+        mysqlNote: 'No FULL JOIN in MySQL: a join and two anti-joins.',
+        explanation:
+          '563 films rented at both, 196 only at store 1, 199 only at store 2: almost exactly the films each store alone stocks. The "only" groups are explained by inventory, not by taste.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Joined tables', url: PG + 'queries-table-expressions.html#QUERIES-JOIN' }],
+  },
+  {
+    id: 'sakila-117',
+    dataset: 'sakila',
+    level: 3,
+    topics: ['lateral', 'joins'],
+    title: 'Each actor\'s longest film',
+    prompt: 'For actors 1 to 3: actor_id, first and last name, and their longest film (title and length). On equal length, the lower film_id.',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'CROSS JOIN LATERAL with a join inside',
+        postgres: `select a.actor_id, a.first_name, a.last_name, longest.title, longest.length
+from actor a
+cross join lateral (
+  select f.title, f.length
+  from film_actor fa
+  join film f on f.film_id = fa.film_id
+  where fa.actor_id = a.actor_id
+  order by f.length desc, f.film_id
+  limit 1
+) longest
+where a.actor_id between 1 and 3
+order by a.actor_id;`,
+        mysql: `select a.actor_id, a.first_name, a.last_name, longest.title, longest.length
+from actor a
+cross join lateral (
+  select f.title, f.length
+  from film_actor fa
+  join film f on f.film_id = fa.film_id
+  where fa.actor_id = a.actor_id
+  order by f.length desc, f.film_id
+  limit 1
+) longest
+where a.actor_id between 1 and 3
+order by a.actor_id;`,
+        explanation: 'Penelope Guiness\'s longest is KING EVOLUTION. The lateral subquery walks only that actor\'s film_actor rows, which the index on (actor_id, film_id) finds directly.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: LATERAL subqueries', url: PG + 'queries-table-expressions.html#QUERIES-LATERAL' }],
+  },
+  {
+    id: 'sakila-118',
+    dataset: 'sakila',
+    level: 4,
+    topics: ['materialized-views', 'joins'],
+    title: 'Actor popularity, stored',
+    prompt: 'Store per actor: actor_id, name ("FIRST LAST") and the number of rentals of films they appear in, refreshed nightly. Then: the 3 most rented actors.',
+    orderMatters: true,
+    checkSql: `select actor_id, name, rentals from actor_rentals order by rentals desc, actor_id limit 3`,
+    solutions: [
+      {
+        approach: 'Materialized view keyed by actor',
+        postgres: `create materialized view actor_rentals as
+select a.actor_id, a.first_name || ' ' || a.last_name as name, count(*) as rentals
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+join film_actor fa on fa.film_id = i.film_id
+join actor a on a.actor_id = fa.actor_id
+group by a.actor_id, a.first_name, a.last_name;
+
+create unique index actor_rentals_key on actor_rentals (actor_id);`,
+        mysql: `create table actor_rentals (actor_id int primary key, name varchar(91), rentals int);
+
+replace into actor_rentals
+select a.actor_id, concat(a.first_name, ' ', a.last_name), count(*)
+from rental r
+join inventory i on i.inventory_id = r.inventory_id
+join film_actor fa on fa.film_id = i.film_id
+join actor a on a.actor_id = fa.actor_id
+group by a.actor_id, a.first_name, a.last_name;`,
+        mysqlNote: 'A keyed table refreshed by REPLACE INTO stands in for the materialized view.',
+        explanation: 'A four-table join over 16,000 rentals becomes 200 stored rows. Gina Degeneres leads with 753 rentals of her films. A rental counts once for every actor in the film, so the column sums to far more than 16,044.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
+  },
+  {
+    id: 'sakila-119',
+    dataset: 'sakila',
+    level: 5,
+    topics: ['procedures', 'control-flow'],
+    title: 'Add copies of a film with a loop',
+    prompt:
+      'Write a procedure add_copies(p_film_id, p_store_id, p_n) that inserts p_n new inventory rows for that film and store (ids after the current maximum), refusing p_n outside 1–10. Add 3 copies of film 1 to store 2.',
+    orderMatters: false,
+    checkSql: `select store_id, count(*) as copies from inventory where film_id = 1 group by store_id order by store_id`,
+    solutions: [
+      {
+        approach: 'A counted loop of inserts',
+        postgres: `create procedure add_copies(p_film_id integer, p_store_id integer, p_n integer)
+language plpgsql
+as $$
+begin
+  if p_n not between 1 and 10 then
+    raise exception 'between 1 and 10 copies at a time, not %', p_n;
+  end if;
+  for i in 1 .. p_n loop
+    insert into inventory (inventory_id, film_id, store_id)
+    select max(inventory_id) + 1, p_film_id, p_store_id from inventory;
+  end loop;
+end;
+$$;
+
+call add_copies(1, 2, 3);`,
+        mysql: `create procedure add_copies(p_film_id int, p_store_id int, p_n int)
+begin
+  declare i int default 1;
+  if p_n not between 1 and 10 then
+    signal sqlstate '45000' set message_text = 'between 1 and 10 copies at a time';
+  end if;
+  while i <= p_n do
+    insert into inventory (inventory_id, film_id, store_id)
+    select max(inventory_id) + 1, p_film_id, p_store_id from inventory;
+    set i = i + 1;
+  end while;
+end;
+
+call add_copies(1, 2, 3);`,
+        mysqlNote: DELIMITER_NOTE + ' MySQL allows INSERT … SELECT from the same table; it reads the maximum before inserting each row.',
+        explanation:
+          'Store 2 goes from 4 to 7 copies of ACADEMY DINOSAUR. A single INSERT … SELECT FROM generate_series would avoid the loop; the loop shows the control structure. Computing ids as MAX + 1 is only safe without concurrent writers; normally the identity column hands them out.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Loops', url: PG + 'plpgsql-control-structures.html#PLPGSQL-CONTROL-STRUCTURES-LOOPS' }],
+  },
 ]

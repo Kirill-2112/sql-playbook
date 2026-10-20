@@ -3292,4 +3292,138 @@ order by albums desc, ar.name;`,
     ],
     docs: [{ label: 'PostgreSQL: string_agg', url: PG + 'functions-aggregate.html' }],
   },
+  {
+    id: 'chinook-114',
+    dataset: 'chinook',
+    level: 3,
+    topics: ['date-series', 'joins'],
+    title: 'One customer, quarter by quarter',
+    prompt: 'For customer 1: spending per quarter from 2024 Q1 to 2025 Q4, showing every quarter (0 when nothing was bought), labelled like "2024 Q1".',
+    orderMatters: true,
+    solutions: [
+      {
+        approach: 'Quarter series LEFT JOIN invoices',
+        postgres: `select to_char(q.start, 'YYYY') || ' Q' || extract(quarter from q.start) as quarter,
+       coalesce(sum(i.total), 0) as spent
+from generate_series('2024-01-01'::timestamp, '2025-10-01', interval '3 months') as q (start)
+left join invoice i
+  on i.customer_id = 1 and i.invoice_date >= q.start and i.invoice_date < q.start + interval '3 months'
+group by q.start
+order by q.start;`,
+        mysql: `with recursive quarters (start) as (
+  select cast('2024-01-01' as datetime)
+  union all
+  select start + interval 3 month from quarters where start < '2025-10-01'
+)
+select concat(year(q.start), ' Q', quarter(q.start)) as quarter,
+       coalesce(sum(i.total), 0) as spent
+from quarters q
+left join invoice i
+  on i.customer_id = 1 and i.invoice_date >= q.start and i.invoice_date < q.start + interval 3 month
+group by q.start
+order by q.start;`,
+        explanation:
+          'Customer 1 bought in only three of the eight quarters. The customer filter belongs in ON: in WHERE it would remove the empty quarters, because their invoice columns are NULL. COALESCE turns the NULL sum of an empty quarter into 0.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: generate_series', url: PG + 'functions-srf.html' }],
+  },
+  {
+    id: 'chinook-115',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['upsert', 'ddl'],
+    title: 'A wishlist that refreshes',
+    prompt:
+      'Create wishlist (customer_id, track_id, added_at) with one row per customer and track. Customer 1 adds tracks 1 and 2 on 2025-07-01, then adds track 2 again and track 3 on 2025-07-05. Adding an existing track only refreshes added_at.',
+    orderMatters: true,
+    checkSql: `select customer_id, track_id, added_at from wishlist order by track_id`,
+    solutions: [
+      {
+        approach: 'Composite primary key and an upsert',
+        postgres: `create table wishlist (
+  customer_id integer not null references customer (customer_id),
+  track_id    integer not null references track (track_id),
+  added_at    date    not null,
+  primary key (customer_id, track_id)
+);
+
+insert into wishlist values (1, 1, '2025-07-01'), (1, 2, '2025-07-01');
+
+insert into wishlist values (1, 2, '2025-07-05'), (1, 3, '2025-07-05')
+on conflict (customer_id, track_id) do update set added_at = excluded.added_at;`,
+        mysql: `create table wishlist (
+  customer_id int  not null,
+  track_id    int  not null,
+  added_at    date not null,
+  primary key (customer_id, track_id),
+  foreign key (customer_id) references customer (customer_id),
+  foreign key (track_id) references track (track_id)
+);
+
+insert into wishlist values (1, 1, '2025-07-01'), (1, 2, '2025-07-01');
+
+insert into wishlist values (1, 2, '2025-07-05'), (1, 3, '2025-07-05') as new
+on duplicate key update added_at = new.added_at;`,
+        explanation: 'Track 1 keeps 2025-07-01, track 2 moves to 2025-07-05, track 3 is new. Without the composite key the second insert would simply create a duplicate wish.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: ON CONFLICT', url: PG + 'sql-insert.html#SQL-ON-CONFLICT' }],
+  },
+  {
+    id: 'chinook-116',
+    dataset: 'chinook',
+    level: 4,
+    topics: ['generated-columns', 'strings'],
+    title: 'Track length as m:ss, stored',
+    prompt: 'Add a stored generated column duration_text to track showing the length as minutes:seconds, like "5:43". Show it for tracks 1 to 3.',
+    orderMatters: true,
+    checkSql: `select track_id, milliseconds, duration_text from track where track_id between 1 and 3 order by track_id`,
+    solutions: [
+      {
+        approach: 'Integer division and padding inside a generated column',
+        postgres: `alter table track
+add column duration_text varchar(10)
+generated always as ((milliseconds / 60000)::text || ':' || lpad(((milliseconds / 1000) % 60)::text, 2, '0')) stored;`,
+        mysql: `alter table track
+add column duration_text varchar(10)
+generated always as (concat(milliseconds div 60000, ':', lpad((milliseconds div 1000) % 60, 2, '0'))) stored;`,
+        mysqlNote: 'DIV is integer division in MySQL; / would give decimals.',
+        explanation:
+          'Integer division cuts the fraction: 343,719 ms is 5 minutes and 43 seconds (the 719 ms are dropped). to_char would be the obvious tool, but it is not immutable, so PostgreSQL refuses it in a generated column; ::text, || and lpad are fine.',
+      },
+    ],
+    docs: [{ label: 'PostgreSQL: Generated columns', url: PG + 'ddl-generated-columns.html' }],
+  },
+  {
+    id: 'chinook-117',
+    dataset: 'chinook',
+    level: 5,
+    topics: ['partial-covering-indexes'],
+    title: 'An index for business customers',
+    prompt: 'Account managers list customers with a company (10 of 59) by country. Create an index that holds only customers with a company and serves that list.',
+    orderMatters: false,
+    checkSql: `select count(*) > 0 as has_index from pg_indexes where tablename = 'customer' and indexdef like '%company%'`,
+    checkSqlMysql: `select count(*) > 0 as has_index
+from information_schema.statistics
+where table_schema = database() and table_name = 'customer' and column_name = 'company'`,
+    solutions: [
+      {
+        approach: 'Partial index on IS NOT NULL',
+        postgres: `create index customer_business_idx on customer (country) include (company)
+where company is not null;`,
+        mysql: null,
+        mysqlNote: 'No partial indexes in MySQL; see solution B.',
+        explanation: 'Private customers (company NULL) stay out of the index. With 59 rows this is about principle; with millions of consumers and a few thousand businesses, it saves real space.',
+      },
+      {
+        approach: 'Composite index with company first',
+        postgres: `create index customer_company_country_idx on customer (company, country);`,
+        mysql: `create index customer_company_country_idx on customer (company, country);`,
+        explanation: 'company IS NOT NULL is a range of this index (NULLs sit together at one end), but the result is ordered by company, not by country.',
+      },
+    ],
+    comparison: 'The partial index is smaller and already in country order; the composite one works in MySQL.',
+    docs: [{ label: 'PostgreSQL: Partial indexes', url: PG + 'indexes-partial.html' }],
+  },
 ]

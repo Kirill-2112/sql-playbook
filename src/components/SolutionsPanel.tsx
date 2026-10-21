@@ -3,7 +3,7 @@ import styled from 'styled-components'
 import type { Exercise } from '../content/types'
 import { verification } from '../content/verification'
 import { useSqlRun } from '../hooks/useSqlRun'
-import { joinStatements } from '../utils/joinStatements'
+import { exerciseScript } from '../utils/exerciseScript'
 import { Button } from './Button'
 import { CodeBlock } from './CodeBlock'
 import { ResultTable } from './ResultTable'
@@ -18,7 +18,7 @@ const letter = (i: number) => String.fromCharCode(65 + i)
 export function SolutionsPanel({ exercise }: { exercise: Exercise }) {
   const [index, setIndex] = useState(0)
   const [database, setDatabase] = useState<Database>('postgres')
-  const { state, run, reset } = useSqlRun(exercise.dataset)
+  const { state, run, reset } = useSqlRun(exercise.dataset, exercise.files)
 
   useEffect(() => {
     setIndex(0)
@@ -67,7 +67,7 @@ export function SolutionsPanel({ exercise }: { exercise: Exercise }) {
           <div>
             <Button
               $variant="ghost"
-              onClick={() => run(exercise.checkSql ? joinStatements(solution.postgres, exercise.checkSql) : solution.postgres)}
+              onClick={() => run(exerciseScript(exercise, solution.postgres))}
               disabled={state.kind === 'running'}
             >
               Run this solution

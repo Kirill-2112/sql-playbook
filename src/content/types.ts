@@ -29,6 +29,11 @@ export interface Solution {
   explanation: string
 }
 
+export interface ExerciseFile {
+  name: string
+  content: string
+}
+
 export interface Exercise {
   /** Stable id, e.g. "sakila-012". Used in URLs. */
   id: string
@@ -49,6 +54,15 @@ export interface Exercise {
   checkSql?: string
   /** MySQL version of checkSql when it has to be written differently. */
   checkSqlMysql?: string
+  /**
+   * Statements run before the learner's SQL in the same rolled-back transaction, e.g. to create a messy staging
+   * table to clean up. Shown to the learner.
+   */
+  setupSql?: string
+  /** MySQL version of setupSql when it has to be written differently. */
+  setupSqlMysql?: string
+  /** Files the exercise provides, e.g. a CSV to load with COPY (PostgreSQL) or LOAD DATA LOCAL INFILE (MySQL). */
+  files?: ExerciseFile[]
   /** When there are several solutions: how to choose between them. */
   comparison?: string
   docs: DocLink[]
@@ -80,6 +94,7 @@ export type ReferenceGroupId =
   | 'programming'
   | 'performance'
   | 'transactions'
+  | 'security'
   | 'fulltext'
 
 /** A runnable example. Both versions are run by scripts/build-reference.ts and must return the same rows. */
@@ -87,6 +102,8 @@ export interface ReferenceExample {
   postgres: string
   /** MySQL version; omitted when it is the same text, null when it cannot be written in MySQL (or gives different output). */
   mysql?: string | null
+  /** Files the example reads with COPY / LOAD DATA LOCAL INFILE. */
+  files?: ExerciseFile[]
 }
 
 export interface ReferenceEntry {

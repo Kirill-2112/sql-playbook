@@ -4,7 +4,7 @@ import type { Exercise } from '../content/types'
 import { runSandboxed } from '../db/database'
 import { useSqlRun } from '../hooks/useSqlRun'
 import { explainMismatch } from '../utils/compareRows'
-import { joinStatements } from '../utils/joinStatements'
+import { exerciseScript } from '../utils/exerciseScript'
 import { Button } from './Button'
 import { ResultTable } from './ResultTable'
 import { SqlEditor } from './SqlEditor'
@@ -25,7 +25,7 @@ export function ExerciseWorkspace({ exercise, onSolved }: ExerciseWorkspaceProps
   const starter = exercise.checkSql ? SCRIPT_STARTER : QUERY_STARTER
   const [sql, setSql] = useState(starter)
   const [verdict, setVerdict] = useState<Verdict | null>(null)
-  const { state, run, reset } = useSqlRun(exercise.dataset)
+  const { state, run, reset } = useSqlRun(exercise.dataset, exercise.files)
 
   useEffect(() => {
     setSql(starter)
@@ -36,12 +36,10 @@ export function ExerciseWorkspace({ exercise, onSolved }: ExerciseWorkspaceProps
   async function check() {
     setVerdict(null)
     // Exercises that change the database are judged by the state they leave behind: the check query
-    // runs right after the statements, in the same rolled-back transaction.
-    const checkSql = exercise.checkSql
-    const actual = await run(checkSql ? joinStatements(sql, checkSql) : sql)
+    // runs right after the statements, in the same rolled-back transaction (after the setup, if any).
+    const actual = await run(exerciseScript(exercise, sql))
     if (!actual) return
-    const reference = exercise.solutions[0].postgres
-    const expected = await runSandboxed(checkSql ? joinStatements(reference, checkSql) : reference, exercise.dataset)
+    const expected = await runSandboxed(exerciseScript(exercise, exercise.solutions[0].postgres), exercise.dataset, exercise.files)
     const reason = explainMismatch(actual, expected, exercise.orderMatters)
     if (reason) {
       setVerdict({ correct: false, reason })
@@ -54,6 +52,23 @@ export function ExerciseWorkspace({ exercise, onSolved }: ExerciseWorkspaceProps
   return (
     <Panel>
       <SqlEditor id={id} label="Your answer" value={sql} onChange={setSql} onRun={check} />
+      {exercise.files?.map((file) => (
+        <CheckInfo key={file.name} open>
+          <summary>File {file.name}</summary>
+          <p>
+            Comes with this exercise. Load it with <code>copy … from '{file.name}'</code> (in MySQL:{' '}
+            <code>load data local infile '{file.name}'</code>).
+          </p>
+          <pre>{file.content}</pre>
+        </CheckInfo>
+      ))}
+      {exercise.setupSql && (
+        <CheckInfo open>
+          <summary>Set up before your SQL</summary>
+          <p>This runs first, in the same transaction, so the tables below exist while you work.</p>
+          <pre>{exercise.setupSql}</pre>
+        </CheckInfo>
+      )}
       {exercise.checkSql && (
         <CheckInfo>
           <summary>How your answer is checked</summary>
@@ -68,7 +83,7 @@ export function ExerciseWorkspace({ exercise, onSolved }: ExerciseWorkspaceProps
         <Button onClick={check} disabled={state.kind === 'running'}>
           {state.kind === 'running' ? 'Checking…' : 'Check answer'}
         </Button>
-        <Button $variant="ghost" onClick={() => run(sql)} disabled={state.kind === 'running'}>
+        <Button $variant="ghost" onClick={() => run(exercise.setupSql ? exerciseScript({ ...exercise, checkSql: undefined }, sql) : sql)} disabled={state.kind === 'running'}>
           Just run
         </Button>
         <Shortcut>⌘/Ctrl + Enter checks</Shortcut>

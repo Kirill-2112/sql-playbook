@@ -1,5 +1,8 @@
 import { PGlite, type Results } from '@electric-sql/pglite'
 import type { DatasetId } from '../content/types'
+import type { ExerciseFile } from '../content/types'
+import { emulateTransactions } from '../utils/emulateTransactions'
+import { attachFiles } from '../utils/exerciseFiles'
 import { SEED_SQL } from './seed'
 
 // Keep date/time values as the text Postgres prints, so the UI shows exactly
@@ -73,15 +76,22 @@ function pickDisplayedResult(results: Results[]): Results | undefined {
 /**
  * Runs SQL inside a transaction that is always rolled back,
  * so learners can DELETE or DROP freely without breaking the dataset.
+ * Their own BEGIN / COMMIT / ROLLBACK become savepoints of that transaction (see emulateTransactions), and
+ * COPY … FROM 'file.csv' reads the exercise's file (see attachFiles).
  */
-export async function runSandboxed(sql: string, databaseId: DatabaseId = 'delivery'): Promise<QueryResult> {
+export async function runSandboxed(
+  sql: string,
+  databaseId: DatabaseId = 'delivery',
+  files?: ExerciseFile[],
+): Promise<QueryResult> {
   const db = await getDatabase(databaseId)
   const started = performance.now()
   let results: Results[] = []
+  const script = attachFiles(sql, files)
 
   try {
     await db.transaction(async (tx) => {
-      results = await tx.exec(sql, { rowMode: 'array' })
+      results = await tx.exec(emulateTransactions(script.sql), { rowMode: 'array', blob: script.blob })
       await tx.rollback()
     })
   } catch (error) {

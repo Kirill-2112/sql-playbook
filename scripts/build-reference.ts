@@ -9,16 +9,18 @@
  * Usage: npm run build:reference [-- --links]
  */
 import { writeFileSync } from 'node:fs'
+import { Readable } from 'node:stream'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { PGlite } from '@electric-sql/pglite'
 import { connectMysql, type MysqlConnection } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
+import { attachFiles } from '../src/utils/exerciseFiles'
 import { ALL_EXERCISES } from '../src/content/exercises/all'
 import { REFERENCE, REFERENCE_GROUPS } from '../src/content/reference'
 import { DATASET_IDS } from '../src/content/datasets'
-import type { Exercise, ReferenceGenerated } from '../src/content/types'
+import type { Exercise, ExerciseFile, ReferenceGenerated } from '../src/content/types'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 const OUT = join(ROOT, 'src/content/generated/reference.json')
@@ -31,8 +33,9 @@ const OWN_TRANSACTION = /(^|;)\s*((begin|start\s+transaction)\s*(;|isolation)|(c
  * Runs the example in a transaction that is rolled back, so examples cannot affect each other.
  * Examples with their own BEGIN/COMMIT get a fresh database instead.
  */
-async function pgResult(db: PGlite, sql: string) {
+async function pgResult(db: PGlite, rawSql: string, files?: ExerciseFile[]) {
   let shown: Awaited<ReturnType<PGlite['exec']>>[number] | undefined
+  const { sql, blob } = attachFiles(rawSql, files)
   if (OWN_TRANSACTION.test(sql)) {
     const fresh = createPglite()
     try {
@@ -47,7 +50,7 @@ async function pgResult(db: PGlite, sql: string) {
     }
   } else {
     await db.transaction(async (tx) => {
-      const results = await tx.exec(sql, { rowMode: 'array' })
+      const results = await tx.exec(sql, { rowMode: 'array', blob })
       shown = [...results].reverse().find((r) => r.fields.length > 0)
       await tx.rollback()
     })
@@ -55,9 +58,21 @@ async function pgResult(db: PGlite, sql: string) {
   return { columns: shown?.fields.map((f) => f.name) ?? [], rows: (shown?.rows ?? []) as unknown[][] }
 }
 
-/** Each example gets an empty database, because MySQL cannot roll back CREATE TABLE. */
+const accounts = async (conn: MysqlConnection) =>
+  ((await conn.query(`select concat(quote(user), '@', quote(host)) as a from mysql.user`)) as [{ a: string }[], unknown])[0].map((r) => r.a)
+
+/** Each example gets an empty database, because MySQL cannot roll back CREATE TABLE; users and roles it creates are dropped. */
 async function mysqlRows(conn: MysqlConnection, sql: string) {
   await conn.query('drop database if exists pb_reference; create database pb_reference; use pb_reference')
+  const before = new Set(await accounts(conn))
+  try {
+    return await mysqlResult(conn, sql)
+  } finally {
+    for (const account of (await accounts(conn)).filter((a) => !before.has(a))) await conn.query(`drop user ${account}`)
+  }
+}
+
+async function mysqlResult(conn: MysqlConnection, sql: string) {
   const [result] = await conn.query({ sql, rowsAsArray: true })
   if (Array.isArray(result) && result.length > 0 && Array.isArray(result[0]) && !Array.isArray(result[0][0])) {
     return result as unknown[][]
@@ -123,13 +138,20 @@ for (const entry of REFERENCE) {
 }
 
 const pg = createPglite()
-const my = await connectMysql()
+// LOAD DATA LOCAL INFILE in an example reads that example's file.
+let currentFiles: ExerciseFile[] = []
+const my = await connectMysql(undefined, (path) => {
+  const file = currentFiles.find((f) => f.name === path)
+  if (!file) throw new Error(`No file ${path} in this example`)
+  return Readable.from([Buffer.from(file.content)])
+})
+await my.query('set global local_infile = 1')
 const generated: Record<string, ReferenceGenerated> = {}
 
 for (const entry of REFERENCE) {
   let pgOut: Awaited<ReturnType<typeof pgResult>>
   try {
-    pgOut = await pgResult(pg, entry.example.postgres)
+    pgOut = await pgResult(pg, entry.example.postgres, entry.example.files)
   } catch (e) {
     failures.push(`${entry.id}: PostgreSQL example fails: ${String(e)}`)
     continue
@@ -139,6 +161,7 @@ for (const entry of REFERENCE) {
   const mysqlSql = entry.example.mysql === undefined ? entry.example.postgres : entry.example.mysql
   if (mysqlSql !== null) {
     try {
+      currentFiles = entry.example.files ?? []
       const rows = await mysqlRows(my, mysqlSql)
       const cmp = compareRowSets(rows, pgOut.rows, false)
       if (!cmp.equal) failures.push(`${entry.id}: MySQL differs from PostgreSQL: ${cmp.reason}`)

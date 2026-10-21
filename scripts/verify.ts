@@ -9,31 +9,40 @@
  * Usage: npm run verify [-- sakila-001 chinook]
  */
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
+import { Readable } from 'node:stream'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { PGlite } from '@electric-sql/pglite'
 import { connectMysql, type MysqlConnection } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
-import { joinStatements } from '../src/utils/joinStatements'
+import { emulateTransactions, splitStatements } from '../src/utils/emulateTransactions'
+import { changesDatabase, exerciseScript } from '../src/utils/exerciseScript'
+import { attachFiles } from '../src/utils/exerciseFiles'
 import { SEED_SQL } from '../src/db/seed'
 import { ALL_EXERCISES } from '../src/content/exercises/all'
 import { findTopic } from '../src/content/topics'
-import type { DatasetId, Exercise } from '../src/content/types'
+import type { DatasetId, Exercise, ExerciseFile } from '../src/content/types'
 import type { ExerciseVerification, VerificationReport } from '../src/content/verification'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+
+const WRITES = /^\s*(create|grant|revoke|insert|update|delete|drop|alter|truncate|merge|comment|set\s+role|copy|load\s+data)\b/i
 
 interface Failure {
   id: string
   problem: string
 }
 
-/** Runs SQL inside a transaction that is rolled back, so DDL and DML leave the dataset untouched. */
-async function pgRows(db: PGlite, sql: string) {
+/**
+ * Runs SQL inside a transaction that is rolled back, so DDL and DML leave the dataset untouched.
+ * BEGIN / COMMIT / ROLLBACK in the script become savepoints, exactly as in the browser.
+ */
+async function pgRows(db: PGlite, sql: string, files?: ExerciseFile[]) {
   let shown: Awaited<ReturnType<PGlite['exec']>>[number] | undefined
+  const script = attachFiles(sql, files)
   await db.transaction(async (tx) => {
-    const results = await tx.exec(sql, { rowMode: 'array' })
+    const results = await tx.exec(emulateTransactions(script.sql), { rowMode: 'array', blob: script.blob })
     shown = [...results].reverse().find((r) => r.fields.length > 0)
     await tx.rollback()
   })
@@ -44,9 +53,15 @@ async function pgRows(db: PGlite, sql: string) {
  * MySQL cannot roll back CREATE/ALTER/DROP, so exercises that change the database run on a fresh copy
  * (pb_scratch) that is dropped afterwards.
  */
-async function mysqlRowsOnCopy(dataset: DatasetId, sql: string) {
+async function mysqlRowsOnCopy(dataset: DatasetId, sql: string, files?: ExerciseFile[]) {
   // A fresh connection per run: temporary tables and session settings must not leak between solutions.
-  const conn = await connectMysql(`pb_${dataset}`)
+  // LOAD DATA LOCAL INFILE 'name.csv' is served the exercise's file of that name.
+  const conn = await connectMysql(`pb_${dataset}`, files?.length ? (path) => {
+    const file = files.find((f) => f.name === path || path.endsWith('/' + f.name))
+    if (!file) throw new Error(`No file ${path} in this exercise`)
+    return Readable.from([Buffer.from(file.content)])
+  } : undefined)
+  if (files?.length) await conn.query('set global local_infile = 1')
   const source = `pb_${dataset}`
   const [tables] = (await conn.query(
     `select table_name as t from information_schema.tables where table_schema = ? and table_type = 'BASE TABLE'`,
@@ -57,9 +72,14 @@ async function mysqlRowsOnCopy(dataset: DatasetId, sql: string) {
     await conn.query(`create table pb_scratch.\`${t}\` like ${source}.\`${t}\`; insert into pb_scratch.\`${t}\` select * from ${source}.\`${t}\``)
   }
   await conn.query('use pb_scratch')
+  // Users and roles are server-wide in MySQL, so the ones an exercise creates are dropped afterwards.
+  const accounts = async () =>
+    ((await conn.query(`select concat(quote(user), '@', quote(host)) as a from mysql.user`)) as [{ a: string }[], unknown])[0].map((r) => r.a)
+  const before = new Set(await accounts())
   try {
     return await mysqlRows(conn, sql)
   } finally {
+    for (const account of (await accounts()).filter((a) => !before.has(a))) await conn.query(`drop user ${account}`)
     await conn.query(`use ${source}; drop database if exists pb_scratch`)
     await conn.end()
   }
@@ -102,6 +122,12 @@ function lint(ex: Exercise, failures: Failure[]) {
     fail('orderMatters but the reference has no ORDER BY')
   ex.solutions.forEach((s, i) => {
     if (s.mysql === null && !s.mysqlNote) fail(`solution ${i + 1}: no MySQL version and no note explaining why`)
+    // Statements that change the database must run on a throwaway copy, which only happens with a check query.
+    const writes = [s.postgres, s.mysql ?? ''].some((sql) =>
+      splitStatements(sql).some((st) => WRITES.test(st.replace(/--[^\n]*/g, ''))),
+    )
+    if (writes && !ex.checkSql) fail(`solution ${i + 1} changes the database, so the exercise needs a checkSql`)
+    if (/\bcopy\b[^;]*\bfrom\s+'/i.test(s.postgres) && !ex.files?.length) fail(`solution ${i + 1} uses COPY … FROM but the exercise has no files`)
   })
 }
 
@@ -123,7 +149,7 @@ async function verifyDataset(dataset: DatasetId, exercises: Exercise[], failures
       const label = String.fromCharCode(65 + i)
       let rows: unknown[][] = []
       try {
-        rows = await pgRows(pg, ex.checkSql ? joinStatements(s.postgres, ex.checkSql) : s.postgres)
+        rows = await pgRows(pg, exerciseScript(ex, s.postgres), ex.files)
       } catch (e) {
         fail(`${label} (PostgreSQL) failed: ${(e as Error).message}`)
         solutions.push({ pgMs: null, usesIndex: false, mysql: 'failed' })
@@ -138,8 +164,8 @@ async function verifyDataset(dataset: DatasetId, exercises: Exercise[], failures
       let mysql: 'verified' | 'unsupported' | 'failed' = 'unsupported'
       if (s.mysql !== null) {
         try {
-          const myRows = ex.checkSql
-            ? await mysqlRowsOnCopy(dataset, joinStatements(s.mysql, ex.checkSqlMysql ?? ex.checkSql))
+          const myRows = changesDatabase(ex)
+            ? await mysqlRowsOnCopy(dataset, exerciseScript(ex, s.mysql, 'mysql'), ex.files)
             : await mysqlRows(my, s.mysql)
           const cmp = compareRowSets(reference, myRows, ex.orderMatters)
           if (cmp.equal) mysql = 'verified'
@@ -154,7 +180,7 @@ async function verifyDataset(dataset: DatasetId, exercises: Exercise[], failures
       }
 
       // Timings only make sense for plain queries, not for scripts that change the database.
-      const timing = ex.solutions.length > 1 && !ex.checkSql ? await measure(pg, s.postgres) : null
+      const timing = ex.solutions.length > 1 && !changesDatabase(ex) ? await measure(pg, s.postgres) : null
       solutions.push({ pgMs: timing ? Math.round(timing.ms * 100) / 100 : null, usesIndex: timing?.usesIndex ?? false, mysql })
     }
     if (reference.length === 0) fail('the reference answer returns no rows')

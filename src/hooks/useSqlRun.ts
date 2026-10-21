@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react'
+import type { ExerciseFile } from '../content/types'
 import { runSandboxed, SqlError, type DatabaseId, type QueryResult } from '../db/database'
 
 export type SqlRunState =
@@ -7,20 +8,20 @@ export type SqlRunState =
   | { kind: 'done'; result: QueryResult }
   | { kind: 'error'; error: SqlError }
 
-export function useSqlRun(databaseId: DatabaseId = 'delivery') {
+export function useSqlRun(databaseId: DatabaseId = 'delivery', files?: ExerciseFile[]) {
   const [state, setState] = useState<SqlRunState>({ kind: 'idle' })
 
   const run = useCallback(async (sql: string): Promise<QueryResult | null> => {
     setState({ kind: 'running' })
     try {
-      const result = await runSandboxed(sql, databaseId)
+      const result = await runSandboxed(sql, databaseId, files)
       setState({ kind: 'done', result })
       return result
     } catch (error) {
       setState({ kind: 'error', error: error instanceof SqlError ? error : new SqlError(String(error)) })
       return null
     }
-  }, [databaseId])
+  }, [databaseId, files])
 
   const reset = useCallback(() => setState({ kind: 'idle' }), [])
 

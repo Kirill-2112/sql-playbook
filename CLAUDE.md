@@ -39,14 +39,21 @@ Audit of 2026-10-15:
 - `src/content/exercises/<dataset>.ts` — exercises (`Exercise` type in `src/content/types.ts`). Script exercises (DDL/DML,
   functions, triggers) set `checkSql` (and `checkSqlMysql` if needed); PG runs them in a rolled-back transaction, MySQL on a
   throwaway copy (`pb_scratch`).
+  `setupSql` (+ `setupSqlMysql`) runs before the learner's SQL, e.g. to create a messy staging table; `files` attaches
+  CSVs that `COPY … FROM 'name.csv'` (PG, pointed at PGlite's /dev/blob) or `LOAD DATA LOCAL INFILE 'name.csv'` (MySQL,
+  served from memory; verify turns on local_infile) read. Learners' BEGIN/COMMIT/ROLLBACK become savepoints of the
+  sandbox transaction (`src/utils/emulateTransactions.ts`), so transaction exercises use real BEGIN … COMMIT in PG too.
+  Anything that writes (create, grant, insert, copy…) must have a `checkSql`: only then MySQL runs on the throwaway copy.
+  MySQL users/roles are server-wide: verify and build:reference drop every account a run created. Use orderMatters
+  false for privilege lists (information_schema sorts names in its own collation).
   Never run two `verify` processes at once: they share `pb_scratch` and break each other ("Unknown database 'pb_scratch'").
-  A full run of ~1,000 exercises takes 30–60 minutes; run it in the background with a long timeout.
+  A full run of ~1,060 exercises takes 40–60 minutes; run it in the background with a long timeout.
 - `src/content/reference/<group>.ts` — the functions & keywords reference (`ReferenceEntry` in types.ts). Every entry
   has an example; `npm run build:reference` runs it on PGlite and MySQL (database `pb_reference`) and writes
   `generated/reference.json` (results + exercises found by the entry's `match` regex). `example.mysql`: omitted = same
   text, null = no MySQL version. Examples with their own BEGIN/COMMIT run statement by statement on a fresh PGlite.
   MySQL `->`/`->>` work only on columns; use json_extract/json_unquote on expressions. Run `-- --links` after adding docs.
-- `src/content/topics.ts` — the 53-topic curriculum (5 levels). `src/content/datasets.ts` — dataset metadata and attribution.
+- `src/content/topics.ts` — the 58-topic curriculum (5 levels). `src/content/datasets.ts` — dataset metadata and attribution.
 - UI: React + TypeScript strict + styled-components; one component per file in `src/components/`; colours/spacing only from
   `src/theme/tokens.ts`.
 
@@ -87,9 +94,14 @@ Audit of 2026-10-15:
   AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
   every 200th booking), Lahman (SABR CSVs, CC BY-SA, major leagues only, player data from 2010), Delivery (own,
   generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
-  1000 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
+  1,062 exercises, all 58 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
-- Done 2026-10-21: Licenses & credits page; functions & keywords reference (177 entries, `#/reference`).
-- Next: two replacement datasets with commercial licenses, labs (plans, PL/pgSQL, transactions), deploying the site
-  (GitHub Pages).
+- Done 2026-10-21: Licenses & credits page; functions & keywords reference (188 entries in 18 groups, `#/reference`);
+  practice batches (`*Practice.ts`, `morePractice.ts`): report dates, cleaning, pagination, information_schema,
+  roles/GRANT/REVOKE, explicit transactions, CSV loading, interview classics. Topics added: data-cleaning, pagination,
+  introspection, privileges, data-loading.
+- Product direction: a Duolingo-style learning app (see the memory note and the prototype artifact); not built yet.
+- Deployed: GitHub Pages via the deploy job in verify.yml (vite base from BASE_PATH=/sql-playbook/). Free hosting tiers
+  (Pages, Vercel Hobby) forbid commercial use: move to a paid plan before the subscription. Vercel later for previews/functions.
+- Next: the learning app (PWA) from the prototype, more home-dataset exercises, two replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

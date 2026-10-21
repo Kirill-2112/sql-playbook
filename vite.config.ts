@@ -25,6 +25,8 @@ function checkLicenses(): Plugin {
 }
 
 export default defineConfig({
+  // GitHub Pages serves the site from /sql-playbook/; the workflow sets BASE_PATH for that build.
+  base: process.env.BASE_PATH ?? '/',
   plugins: [react(), checkLicenses()],
   // PGlite ships its own WASM and data files; Vite's pre-bundler breaks their paths.
   optimizeDeps: { exclude: ['@electric-sql/pglite'] },

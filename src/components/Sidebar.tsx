@@ -42,6 +42,11 @@ export function Sidebar() {
         <Soon>Functions &amp; keywords — coming soon</Soon>
       </Section>
 
+      <Section>
+        <SectionTitle>About</SectionTitle>
+        <Link to="/licenses">Licenses &amp; credits</Link>
+      </Section>
+
       <Footer>
         <DatabaseStatusBadge />
       </Footer>

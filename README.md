@@ -92,6 +92,11 @@ Licenses of what ships to the browser: React, React Router, styled-components an
 PGlite (Apache-2.0, includes PostgreSQL under the PostgreSQL License), IBM Plex fonts (SIL Open Font License).
 MySQL Server is used only to verify solutions and is not distributed.
 
+The site's **Licenses & credits** page (`#/licenses`) shows every dataset notice and the license text of every npm
+package that ships. `npm run licenses` regenerates `src/content/generated/licenses.json` from the production build and
+stops on a license that is not MIT, ISC, Apache-2.0 or BSD; `npm run build` fails if the bundle contains a package that
+is not on that list.
+
 ## Roadmap
 
 See the plan: 8 datasets so far, ~1,000 exercises across 53 topics and 5 levels, a reference section, CI verification on GitHub Actions.

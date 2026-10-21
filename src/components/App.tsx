@@ -8,6 +8,7 @@ import { ExercisesPage } from './ExercisesPage'
 import { HomePage } from './HomePage'
 import { IndexLabPage } from './IndexLabPage'
 import { Layout } from './Layout'
+import { LicensesPage } from './LicensesPage'
 import { SituationPage } from './SituationPage'
 
 // HashRouter keeps deep links working on static hosting (GitHub Pages) without server rewrites.
@@ -24,6 +25,7 @@ export function App() {
             <Route path="datasets/:id" element={<DatasetPage />} />
             <Route path="situations/:slug" element={<SituationPage />} />
             <Route path="index-lab" element={<IndexLabPage />} />
+            <Route path="licenses" element={<LicensesPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

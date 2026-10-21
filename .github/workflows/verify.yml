@@ -66,6 +66,9 @@ jobs:
       - name: Verify every exercise on PostgreSQL and MySQL
         run: npm run verify
 
+      - name: Licenses page lists every shipped package (and only allowed licenses)
+        run: npm run licenses && git diff --exit-code -- src/content/generated/licenses.json
+
       - run: npm run typecheck
 
       - run: npm run build

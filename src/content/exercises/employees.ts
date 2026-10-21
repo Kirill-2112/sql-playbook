@@ -1,4 +1,5 @@
 import type { Exercise } from '../types'
+import { employeesPractice } from './morePractice'
 
 const PG = 'https://www.postgresql.org/docs/current/'
 const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
@@ -4549,4 +4550,5 @@ where table_schema = database() and table_name = 'salaries' and non_unique = 0 a
     comparison: 'Same rule; the partial index states it directly, the expression trick also works in MySQL 8.0.13+.',
     docs: [{ label: 'PostgreSQL: Partial unique indexes', url: PG + 'indexes-partial.html' }],
   },
+  ...employeesPractice,
 ]

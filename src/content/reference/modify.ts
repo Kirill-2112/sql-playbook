@@ -224,4 +224,30 @@ select (select count(*) from item) as kept, (select count(*) from archive) as ar
     match: '\\bwith\\s+\\w+\\s+as\\s*\\(\\s*(delete|update|insert)\\b',
     docs: [{ label: 'PostgreSQL: data-modifying statements in WITH', url: PG + 'queries-with.html#QUERIES-WITH-MODIFYING' }],
   },
+  {
+    id: 'copy',
+    name: 'COPY / LOAD DATA',
+    group: 'modify',
+    summary:
+      'Loads a whole file (CSV or text) into a table in one statement, far faster than row-by-row INSERTs. Real data usually arrives this way; load into a staging table first, then clean and apply.',
+    postgres: "copy customer_import from 'customers.csv' with (format csv, header);\n\\copy customer_import from 'customers.csv' with (format csv, header)  -- psql, reads a local file",
+    mysql: "load data local infile 'customers.csv'\ninto table customer_import\nfields terminated by ',' optionally enclosed by '\"'\nignore 1 lines;",
+    mysqlNote:
+      'LOAD DATA without LOCAL reads from the server\'s disk (limited by secure_file_priv); LOCAL sends a file from the client and must be enabled with local_infile on both sides.',
+    example: {
+      postgres: `create table city (name varchar(30), population int);
+copy city from 'cities.csv' with (format csv, header);
+select name, population from city order by population desc;`,
+      mysql: `create table city (name varchar(30), population int);
+load data local infile 'cities.csv' into table city
+fields terminated by ',' optionally enclosed by '"' ignore 1 lines;
+select name, population from city order by population desc;`,
+      files: [{ name: 'cities.csv', content: 'name,population\nOslo,717710\n"Washington, D.C.",678972\nReykjavik,139875\n' }],
+    },
+    match: '\\bcopy\\s+\\w+(\\s*\\([^)]*\\))?\\s+from\\b|\\bload\\s+data\\b',
+    docs: [
+      { label: 'PostgreSQL: COPY', url: PG + 'sql-copy.html' },
+      { label: 'MySQL: LOAD DATA', url: MY + 'load-data.html' },
+    ],
+  },
 ]

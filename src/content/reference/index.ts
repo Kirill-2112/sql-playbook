@@ -11,6 +11,7 @@ import { modifyEntries } from './modify'
 import { numberEntries } from './numbers'
 import { performanceEntries } from './performance'
 import { programmingEntries } from './programming'
+import { securityEntries } from './security'
 import { queryEntries } from './query'
 import { stringEntries } from './strings'
 import { transactionEntries } from './transactions'
@@ -34,6 +35,7 @@ export const REFERENCE_GROUPS: { id: ReferenceGroupId; name: string }[] = [
   { id: 'programming', name: 'Functions, procedures and triggers' },
   { id: 'performance', name: 'Indexes and query plans' },
   { id: 'transactions', name: 'Transactions and locks' },
+  { id: 'security', name: 'Users, roles and privileges' },
   { id: 'fulltext', name: 'Full-text search' },
 ]
 
@@ -54,6 +56,7 @@ export const REFERENCE: ReferenceEntry[] = [
   ...programmingEntries,
   ...performanceEntries,
   ...transactionEntries,
+  ...securityEntries,
   ...fulltextEntries,
 ]
 

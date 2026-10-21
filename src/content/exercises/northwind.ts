@@ -1,5 +1,6 @@
 import type { Exercise } from '../types'
 import { northwindAdvanced } from './northwindAdvanced'
+import { northwindPractice } from './northwindPractice'
 
 const PG = 'https://www.postgresql.org/docs/current/'
 const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
@@ -1249,4 +1250,4 @@ order by customer_id, order_date desc, order_id desc;`,
   },
 ]
 
-export const northwindExercises: Exercise[] = [...basics, ...northwindAdvanced]
+export const northwindExercises: Exercise[] = [...basics, ...northwindAdvanced, ...northwindPractice]

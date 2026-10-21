@@ -39,6 +39,8 @@ export const TOPICS: Topic[] = [
   t('set-operations', 2, 'Set operations', 'union · intersect · except', 'same', 'INTERSECT and EXCEPT since 8.0.31.'),
   t('subqueries', 2, 'Subqueries', 'in · exists · scalar · correlated', 'same'),
   t('casting', 2, 'Type casting', 'cast · ::', 'diff', 'No ::, only CAST().'),
+  t('data-cleaning', 2, 'Cleaning data', 'trim · lower · replace · nullif · duplicates', 'diff', 'REGEXP_REPLACE replaces every match by default; no INITCAP.'),
+  t('pagination', 2, 'Pagination', 'limit · offset · keyset (where id > …)', 'same'),
 
   t('cte', 3, 'CTE', 'with … as', 'same'),
   t('ranking', 3, 'Ranking', 'row_number · rank · dense_rank · ntile', 'same'),
@@ -58,6 +60,7 @@ export const TOPICS: Topic[] = [
   t('upsert', 4, 'Upsert', 'on conflict do update', 'diff', 'ON DUPLICATE KEY UPDATE.'),
   t('merge', 4, 'Merge', 'merge into', 'none', 'Not supported.'),
   t('transactions', 4, 'Transactions', 'begin · commit · rollback · savepoint', 'diff', 'CREATE/ALTER commit immediately and cannot be rolled back.'),
+  t('data-loading', 4, 'Loading files', 'copy · load data · staging tables', 'diff', 'LOAD DATA [LOCAL] INFILE instead of COPY; local_infile must be enabled.'),
   t('temp-tables', 4, 'Temporary tables', 'create temp table', 'diff', 'CREATE TEMPORARY TABLE.'),
   t('views', 4, 'Views', 'create view', 'same'),
   t('materialized-views', 4, 'Materialized views', 'create materialized view · refresh', 'none', 'Not supported.'),
@@ -65,6 +68,8 @@ export const TOPICS: Topic[] = [
   t('json', 4, 'JSON', 'jsonb · -> · ->> · @>', 'diff', 'JSON type with different functions.'),
   t('arrays', 4, 'Arrays', 'array · unnest · any', 'none', 'Not supported.'),
   t('generated-columns', 4, 'Generated columns', 'generated always as', 'same'),
+  t('introspection', 4, 'Exploring a database', 'information_schema · pg_catalog', 'diff', 'A schema is a database (table_schema = database()); SHOW TABLES as a shortcut.'),
+  t('privileges', 4, 'Users, roles & privileges', 'create role · grant · revoke · set role', 'diff', 'Accounts are user@host and live on the whole server; roles since 8.0.'),
 
   t('functions', 5, 'Functions', 'create function · plpgsql · returns table', 'diff', 'Different syntax, DELIMITER.'),
   t('procedures', 5, 'Procedures & blocks', 'create procedure · call · do', 'diff', 'No anonymous DO blocks.'),

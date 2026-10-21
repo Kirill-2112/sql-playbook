@@ -382,4 +382,28 @@ order by amount;`,
       { label: 'MySQL: scalar operand', url: MY + 'scalar-subqueries.html' },
     ],
   },
+  {
+    id: 'keyset-pagination',
+    name: 'Keyset pagination',
+    group: 'query',
+    summary:
+      'Fetches the next page by continuing after the last row shown (WHERE sort key > last value) instead of skipping rows with OFFSET. Stays fast deep into a list and never repeats or skips rows when new ones arrive.',
+    postgres: 'select … from t\nwhere (created_at, id) < (:last_created_at, :last_id)\norder by created_at desc, id desc\nlimit 20;',
+    mysql: 'select … from t\nwhere (created_at, id) < (:last_created_at, :last_id)\norder by created_at desc, id desc\nlimit 20;',
+    example: {
+      postgres: `with item(id, price) as (
+  select 1, 50 union all select 2, 40 union all select 3, 40 union all select 4, 30 union all select 5, 20
+)
+select id, price from item
+where price < 40 or (price = 40 and id > 2)
+order by price desc, id
+limit 2;`,
+    },
+    match: '\\(\\s*\\w+(\\.\\w+)?\\s*,\\s*\\w+(\\.\\w+)?\\s*\\)\\s*[<>]=?\\s*\\(|\\bwhere\\s+\\w+\\s*<\\s*[\\d.]+\\s+or\\s*\\(',
+    docs: [
+      { label: 'PostgreSQL: LIMIT and OFFSET', url: PG + 'queries-limit.html' },
+      { label: 'PostgreSQL: row constructor comparison', url: PG + 'functions-comparisons.html#ROW-WISE-COMPARISON' },
+      { label: 'MySQL: LIMIT optimization', url: MY + 'limit-optimization.html' },
+    ],
+  },
 ]

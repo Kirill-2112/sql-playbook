@@ -343,4 +343,31 @@ select 'dropped twice without an error' as result;`,
       { label: 'MySQL: DROP TABLE', url: MY + 'drop-table.html' },
     ],
   },
+  {
+    id: 'information-schema',
+    name: 'information_schema',
+    group: 'ddl',
+    summary:
+      'Standard views that describe the database itself: tables, columns, keys, privileges. The way to explore an unfamiliar database with SQL alone; PostgreSQL also has the richer pg_catalog.',
+    postgres: "select table_name, column_name, data_type\nfrom information_schema.columns\nwhere table_schema = 'public';",
+    mysql: 'select table_name, column_name, data_type\nfrom information_schema.columns\nwhere table_schema = database();',
+    mysqlNote: 'In MySQL table_schema is the database name; SHOW TABLES and DESCRIBE are shortcuts for the same information.',
+    example: {
+      postgres: `create table item (id int primary key, name varchar(20) not null, note varchar(50));
+select column_name, is_nullable
+from information_schema.columns
+where table_schema = 'public' and table_name = 'item'
+order by ordinal_position;`,
+      mysql: `create table item (id int primary key, name varchar(20) not null, note varchar(50));
+select column_name, is_nullable
+from information_schema.columns
+where table_schema = database() and table_name = 'item'
+order by ordinal_position;`,
+    },
+    match: '\\binformation_schema\\.|\\bpg_(catalog|class|attribute|indexes|roles|auth_members)\\b',
+    docs: [
+      { label: 'PostgreSQL: the information schema', url: PG + 'information-schema.html' },
+      { label: 'MySQL: INFORMATION_SCHEMA tables', url: MY + 'information-schema-introduction.html' },
+    ],
+  },
 ]

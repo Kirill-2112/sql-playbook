@@ -1,4 +1,5 @@
 import type { Exercise } from '../types'
+import { adventureworksPractice } from './morePractice'
 
 const PG = 'https://www.postgresql.org/docs/current/'
 const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
@@ -4748,4 +4749,5 @@ where json_contains(vendors, '[1492, 1534]');`,
     ],
     docs: [{ label: 'PostgreSQL: Array operators', url: PG + 'functions-array.html' }],
   },
+  ...adventureworksPractice,
 ]

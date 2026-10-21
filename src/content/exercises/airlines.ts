@@ -1,4 +1,5 @@
 import type { Exercise } from '../types'
+import { airlinesPractice } from './morePractice'
 
 const PG = 'https://www.postgresql.org/docs/current/'
 const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
@@ -5018,4 +5019,5 @@ group by date(book_date);`,
     ],
     docs: [{ label: 'PostgreSQL: CREATE MATERIALIZED VIEW', url: PG + 'sql-creatematerializedview.html' }],
   },
+  ...airlinesPractice,
 ]

@@ -1,4 +1,5 @@
 import type { Exercise } from '../types'
+import { lahmanPractice } from './morePractice'
 
 const PG = 'https://www.postgresql.org/docs/current/'
 const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
@@ -4548,4 +4549,5 @@ end;`,
     ],
     docs: [{ label: 'PostgreSQL: to_tsquery', url: PG + 'textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES' }],
   },
+  ...lahmanPractice,
 ]

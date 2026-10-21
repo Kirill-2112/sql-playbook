@@ -83,6 +83,14 @@ npm run verify
 Documentation links point to the official [PostgreSQL](https://www.postgresql.org/docs/current/) and
 [MySQL 8.4](https://dev.mysql.com/doc/refman/8.4/en/) manuals. MySQL documentation text is not copied (Oracle license); explanations are original.
 
+## Functions & keywords reference
+
+`src/content/reference/` holds 177 entries in 17 groups: PostgreSQL syntax, the MySQL 8.4 equivalent (or why there is
+none), an explanation in our own words, documentation links and a runnable example. `npm run build:reference` runs every
+example on PGlite and on MySQL (in a throwaway `pb_reference` database), fails if the rows differ, finds the exercises
+that use each entry and writes `src/content/generated/reference.json`. Add `-- --links` to also check that every
+documentation link and #anchor exists.
+
 ## Stack
 
 React + TypeScript (strict) + styled-components, Vite. [PGlite](https://pglite.dev) (PostgreSQL 18 in WebAssembly).

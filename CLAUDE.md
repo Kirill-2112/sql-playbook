@@ -41,6 +41,11 @@ Audit of 2026-10-15:
   throwaway copy (`pb_scratch`).
   Never run two `verify` processes at once: they share `pb_scratch` and break each other ("Unknown database 'pb_scratch'").
   A full run of ~1,000 exercises takes 30–60 minutes; run it in the background with a long timeout.
+- `src/content/reference/<group>.ts` — the functions & keywords reference (`ReferenceEntry` in types.ts). Every entry
+  has an example; `npm run build:reference` runs it on PGlite and MySQL (database `pb_reference`) and writes
+  `generated/reference.json` (results + exercises found by the entry's `match` regex). `example.mysql`: omitted = same
+  text, null = no MySQL version. Examples with their own BEGIN/COMMIT run statement by statement on a fresh PGlite.
+  MySQL `->`/`->>` work only on columns; use json_extract/json_unquote on expressions. Run `-- --links` after adding docs.
 - `src/content/topics.ts` — the 53-topic curriculum (5 levels). `src/content/datasets.ts` — dataset metadata and attribution.
 - UI: React + TypeScript strict + styled-components; one component per file in `src/components/`; colours/spacing only from
   `src/theme/tokens.ts`.
@@ -84,6 +89,7 @@ Audit of 2026-10-15:
   generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
   1000 exercises, all 53 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
-- Done 2026-10-21: Licenses & credits page.
-- Next: two replacement datasets with commercial licenses, a functions reference section, deploying the site (GitHub Pages).
+- Done 2026-10-21: Licenses & credits page; functions & keywords reference (177 entries, `#/reference`).
+- Next: two replacement datasets with commercial licenses, labs (plans, PL/pgSQL, transactions), deploying the site
+  (GitHub Pages).
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

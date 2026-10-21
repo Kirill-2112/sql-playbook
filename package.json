@@ -10,7 +10,8 @@
     "typecheck": "tsc -b",
     "build:datasets": "tsx scripts/build-datasets.ts",
     "verify": "tsx scripts/verify.ts",
-    "licenses": "tsx scripts/licenses.ts"
+    "licenses": "tsx scripts/licenses.ts",
+    "build:reference": "tsx scripts/build-reference.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.9",

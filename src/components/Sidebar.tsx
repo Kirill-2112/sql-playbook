@@ -39,7 +39,7 @@ export function Sidebar() {
 
       <Section>
         <SectionTitle>Reference</SectionTitle>
-        <Soon>Functions &amp; keywords — coming soon</Soon>
+        <Link to="/reference">Functions &amp; keywords</Link>
       </Section>
 
       <Section>
@@ -118,11 +118,6 @@ const Link = styled(NavLink)`
     color: ${({ theme }) => theme.color.accent};
     font-weight: 500;
   }
-`
-
-const Soon = styled.span`
-  font-size: ${({ theme }) => theme.size.sm};
-  color: ${({ theme }) => theme.color.muted};
 `
 
 const Footer = styled.div`

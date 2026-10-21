@@ -62,3 +62,56 @@ export interface DatasetMeta {
   source: { label: string; url: string }
   attribution: string
 }
+
+export type ReferenceGroupId =
+  | 'query'
+  | 'joins'
+  | 'conditional'
+  | 'aggregates'
+  | 'window'
+  | 'strings'
+  | 'numbers'
+  | 'dates'
+  | 'types'
+  | 'json'
+  | 'arrays'
+  | 'modify'
+  | 'ddl'
+  | 'programming'
+  | 'performance'
+  | 'transactions'
+  | 'fulltext'
+
+/** A runnable example. Both versions are run by scripts/build-reference.ts and must return the same rows. */
+export interface ReferenceExample {
+  postgres: string
+  /** MySQL version; omitted when it is the same text, null when it cannot be written in MySQL (or gives different output). */
+  mysql?: string | null
+}
+
+export interface ReferenceEntry {
+  /** Stable slug used in URLs, e.g. "coalesce". */
+  id: string
+  name: string
+  group: ReferenceGroupId
+  /** One or two sentences in our own words. */
+  summary: string
+  /** PostgreSQL syntax. */
+  postgres: string
+  /** MySQL 8.4 equivalent; null when there is none. Same text as postgres means it works unchanged. */
+  mysql: string | null
+  mysqlNote?: string
+  example: ReferenceExample
+  /** Regular expression (case-insensitive) that finds this feature in exercise solutions. */
+  match: string
+  docs: DocLink[]
+}
+
+/** Written by scripts/build-reference.ts: each example's PostgreSQL result and the exercises that use the entry. */
+export interface ReferenceGenerated {
+  columns: string[]
+  rows: string[][]
+  mysqlChecked: boolean
+  exerciseCount: number
+  exercises: { id: string; title: string; level: Level }[]
+}

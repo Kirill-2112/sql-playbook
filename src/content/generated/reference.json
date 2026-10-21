@@ -1,0 +1,8369 @@
+{
+  "select": {
+    "columns": [
+      "title",
+      "length",
+      "hours"
+    ],
+    "rows": [
+      [
+        "Alien",
+        "117",
+        "1"
+      ],
+      [
+        "Heat",
+        "170",
+        "2"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 839,
+    "exercises": [
+      {
+        "id": "sakila-001",
+        "title": "Long R-rated films",
+        "level": 1
+      },
+      {
+        "id": "chinook-001",
+        "title": "Tracks longer than 15 minutes",
+        "level": 1
+      },
+      {
+        "id": "northwind-001",
+        "title": "Premium products",
+        "level": 1
+      },
+      {
+        "id": "employees-001",
+        "title": "The first hires",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-026",
+        "title": "The most expensive products",
+        "level": 1
+      },
+      {
+        "id": "lahman-001",
+        "title": "The 105-win teams",
+        "level": 1
+      },
+      {
+        "id": "delivery-001",
+        "title": "The biggest orders",
+        "level": 1
+      },
+      {
+        "id": "airlines-001",
+        "title": "Long-haul airplanes",
+        "level": 1
+      }
+    ]
+  },
+  "where": {
+    "columns": [
+      "name"
+    ],
+    "rows": [
+      [
+        "tea"
+      ],
+      [
+        "cake"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 680,
+    "exercises": [
+      {
+        "id": "sakila-001",
+        "title": "Long R-rated films",
+        "level": 1
+      },
+      {
+        "id": "chinook-001",
+        "title": "Tracks longer than 15 minutes",
+        "level": 1
+      },
+      {
+        "id": "northwind-001",
+        "title": "Premium products",
+        "level": 1
+      },
+      {
+        "id": "employees-001",
+        "title": "The first hires",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-028",
+        "title": "The colour range",
+        "level": 1
+      },
+      {
+        "id": "lahman-001",
+        "title": "The 105-win teams",
+        "level": 1
+      },
+      {
+        "id": "delivery-002",
+        "title": "How many customers are called Noa",
+        "level": 1
+      },
+      {
+        "id": "airlines-001",
+        "title": "Long-haul airplanes",
+        "level": 1
+      }
+    ]
+  },
+  "distinct": {
+    "columns": [
+      "city"
+    ],
+    "rows": [
+      [
+        "Oslo"
+      ],
+      [
+        "Rome"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 50,
+    "exercises": [
+      {
+        "id": "sakila-003",
+        "title": "Which ratings exist?",
+        "level": 1
+      },
+      {
+        "id": "northwind-007",
+        "title": "Where suppliers are",
+        "level": 1
+      },
+      {
+        "id": "employees-005",
+        "title": "Every job title",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-028",
+        "title": "The colour range",
+        "level": 1
+      },
+      {
+        "id": "lahman-008",
+        "title": "Where the 2025 hitters were born",
+        "level": 1
+      },
+      {
+        "id": "employees-054",
+        "title": "Titles managers have held",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-076",
+        "title": "Colour and size combinations",
+        "level": 1
+      },
+      {
+        "id": "sakila-021",
+        "title": "First names shared by actors and customers",
+        "level": 2
+      }
+    ]
+  },
+  "distinct-on": {
+    "columns": [
+      "shop",
+      "day",
+      "amount"
+    ],
+    "rows": [
+      [
+        "A",
+        "2",
+        "30"
+      ],
+      [
+        "B",
+        "1",
+        "20"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 4,
+    "exercises": [
+      {
+        "id": "chinook-022",
+        "title": "Best seller in each genre",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-074",
+        "title": "The priciest product in each subcategory",
+        "level": 3
+      },
+      {
+        "id": "lahman-024",
+        "title": "Highest-paid player of each team",
+        "level": 3
+      },
+      {
+        "id": "lahman-072",
+        "title": "Sync franchise names",
+        "level": 4
+      }
+    ]
+  },
+  "order-by": {
+    "columns": [
+      "name",
+      "score"
+    ],
+    "rows": [
+      [
+        "Bob",
+        "NULL"
+      ],
+      [
+        "Ann",
+        "7"
+      ],
+      [
+        "Cy",
+        "9"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 521,
+    "exercises": [
+      {
+        "id": "sakila-001",
+        "title": "Long R-rated films",
+        "level": 1
+      },
+      {
+        "id": "chinook-001",
+        "title": "Tracks longer than 15 minutes",
+        "level": 1
+      },
+      {
+        "id": "northwind-001",
+        "title": "Premium products",
+        "level": 1
+      },
+      {
+        "id": "employees-001",
+        "title": "The first hires",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-026",
+        "title": "The most expensive products",
+        "level": 1
+      },
+      {
+        "id": "lahman-001",
+        "title": "The 105-win teams",
+        "level": 1
+      },
+      {
+        "id": "delivery-001",
+        "title": "The biggest orders",
+        "level": 1
+      },
+      {
+        "id": "airlines-001",
+        "title": "Long-haul airplanes",
+        "level": 1
+      }
+    ]
+  },
+  "limit-offset": {
+    "columns": [
+      "n"
+    ],
+    "rows": [
+      [
+        "2"
+      ],
+      [
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 116,
+    "exercises": [
+      {
+        "id": "sakila-002",
+        "title": "Most expensive films to replace",
+        "level": 1
+      },
+      {
+        "id": "chinook-002",
+        "title": "The biggest files",
+        "level": 1
+      },
+      {
+        "id": "northwind-008",
+        "title": "Latest orders",
+        "level": 1
+      },
+      {
+        "id": "employees-002",
+        "title": "The most recent hires",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-026",
+        "title": "The most expensive products",
+        "level": 1
+      },
+      {
+        "id": "lahman-006",
+        "title": "Height in feet and inches",
+        "level": 1
+      },
+      {
+        "id": "delivery-001",
+        "title": "The biggest orders",
+        "level": 1
+      },
+      {
+        "id": "airlines-006",
+        "title": "First and last names",
+        "level": 1
+      }
+    ]
+  },
+  "fetch-first": {
+    "columns": [
+      "name",
+      "score"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "9"
+      ],
+      [
+        "Bob",
+        "8"
+      ],
+      [
+        "Cy",
+        "8"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 4,
+    "exercises": [
+      {
+        "id": "sakila-002",
+        "title": "Most expensive films to replace",
+        "level": 1
+      },
+      {
+        "id": "chinook-070",
+        "title": "Top 5, ties included",
+        "level": 1
+      },
+      {
+        "id": "northwind-079",
+        "title": "Top 11 prices, ties included",
+        "level": 1
+      },
+      {
+        "id": "lahman-041",
+        "title": "Places 11 to 20",
+        "level": 1
+      }
+    ]
+  },
+  "group-by": {
+    "columns": [
+      "shop",
+      "sales",
+      "total"
+    ],
+    "rows": [
+      [
+        "A",
+        "2",
+        "40"
+      ],
+      [
+        "B",
+        "1",
+        "20"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 361,
+    "exercises": [
+      {
+        "id": "sakila-003",
+        "title": "Which ratings exist?",
+        "level": 1
+      },
+      {
+        "id": "chinook-003",
+        "title": "Countries, alphabetically — but whose alphabet?",
+        "level": 1
+      },
+      {
+        "id": "northwind-060",
+        "title": "Countries shipped to each year",
+        "level": 1
+      },
+      {
+        "id": "employees-072",
+        "title": "The Sch- family names",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-030",
+        "title": "Product lines in words",
+        "level": 1
+      },
+      {
+        "id": "lahman-041",
+        "title": "Places 11 to 20",
+        "level": 1
+      },
+      {
+        "id": "delivery-004",
+        "title": "Small, medium and large orders",
+        "level": 1
+      },
+      {
+        "id": "airlines-066",
+        "title": "Punctuality classes",
+        "level": 1
+      }
+    ]
+  },
+  "having": {
+    "columns": [
+      "shop",
+      "total"
+    ],
+    "rows": [
+      [
+        "A",
+        "40"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 40,
+    "exercises": [
+      {
+        "id": "employees-072",
+        "title": "The Sch- family names",
+        "level": 1
+      },
+      {
+        "id": "airlines-068",
+        "title": "Airplanes used on each route number",
+        "level": 1
+      },
+      {
+        "id": "sakila-013",
+        "title": "Customers with 40+ rentals",
+        "level": 2
+      },
+      {
+        "id": "chinook-013",
+        "title": "Best customers",
+        "level": 2
+      },
+      {
+        "id": "northwind-012",
+        "title": "Customers with many orders",
+        "level": 2
+      },
+      {
+        "id": "employees-008",
+        "title": "Well-paid departments",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-128",
+        "title": "Products with a second source",
+        "level": 2
+      },
+      {
+        "id": "lahman-012",
+        "title": "Three teams in one season",
+        "level": 2
+      }
+    ]
+  },
+  "rollup": {
+    "columns": [
+      "shop",
+      "total"
+    ],
+    "rows": [
+      [
+        "A",
+        "40"
+      ],
+      [
+        "B",
+        "20"
+      ],
+      [
+        "NULL",
+        "60"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 24,
+    "exercises": [
+      {
+        "id": "sakila-030",
+        "title": "Rentals by store and rating, with subtotals",
+        "level": 3
+      },
+      {
+        "id": "chinook-029",
+        "title": "Revenue by country and city, with subtotals",
+        "level": 3
+      },
+      {
+        "id": "northwind-030",
+        "title": "Labelled subtotals",
+        "level": 3
+      },
+      {
+        "id": "employees-021",
+        "title": "Headcount with subtotals",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-015",
+        "title": "Sales by category and subcategory",
+        "level": 3
+      },
+      {
+        "id": "lahman-021",
+        "title": "Home runs by league and division",
+        "level": 3
+      },
+      {
+        "id": "delivery-042",
+        "title": "Revenue by city and cuisine, with totals",
+        "level": 3
+      },
+      {
+        "id": "airlines-023",
+        "title": "Revenue by month and class, with totals",
+        "level": 3
+      }
+    ]
+  },
+  "grouping-sets": {
+    "columns": [
+      "shop",
+      "item",
+      "total"
+    ],
+    "rows": [
+      [
+        "A",
+        "NULL",
+        "40"
+      ],
+      [
+        "B",
+        "NULL",
+        "20"
+      ],
+      [
+        "NULL",
+        "cake",
+        "30"
+      ],
+      [
+        "NULL",
+        "tea",
+        "30"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 7,
+    "exercises": [
+      {
+        "id": "chinook-029",
+        "title": "Revenue by country and city, with subtotals",
+        "level": 3
+      },
+      {
+        "id": "employees-098",
+        "title": "Current staff by department and gender, every total",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-084",
+        "title": "Revenue by category and by year, in one result",
+        "level": 3
+      },
+      {
+        "id": "lahman-092",
+        "title": "2025 attendance by league and by division",
+        "level": 3
+      },
+      {
+        "id": "delivery-069",
+        "title": "Orders by city and status, every total",
+        "level": 3
+      },
+      {
+        "id": "airlines-059",
+        "title": "Totals by class and by month, separately",
+        "level": 3
+      },
+      {
+        "id": "chinook-041",
+        "title": "Sales by genre and media type, every way",
+        "level": 3
+      }
+    ]
+  },
+  "with": {
+    "columns": [
+      "amount"
+    ],
+    "rows": [
+      [
+        "30"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 112,
+    "exercises": [
+      {
+        "id": "sakila-018",
+        "title": "Longer than average",
+        "level": 2
+      },
+      {
+        "id": "chinook-050",
+        "title": "Genre sales, 2021 against 2025",
+        "level": 2
+      },
+      {
+        "id": "northwind-104",
+        "title": "1997 against 1998, month by month",
+        "level": 2
+      },
+      {
+        "id": "employees-049",
+        "title": "Hires and leavers per year",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-040",
+        "title": "Approved vendors and actual orders",
+        "level": 2
+      },
+      {
+        "id": "lahman-063",
+        "title": "All-Stars and award winners in 2024",
+        "level": 2
+      },
+      {
+        "id": "delivery-044",
+        "title": "Sign-ups and first orders by month",
+        "level": 2
+      },
+      {
+        "id": "airlines-049",
+        "title": "Which connections changed in January",
+        "level": 2
+      }
+    ]
+  },
+  "with-recursive": {
+    "columns": [
+      "n"
+    ],
+    "rows": [
+      [
+        "1"
+      ],
+      [
+        "2"
+      ],
+      [
+        "4"
+      ],
+      [
+        "8"
+      ],
+      [
+        "16"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 54,
+    "exercises": [
+      {
+        "id": "sakila-025",
+        "title": "Rentals per month, including empty months",
+        "level": 3
+      },
+      {
+        "id": "chinook-023",
+        "title": "The org chart",
+        "level": 3
+      },
+      {
+        "id": "northwind-026",
+        "title": "Everyone under Andrew Fuller",
+        "level": 3
+      },
+      {
+        "id": "employees-019",
+        "title": "Headcount at the start of every year",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-008",
+        "title": "The sales organisation",
+        "level": 3
+      },
+      {
+        "id": "lahman-059",
+        "title": "Debuts every month of 2025",
+        "level": 3
+      },
+      {
+        "id": "delivery-009",
+        "title": "Revenue every day of March 2025",
+        "level": 3
+      },
+      {
+        "id": "airlines-021",
+        "title": "Cancellations every day in October",
+        "level": 3
+      }
+    ]
+  },
+  "lateral": {
+    "columns": [
+      "name",
+      "amount"
+    ],
+    "rows": [
+      [
+        "A",
+        "30"
+      ],
+      [
+        "A",
+        "20"
+      ],
+      [
+        "B",
+        "5"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 28,
+    "exercises": [
+      {
+        "id": "sakila-022",
+        "title": "Top 3 films in each category",
+        "level": 3
+      },
+      {
+        "id": "chinook-030",
+        "title": "Two longest tracks in each genre",
+        "level": 3
+      },
+      {
+        "id": "northwind-031",
+        "title": "Two latest orders of each Mexican customer",
+        "level": 3
+      },
+      {
+        "id": "employees-032",
+        "title": "The latest hires of each department",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-017",
+        "title": "Biggest orders of the biggest stores",
+        "level": 3
+      },
+      {
+        "id": "lahman-023",
+        "title": "Each team's home run leader",
+        "level": 3
+      },
+      {
+        "id": "delivery-040",
+        "title": "Three latest orders per customer",
+        "level": 3
+      },
+      {
+        "id": "airlines-024",
+        "title": "Two longest routes per airplane",
+        "level": 3
+      }
+    ]
+  },
+  "values": {
+    "columns": [
+      "id",
+      "name"
+    ],
+    "rows": [
+      [
+        "1",
+        "tea"
+      ],
+      [
+        "2",
+        "cake"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 11,
+    "exercises": [
+      {
+        "id": "employees-090",
+        "title": "Birthdays written the European way",
+        "level": 2
+      },
+      {
+        "id": "airlines-035",
+        "title": "Every class on every airplane",
+        "level": 2
+      },
+      {
+        "id": "sakila-036",
+        "title": "Insert or update in one statement",
+        "level": 4
+      },
+      {
+        "id": "chinook-089",
+        "title": "Play counts from a batch of events",
+        "level": 4
+      },
+      {
+        "id": "northwind-110",
+        "title": "An employee's territories from a list",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-088",
+        "title": "Make an offer match a list, and only that offer",
+        "level": 4
+      },
+      {
+        "id": "lahman-125",
+        "title": "Corrections to the 2016 Red Sox payroll",
+        "level": 4
+      },
+      {
+        "id": "delivery-085",
+        "title": "A feed that adds, renames and removes",
+        "level": 4
+      }
+    ]
+  },
+  "subquery-scalar": {
+    "columns": [
+      "amount",
+      "vs_avg"
+    ],
+    "rows": [
+      [
+        "10",
+        "-10.0000000000000000"
+      ],
+      [
+        "20",
+        "0.0000000000000000"
+      ],
+      [
+        "30",
+        "10.0000000000000000"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 340,
+    "exercises": [
+      {
+        "id": "chinook-070",
+        "title": "Top 5, ties included",
+        "level": 1
+      },
+      {
+        "id": "northwind-079",
+        "title": "Top 11 prices, ties included",
+        "level": 1
+      },
+      {
+        "id": "employees-054",
+        "title": "Titles managers have held",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-076",
+        "title": "Colour and size combinations",
+        "level": 1
+      },
+      {
+        "id": "airlines-046",
+        "title": "How many time zones",
+        "level": 1
+      },
+      {
+        "id": "airlines-047",
+        "title": "Served airports in Asia",
+        "level": 1
+      },
+      {
+        "id": "airlines-118",
+        "title": "German airports with departures",
+        "level": 1
+      },
+      {
+        "id": "sakila-011",
+        "title": "Films with no copies",
+        "level": 2
+      }
+    ]
+  },
+  "inner-join": {
+    "columns": [
+      "name",
+      "pet"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "cat"
+      ],
+      [
+        "Ann",
+        "dog"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 366,
+    "exercises": [
+      {
+        "id": "lahman-004",
+        "title": "Hall of Famers no longer with us",
+        "level": 1
+      },
+      {
+        "id": "delivery-058",
+        "title": "Never ordered, shown as text",
+        "level": 1
+      },
+      {
+        "id": "lahman-008",
+        "title": "Where the 2025 hitters were born",
+        "level": 1
+      },
+      {
+        "id": "sakila-010",
+        "title": "Horror films",
+        "level": 2
+      },
+      {
+        "id": "chinook-010",
+        "title": "Everything by AC/DC",
+        "level": 2
+      },
+      {
+        "id": "northwind-010",
+        "title": "Seafood and who supplies it",
+        "level": 2
+      },
+      {
+        "id": "employees-006",
+        "title": "Where the first hires work now",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-001",
+        "title": "Expensive bikes with their category path",
+        "level": 2
+      }
+    ]
+  },
+  "left-join": {
+    "columns": [
+      "name",
+      "pet"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "cat"
+      ],
+      [
+        "Ann",
+        "dog"
+      ],
+      [
+        "Bob",
+        "NULL"
+      ],
+      [
+        "Cy",
+        "NULL"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 54,
+    "exercises": [
+      {
+        "id": "delivery-058",
+        "title": "Never ordered, shown as text",
+        "level": 1
+      },
+      {
+        "id": "sakila-011",
+        "title": "Films with no copies",
+        "level": 2
+      },
+      {
+        "id": "chinook-011",
+        "title": "Artists without albums",
+        "level": 2
+      },
+      {
+        "id": "northwind-013",
+        "title": "Customers and suppliers by country",
+        "level": 2
+      },
+      {
+        "id": "employees-100",
+        "title": "Titles in Development and in Sales",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-002",
+        "title": "Products per category, including the uncategorised",
+        "level": 2
+      },
+      {
+        "id": "delivery-007",
+        "title": "Customers who never ordered",
+        "level": 2
+      },
+      {
+        "id": "airlines-035",
+        "title": "Every class on every airplane",
+        "level": 2
+      }
+    ]
+  },
+  "full-join": {
+    "columns": [
+      "name",
+      "pet"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "cat"
+      ],
+      [
+        "Ann",
+        "dog"
+      ],
+      [
+        "Bob",
+        "NULL"
+      ],
+      [
+        "Cy",
+        "NULL"
+      ],
+      [
+        "NULL",
+        "fish"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 28,
+    "exercises": [
+      {
+        "id": "sakila-045",
+        "title": "Which store stocks which films",
+        "level": 2
+      },
+      {
+        "id": "chinook-050",
+        "title": "Genre sales, 2021 against 2025",
+        "level": 2
+      },
+      {
+        "id": "northwind-013",
+        "title": "Customers and suppliers by country",
+        "level": 2
+      },
+      {
+        "id": "employees-049",
+        "title": "Hires and leavers per year",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-040",
+        "title": "Approved vendors and actual orders",
+        "level": 2
+      },
+      {
+        "id": "lahman-016",
+        "title": "Who was paid in 2015, 2016 or both",
+        "level": 2
+      },
+      {
+        "id": "delivery-044",
+        "title": "Sign-ups and first orders by month",
+        "level": 2
+      },
+      {
+        "id": "airlines-049",
+        "title": "Which connections changed in January",
+        "level": 2
+      }
+    ]
+  },
+  "cross-join": {
+    "columns": [
+      "s",
+      "c"
+    ],
+    "rows": [
+      [
+        "L",
+        "blue"
+      ],
+      [
+        "L",
+        "red"
+      ],
+      [
+        "S",
+        "blue"
+      ],
+      [
+        "S",
+        "red"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 32,
+    "exercises": [
+      {
+        "id": "airlines-035",
+        "title": "Every class on every airplane",
+        "level": 2
+      },
+      {
+        "id": "sakila-022",
+        "title": "Top 3 films in each category",
+        "level": 3
+      },
+      {
+        "id": "chinook-030",
+        "title": "Two longest tracks in each genre",
+        "level": 3
+      },
+      {
+        "id": "northwind-025",
+        "title": "Share of the biggest customers",
+        "level": 3
+      },
+      {
+        "id": "employees-032",
+        "title": "The latest hires of each department",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-017",
+        "title": "Biggest orders of the biggest stores",
+        "level": 3
+      },
+      {
+        "id": "lahman-023",
+        "title": "Each team's home run leader",
+        "level": 3
+      },
+      {
+        "id": "delivery-040",
+        "title": "Three latest orders per customer",
+        "level": 3
+      }
+    ]
+  },
+  "join-using": {
+    "columns": [
+      "customer_id",
+      "name",
+      "total"
+    ],
+    "rows": [
+      [
+        "1",
+        "Ann",
+        "50"
+      ],
+      [
+        "2",
+        "Bob",
+        "20"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 17,
+    "exercises": [
+      {
+        "id": "sakila-010",
+        "title": "Horror films",
+        "level": 2
+      },
+      {
+        "id": "sakila-036",
+        "title": "Insert or update in one statement",
+        "level": 4
+      },
+      {
+        "id": "chinook-109",
+        "title": "A genre list from the label",
+        "level": 4
+      },
+      {
+        "id": "northwind-110",
+        "title": "An employee's territories from a list",
+        "level": 4
+      },
+      {
+        "id": "employees-076",
+        "title": "Sync a stale summary, deletions included",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-088",
+        "title": "Make an offer match a list, and only that offer",
+        "level": 4
+      },
+      {
+        "id": "lahman-036",
+        "title": "Refresh a leaderboard in one statement",
+        "level": 4
+      },
+      {
+        "id": "delivery-046",
+        "title": "Keep a stats table in sync",
+        "level": 4
+      }
+    ]
+  },
+  "union": {
+    "columns": [
+      "item"
+    ],
+    "rows": [
+      [
+        "cake"
+      ],
+      [
+        "tea"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 85,
+    "exercises": [
+      {
+        "id": "sakila-099",
+        "title": "UNION or UNION ALL?",
+        "level": 2
+      },
+      {
+        "id": "chinook-083",
+        "title": "Customers and staff by country",
+        "level": 2
+      },
+      {
+        "id": "northwind-013",
+        "title": "Customers and suppliers by country",
+        "level": 2
+      },
+      {
+        "id": "employees-049",
+        "title": "Hires and leavers per year",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-040",
+        "title": "Approved vendors and actual orders",
+        "level": 2
+      },
+      {
+        "id": "lahman-063",
+        "title": "All-Stars and award winners in 2024",
+        "level": 2
+      },
+      {
+        "id": "delivery-044",
+        "title": "Sign-ups and first orders by month",
+        "level": 2
+      },
+      {
+        "id": "airlines-035",
+        "title": "Every class on every airplane",
+        "level": 2
+      }
+    ]
+  },
+  "intersect-except": {
+    "columns": [
+      "x"
+    ],
+    "rows": [
+      [
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 24,
+    "exercises": [
+      {
+        "id": "sakila-011",
+        "title": "Films with no copies",
+        "level": 2
+      },
+      {
+        "id": "chinook-019",
+        "title": "Cities with both customers and staff",
+        "level": 2
+      },
+      {
+        "id": "northwind-019",
+        "title": "Orders containing both products",
+        "level": 2
+      },
+      {
+        "id": "employees-013",
+        "title": "Promoted engineers",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-004",
+        "title": "Products nobody ordered",
+        "level": 2
+      },
+      {
+        "id": "lahman-015",
+        "title": "All-Star and Gold Glove in 2025",
+        "level": 2
+      },
+      {
+        "id": "delivery-007",
+        "title": "Customers who never ordered",
+        "level": 2
+      },
+      {
+        "id": "airlines-013",
+        "title": "Moscow airports the airline skips",
+        "level": 2
+      }
+    ]
+  },
+  "exists": {
+    "columns": [
+      "name"
+    ],
+    "rows": [
+      [
+        "Bob"
+      ],
+      [
+        "Cy"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 56,
+    "exercises": [
+      {
+        "id": "airlines-047",
+        "title": "Served airports in Asia",
+        "level": 1
+      },
+      {
+        "id": "sakila-011",
+        "title": "Films with no copies",
+        "level": 2
+      },
+      {
+        "id": "chinook-011",
+        "title": "Artists without albums",
+        "level": 2
+      },
+      {
+        "id": "northwind-014",
+        "title": "Customers who never ordered",
+        "level": 2
+      },
+      {
+        "id": "employees-009",
+        "title": "People who left",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-004",
+        "title": "Products nobody ordered",
+        "level": 2
+      },
+      {
+        "id": "lahman-015",
+        "title": "All-Star and Gold Glove in 2025",
+        "level": 2
+      },
+      {
+        "id": "delivery-007",
+        "title": "Customers who never ordered",
+        "level": 2
+      }
+    ]
+  },
+  "in-subquery": {
+    "columns": [
+      "name"
+    ],
+    "rows": [
+      [
+        "Ann"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 19,
+    "exercises": [
+      {
+        "id": "employees-054",
+        "title": "Titles managers have held",
+        "level": 1
+      },
+      {
+        "id": "airlines-046",
+        "title": "How many time zones",
+        "level": 1
+      },
+      {
+        "id": "airlines-118",
+        "title": "German airports with departures",
+        "level": 1
+      },
+      {
+        "id": "sakila-011",
+        "title": "Films with no copies",
+        "level": 2
+      },
+      {
+        "id": "northwind-014",
+        "title": "Customers who never ordered",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-128",
+        "title": "Products with a second source",
+        "level": 2
+      },
+      {
+        "id": "delivery-083",
+        "title": "Open last New Year, quiet this one",
+        "level": 2
+      },
+      {
+        "id": "northwind-095",
+        "title": "Sold in 1996, never in 1998",
+        "level": 2
+      }
+    ]
+  },
+  "any-all": {
+    "columns": [
+      "name"
+    ],
+    "rows": [
+      [
+        "cake"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "self-join": {
+    "columns": [
+      "name",
+      "manager"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "NULL"
+      ],
+      [
+        "Bob",
+        "Ann"
+      ],
+      [
+        "Cy",
+        "Ann"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 60,
+    "exercises": [
+      {
+        "id": "sakila-017",
+        "title": "Actors who share a last name",
+        "level": 2
+      },
+      {
+        "id": "chinook-017",
+        "title": "Who reports to whom",
+        "level": 2
+      },
+      {
+        "id": "northwind-015",
+        "title": "Older than their boss",
+        "level": 2
+      },
+      {
+        "id": "employees-089",
+        "title": "Namesakes",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-005",
+        "title": "Vice presidents and their bosses",
+        "level": 2
+      },
+      {
+        "id": "lahman-014",
+        "title": "New team names",
+        "level": 2
+      },
+      {
+        "id": "delivery-034",
+        "title": "Competitors next door",
+        "level": 2
+      },
+      {
+        "id": "airlines-072",
+        "title": "Passenger countries, October vs November",
+        "level": 2
+      }
+    ]
+  },
+  "case": {
+    "columns": [
+      "name",
+      "grade"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "A"
+      ],
+      [
+        "Bob",
+        "B"
+      ],
+      [
+        "Cy",
+        "C"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 68,
+    "exercises": [
+      {
+        "id": "sakila-006",
+        "title": "Label films by length",
+        "level": 1
+      },
+      {
+        "id": "chinook-006",
+        "title": "Short, medium or long?",
+        "level": 1
+      },
+      {
+        "id": "northwind-003",
+        "title": "Stock status",
+        "level": 1
+      },
+      {
+        "id": "employees-003",
+        "title": "Readable gender",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-027",
+        "title": "Products without a colour",
+        "level": 1
+      },
+      {
+        "id": "lahman-033",
+        "title": "Good, average and bad seasons",
+        "level": 1
+      },
+      {
+        "id": "delivery-004",
+        "title": "Small, medium and large orders",
+        "level": 1
+      },
+      {
+        "id": "airlines-046",
+        "title": "How many time zones",
+        "level": 1
+      }
+    ]
+  },
+  "coalesce": {
+    "columns": [
+      "name",
+      "contact"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "555-01"
+      ],
+      [
+        "Bob",
+        "bob@x.io"
+      ],
+      [
+        "Cy",
+        "no contact"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 52,
+    "exercises": [
+      {
+        "id": "sakila-084",
+        "title": "Empty or unknown second lines",
+        "level": 1
+      },
+      {
+        "id": "delivery-058",
+        "title": "Never ordered, shown as text",
+        "level": 1
+      },
+      {
+        "id": "chinook-050",
+        "title": "Genre sales, 2021 against 2025",
+        "level": 2
+      },
+      {
+        "id": "northwind-013",
+        "title": "Customers and suppliers by country",
+        "level": 2
+      },
+      {
+        "id": "employees-049",
+        "title": "Hires and leavers per year",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-002",
+        "title": "Products per category, including the uncategorised",
+        "level": 2
+      },
+      {
+        "id": "lahman-013",
+        "title": "Best record, no title",
+        "level": 2
+      },
+      {
+        "id": "delivery-044",
+        "title": "Sign-ups and first orders by month",
+        "level": 2
+      }
+    ]
+  },
+  "nullif": {
+    "columns": [
+      "shop",
+      "per_order"
+    ],
+    "rows": [
+      [
+        "A",
+        "25.00"
+      ],
+      [
+        "B",
+        "NULL"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 8,
+    "exercises": [
+      {
+        "id": "employees-073",
+        "title": "Open-ended periods as NULL",
+        "level": 1
+      },
+      {
+        "id": "sakila-096",
+        "title": "Split a list with recursion",
+        "level": 3
+      },
+      {
+        "id": "lahman-096",
+        "title": "Mid-season manager changes of 2025",
+        "level": 3
+      },
+      {
+        "id": "lahman-039",
+        "title": "Batting average as a column",
+        "level": 4
+      },
+      {
+        "id": "lahman-065",
+        "title": "Team seasons with percentages",
+        "level": 4
+      },
+      {
+        "id": "lahman-101",
+        "title": "Strikeouts per nine innings as a column",
+        "level": 4
+      },
+      {
+        "id": "lahman-121",
+        "title": "On-base percentage as a column",
+        "level": 4
+      },
+      {
+        "id": "lahman-030",
+        "title": "A batting average function",
+        "level": 5
+      }
+    ]
+  },
+  "greatest-least": {
+    "columns": [
+      "biggest",
+      "smallest"
+    ],
+    "rows": [
+      [
+        "9",
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 7,
+    "exercises": [
+      {
+        "id": "delivery-079",
+        "title": "Loyalty points with a cap",
+        "level": 3
+      },
+      {
+        "id": "sakila-097",
+        "title": "The newest score wins",
+        "level": 4
+      },
+      {
+        "id": "employees-099",
+        "title": "Keep the highest salary ever seen",
+        "level": 4
+      },
+      {
+        "id": "lahman-064",
+        "title": "Keep the best single season",
+        "level": 4
+      },
+      {
+        "id": "airlines-056",
+        "title": "Keep only the latest check-in",
+        "level": 4
+      },
+      {
+        "id": "sakila-106",
+        "title": "A late fee function",
+        "level": 5
+      },
+      {
+        "id": "lahman-055",
+        "title": "Longest winning streak, with a loop",
+        "level": 5
+      }
+    ]
+  },
+  "is-null": {
+    "columns": [
+      "name",
+      "open",
+      "equals_null_is_unknown"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "true",
+        "true"
+      ],
+      [
+        "Bob",
+        "false",
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 104,
+    "exercises": [
+      {
+        "id": "sakila-004",
+        "title": "Rentals never returned",
+        "level": 1
+      },
+      {
+        "id": "chinook-004",
+        "title": "Customers without a fax",
+        "level": 1
+      },
+      {
+        "id": "northwind-002",
+        "title": "Orders waiting to ship",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-027",
+        "title": "Products without a colour",
+        "level": 1
+      },
+      {
+        "id": "lahman-004",
+        "title": "Hall of Famers no longer with us",
+        "level": 1
+      },
+      {
+        "id": "airlines-004",
+        "title": "In the air right now",
+        "level": 1
+      },
+      {
+        "id": "sakila-084",
+        "title": "Empty or unknown second lines",
+        "level": 1
+      },
+      {
+        "id": "northwind-069",
+        "title": "How fast did it ship",
+        "level": 1
+      }
+    ]
+  },
+  "is-distinct-from": {
+    "columns": [
+      "a",
+      "b",
+      "c"
+    ],
+    "rows": [
+      [
+        "true",
+        "true",
+        "false"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 7,
+    "exercises": [
+      {
+        "id": "chinook-109",
+        "title": "A genre list from the label",
+        "level": 4
+      },
+      {
+        "id": "northwind-062",
+        "title": "Sync supplier contacts",
+        "level": 4
+      },
+      {
+        "id": "northwind-091",
+        "title": "Upsert only what changed",
+        "level": 4
+      },
+      {
+        "id": "sakila-040",
+        "title": "An audit trail with a trigger",
+        "level": 5
+      },
+      {
+        "id": "lahman-126",
+        "title": "Team home runs that follow the batters",
+        "level": 5
+      },
+      {
+        "id": "delivery-023",
+        "title": "Log every status change",
+        "level": 5
+      },
+      {
+        "id": "delivery-113",
+        "title": "Refunds only within 14 days",
+        "level": 5
+      }
+    ]
+  },
+  "between": {
+    "columns": [
+      "n"
+    ],
+    "rows": [
+      [
+        "10"
+      ],
+      [
+        "20"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 66,
+    "exercises": [
+      {
+        "id": "sakila-006",
+        "title": "Label films by length",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-091",
+        "title": "Red products between 500 and 1,500",
+        "level": 1
+      },
+      {
+        "id": "delivery-033",
+        "title": "Orders between 100 and 101",
+        "level": 1
+      },
+      {
+        "id": "sakila-008",
+        "title": "Hours and minutes",
+        "level": 1
+      },
+      {
+        "id": "delivery-058",
+        "title": "Never ordered, shown as text",
+        "level": 1
+      },
+      {
+        "id": "sakila-016",
+        "title": "Cast list in one cell",
+        "level": 2
+      },
+      {
+        "id": "employees-012",
+        "title": "Career paths",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-097",
+        "title": "Casting rounds, it does not cut",
+        "level": 2
+      }
+    ]
+  },
+  "in-list": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "1"
+      ],
+      [
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 49,
+    "exercises": [
+      {
+        "id": "employees-073",
+        "title": "Open-ended periods as NULL",
+        "level": 1
+      },
+      {
+        "id": "lahman-074",
+        "title": "Young lefty hitters from the Caribbean",
+        "level": 1
+      },
+      {
+        "id": "northwind-019",
+        "title": "Orders containing both products",
+        "level": 2
+      },
+      {
+        "id": "employees-013",
+        "title": "Promoted engineers",
+        "level": 2
+      },
+      {
+        "id": "lahman-016",
+        "title": "Who was paid in 2015, 2016 or both",
+        "level": 2
+      },
+      {
+        "id": "delivery-066",
+        "title": "Sushi and pizza people",
+        "level": 2
+      },
+      {
+        "id": "airlines-049",
+        "title": "Which connections changed in January",
+        "level": 2
+      },
+      {
+        "id": "northwind-121",
+        "title": "A shipping sentence",
+        "level": 2
+      }
+    ]
+  },
+  "like-ilike": {
+    "columns": [
+      "name"
+    ],
+    "rows": [
+      [
+        "Anna"
+      ],
+      [
+        "anton"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 37,
+    "exercises": [
+      {
+        "id": "sakila-005",
+        "title": "Actors with \"gen\" in the last name",
+        "level": 1
+      },
+      {
+        "id": "chinook-005",
+        "title": "Songs about love",
+        "level": 1
+      },
+      {
+        "id": "northwind-009",
+        "title": "Markets among customers",
+        "level": 1
+      },
+      {
+        "id": "employees-072",
+        "title": "The Sch- family names",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-082",
+        "title": "The priciest touring products",
+        "level": 1
+      },
+      {
+        "id": "lahman-005",
+        "title": "The Mc players",
+        "level": 1
+      },
+      {
+        "id": "delivery-002",
+        "title": "How many customers are called Noa",
+        "level": 1
+      },
+      {
+        "id": "airlines-005",
+        "title": "Island airports in Australia",
+        "level": 1
+      }
+    ]
+  },
+  "three-valued-logic": {
+    "columns": [
+      "and_false",
+      "or_true",
+      "and_true_unknown",
+      "not_unknown"
+    ],
+    "rows": [
+      [
+        "false",
+        "true",
+        "true",
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 4,
+    "exercises": [
+      {
+        "id": "northwind-062",
+        "title": "Sync supplier contacts",
+        "level": 4
+      },
+      {
+        "id": "sakila-040",
+        "title": "An audit trail with a trigger",
+        "level": 5
+      },
+      {
+        "id": "lahman-126",
+        "title": "Team home runs that follow the batters",
+        "level": 5
+      },
+      {
+        "id": "delivery-023",
+        "title": "Log every status change",
+        "level": 5
+      }
+    ]
+  },
+  "count": {
+    "columns": [
+      "rows_",
+      "with_amount",
+      "items"
+    ],
+    "rows": [
+      [
+        "5",
+        "4",
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 329,
+    "exercises": [
+      {
+        "id": "sakila-084",
+        "title": "Empty or unknown second lines",
+        "level": 1
+      },
+      {
+        "id": "chinook-068",
+        "title": "Price tiers",
+        "level": 1
+      },
+      {
+        "id": "northwind-060",
+        "title": "Countries shipped to each year",
+        "level": 1
+      },
+      {
+        "id": "employees-072",
+        "title": "The Sch- family names",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-027",
+        "title": "Products without a colour",
+        "level": 1
+      },
+      {
+        "id": "lahman-117",
+        "title": "Players born in Japan",
+        "level": 1
+      },
+      {
+        "id": "delivery-002",
+        "title": "How many customers are called Noa",
+        "level": 1
+      },
+      {
+        "id": "airlines-046",
+        "title": "How many time zones",
+        "level": 1
+      }
+    ]
+  },
+  "sum-avg": {
+    "columns": [
+      "shop",
+      "total",
+      "average"
+    ],
+    "rows": [
+      [
+        "A",
+        "60",
+        "20.00"
+      ],
+      [
+        "B",
+        "40",
+        "40.00"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 212,
+    "exercises": [
+      {
+        "id": "sakila-082",
+        "title": "Customers ranked 6 to 10",
+        "level": 1
+      },
+      {
+        "id": "northwind-124",
+        "title": "Customers without a region",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-027",
+        "title": "Products without a colour",
+        "level": 1
+      },
+      {
+        "id": "lahman-041",
+        "title": "Places 11 to 20",
+        "level": 1
+      },
+      {
+        "id": "sakila-084",
+        "title": "Empty or unknown second lines",
+        "level": 1
+      },
+      {
+        "id": "lahman-117",
+        "title": "Players born in Japan",
+        "level": 1
+      },
+      {
+        "id": "sakila-014",
+        "title": "Payments taken by each staff member",
+        "level": 2
+      },
+      {
+        "id": "chinook-013",
+        "title": "Best customers",
+        "level": 2
+      }
+    ]
+  },
+  "min-max": {
+    "columns": [
+      "smallest",
+      "largest",
+      "last_name"
+    ],
+    "rows": [
+      [
+        "10",
+        "40",
+        "tea"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 70,
+    "exercises": [
+      {
+        "id": "chinook-073",
+        "title": "Tracks over ten minutes",
+        "level": 1
+      },
+      {
+        "id": "delivery-058",
+        "title": "Never ordered, shown as text",
+        "level": 1
+      },
+      {
+        "id": "sakila-019",
+        "title": "Each customer's biggest payment",
+        "level": 2
+      },
+      {
+        "id": "employees-009",
+        "title": "People who left",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-054",
+        "title": "Sizes that are numbers",
+        "level": 2
+      },
+      {
+        "id": "lahman-013",
+        "title": "Best record, no title",
+        "level": 2
+      },
+      {
+        "id": "delivery-044",
+        "title": "Sign-ups and first orders by month",
+        "level": 2
+      },
+      {
+        "id": "airlines-049",
+        "title": "Which connections changed in January",
+        "level": 2
+      }
+    ]
+  },
+  "filter": {
+    "columns": [
+      "shop",
+      "tea_sales",
+      "other_amount"
+    ],
+    "rows": [
+      [
+        "A",
+        "2",
+        "30"
+      ],
+      [
+        "B",
+        "1",
+        "NULL"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 73,
+    "exercises": [
+      {
+        "id": "sakila-084",
+        "title": "Empty or unknown second lines",
+        "level": 1
+      },
+      {
+        "id": "northwind-124",
+        "title": "Customers without a region",
+        "level": 1
+      },
+      {
+        "id": "lahman-117",
+        "title": "Players born in Japan",
+        "level": 1
+      },
+      {
+        "id": "airlines-046",
+        "title": "How many time zones",
+        "level": 1
+      },
+      {
+        "id": "sakila-015",
+        "title": "Counting several things at once",
+        "level": 2
+      },
+      {
+        "id": "chinook-018",
+        "title": "Genre statistics in one pass",
+        "level": 2
+      },
+      {
+        "id": "northwind-016",
+        "title": "Who ships late?",
+        "level": 2
+      },
+      {
+        "id": "employees-010",
+        "title": "Gender balance by department",
+        "level": 2
+      }
+    ]
+  },
+  "string-agg": {
+    "columns": [
+      "shop",
+      "items"
+    ],
+    "rows": [
+      [
+        "A",
+        "cake, tea"
+      ],
+      [
+        "B",
+        "pie, tea"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 39,
+    "exercises": [
+      {
+        "id": "sakila-016",
+        "title": "Cast list in one cell",
+        "level": 2
+      },
+      {
+        "id": "chinook-016",
+        "title": "Tiny playlists",
+        "level": 2
+      },
+      {
+        "id": "northwind-017",
+        "title": "What ALFKI ordered",
+        "level": 2
+      },
+      {
+        "id": "employees-012",
+        "title": "Career paths",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-007",
+        "title": "Salespeople per territory",
+        "level": 2
+      },
+      {
+        "id": "lahman-012",
+        "title": "Three teams in one season",
+        "level": 2
+      },
+      {
+        "id": "delivery-052",
+        "title": "Cuisines in each city",
+        "level": 2
+      },
+      {
+        "id": "airlines-009",
+        "title": "Cabin layout in one line",
+        "level": 2
+      }
+    ]
+  },
+  "bool-and-or": {
+    "columns": [
+      "shop",
+      "all_priced",
+      "any_big"
+    ],
+    "rows": [
+      [
+        "A",
+        "true",
+        "false"
+      ],
+      [
+        "B",
+        "false",
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "employees-022",
+        "title": "Never a pay cut",
+        "level": 3
+      }
+    ]
+  },
+  "percentile": {
+    "columns": [
+      "median",
+      "lower_middle"
+    ],
+    "rows": [
+      [
+        "3.5",
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "lahman-022",
+        "title": "Median salary per team",
+        "level": 3
+      }
+    ]
+  },
+  "mode": {
+    "columns": [
+      "most_common"
+    ],
+    "rows": [
+      [
+        "tea"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "stddev": {
+    "columns": [
+      "pop",
+      "samp"
+    ],
+    "rows": [
+      [
+        "1.4142",
+        "1.6330"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "corr-regr": {
+    "columns": [
+      "r",
+      "slope"
+    ],
+    "rows": [
+      [
+        "0.9934",
+        "2.5000"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "over-partition-by": {
+    "columns": [
+      "team",
+      "player",
+      "points",
+      "team_total"
+    ],
+    "rows": [
+      [
+        "blue",
+        "Di",
+        "25",
+        "35"
+      ],
+      [
+        "blue",
+        "Ed",
+        "10",
+        "35"
+      ],
+      [
+        "red",
+        "Ann",
+        "30",
+        "70"
+      ],
+      [
+        "red",
+        "Bob",
+        "20",
+        "70"
+      ],
+      [
+        "red",
+        "Cy",
+        "20",
+        "70"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 105,
+    "exercises": [
+      {
+        "id": "chinook-070",
+        "title": "Top 5, ties included",
+        "level": 1
+      },
+      {
+        "id": "northwind-079",
+        "title": "Top 11 prices, ties included",
+        "level": 1
+      },
+      {
+        "id": "employees-067",
+        "title": "No previous salary",
+        "level": 1
+      },
+      {
+        "id": "sakila-019",
+        "title": "Each customer's biggest payment",
+        "level": 2
+      },
+      {
+        "id": "northwind-018",
+        "title": "Pricier than their category",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-119",
+        "title": "Pricier than their subcategory",
+        "level": 2
+      },
+      {
+        "id": "delivery-005",
+        "title": "Share of each status",
+        "level": 2
+      },
+      {
+        "id": "sakila-022",
+        "title": "Top 3 films in each category",
+        "level": 3
+      }
+    ]
+  },
+  "row-number": {
+    "columns": [
+      "team",
+      "player",
+      "points",
+      "rn"
+    ],
+    "rows": [
+      [
+        "blue",
+        "Di",
+        "25",
+        "1"
+      ],
+      [
+        "blue",
+        "Ed",
+        "10",
+        "2"
+      ],
+      [
+        "red",
+        "Ann",
+        "30",
+        "1"
+      ],
+      [
+        "red",
+        "Bob",
+        "20",
+        "2"
+      ],
+      [
+        "red",
+        "Cy",
+        "20",
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 40,
+    "exercises": [
+      {
+        "id": "sakila-022",
+        "title": "Top 3 films in each category",
+        "level": 3
+      },
+      {
+        "id": "chinook-022",
+        "title": "Best seller in each genre",
+        "level": 3
+      },
+      {
+        "id": "northwind-022",
+        "title": "Top 3 products per category",
+        "level": 3
+      },
+      {
+        "id": "employees-017",
+        "title": "Top earners per department",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-010",
+        "title": "Best sellers in every category",
+        "level": 3
+      },
+      {
+        "id": "lahman-020",
+        "title": "Longest runs of winning seasons",
+        "level": 3
+      },
+      {
+        "id": "delivery-068",
+        "title": "Busy streaks for one restaurant",
+        "level": 3
+      },
+      {
+        "id": "airlines-024",
+        "title": "Two longest routes per airplane",
+        "level": 3
+      }
+    ]
+  },
+  "rank-dense-rank": {
+    "columns": [
+      "player",
+      "points",
+      "rnk",
+      "dense"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "30",
+        "1",
+        "1"
+      ],
+      [
+        "Di",
+        "25",
+        "2",
+        "2"
+      ],
+      [
+        "Bob",
+        "20",
+        "3",
+        "3"
+      ],
+      [
+        "Cy",
+        "20",
+        "3",
+        "3"
+      ],
+      [
+        "Ed",
+        "10",
+        "5",
+        "4"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 7,
+    "exercises": [
+      {
+        "id": "chinook-070",
+        "title": "Top 5, ties included",
+        "level": 1
+      },
+      {
+        "id": "northwind-079",
+        "title": "Top 11 prices, ties included",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-012",
+        "title": "Who beats their quota?",
+        "level": 3
+      },
+      {
+        "id": "lahman-017",
+        "title": "Top 3 home run hitters each season",
+        "level": 3
+      },
+      {
+        "id": "airlines-019",
+        "title": "The longest route from each Russian airport",
+        "level": 3
+      },
+      {
+        "id": "airlines-079",
+        "title": "The top airports of each country",
+        "level": 3
+      },
+      {
+        "id": "employees-086",
+        "title": "A view of pay rank in the department",
+        "level": 4
+      }
+    ]
+  },
+  "ntile": {
+    "columns": [
+      "player",
+      "points",
+      "half"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "30",
+        "1"
+      ],
+      [
+        "Di",
+        "25",
+        "1"
+      ],
+      [
+        "Bob",
+        "20",
+        "1"
+      ],
+      [
+        "Cy",
+        "20",
+        "2"
+      ],
+      [
+        "Ed",
+        "10",
+        "2"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "sakila-027",
+        "title": "Customer spending quartiles",
+        "level": 3
+      },
+      {
+        "id": "delivery-011",
+        "title": "Order value quartiles",
+        "level": 3
+      }
+    ]
+  },
+  "lag-lead": {
+    "columns": [
+      "month",
+      "amount",
+      "diff",
+      "next_month"
+    ],
+    "rows": [
+      [
+        "1",
+        "100",
+        "NULL",
+        "120"
+      ],
+      [
+        "2",
+        "120",
+        "20",
+        "90"
+      ],
+      [
+        "3",
+        "90",
+        "-30",
+        "150"
+      ],
+      [
+        "4",
+        "150",
+        "60",
+        "0"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 27,
+    "exercises": [
+      {
+        "id": "employees-067",
+        "title": "No previous salary",
+        "level": 1
+      },
+      {
+        "id": "sakila-023",
+        "title": "Revenue change month over month",
+        "level": 3
+      },
+      {
+        "id": "chinook-024",
+        "title": "Yearly growth",
+        "level": 3
+      },
+      {
+        "id": "northwind-023",
+        "title": "Monthly growth in 1997",
+        "level": 3
+      },
+      {
+        "id": "employees-015",
+        "title": "The biggest raises",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-011",
+        "title": "How quotas changed",
+        "level": 3
+      },
+      {
+        "id": "lahman-018",
+        "title": "The biggest turnarounds",
+        "level": 3
+      },
+      {
+        "id": "delivery-012",
+        "title": "The quietest stretch per restaurant",
+        "level": 3
+      }
+    ]
+  },
+  "first-last-value": {
+    "columns": [
+      "team",
+      "player",
+      "best",
+      "worst"
+    ],
+    "rows": [
+      [
+        "blue",
+        "Di",
+        "Di",
+        "Ed"
+      ],
+      [
+        "blue",
+        "Ed",
+        "Di",
+        "Ed"
+      ],
+      [
+        "red",
+        "Ann",
+        "Ann",
+        "Cy"
+      ],
+      [
+        "red",
+        "Bob",
+        "Ann",
+        "Cy"
+      ],
+      [
+        "red",
+        "Cy",
+        "Ann",
+        "Cy"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "chinook-108",
+        "title": "The last_value trap",
+        "level": 3
+      }
+    ]
+  },
+  "percent-rank-cume-dist": {
+    "columns": [
+      "player",
+      "points",
+      "pct_rank",
+      "cume"
+    ],
+    "rows": [
+      [
+        "Ed",
+        "10",
+        "0.00",
+        "0.20"
+      ],
+      [
+        "Bob",
+        "20",
+        "0.25",
+        "0.60"
+      ],
+      [
+        "Cy",
+        "20",
+        "0.25",
+        "0.60"
+      ],
+      [
+        "Di",
+        "25",
+        "0.75",
+        "0.80"
+      ],
+      [
+        "Ann",
+        "30",
+        "1.00",
+        "1.00"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "lahman-032",
+        "title": "Payroll percentiles",
+        "level": 3
+      }
+    ]
+  },
+  "running-total": {
+    "columns": [
+      "month",
+      "amount",
+      "running"
+    ],
+    "rows": [
+      [
+        "1",
+        "100",
+        "100"
+      ],
+      [
+        "2",
+        "120",
+        "220"
+      ],
+      [
+        "3",
+        "90",
+        "310"
+      ],
+      [
+        "4",
+        "150",
+        "460"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 8,
+    "exercises": [
+      {
+        "id": "sakila-024",
+        "title": "Running total for one customer",
+        "level": 3
+      },
+      {
+        "id": "northwind-024",
+        "title": "Cumulative revenue",
+        "level": 3
+      },
+      {
+        "id": "employees-046",
+        "title": "The longest run of raises",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-085",
+        "title": "Periods where the price did not change",
+        "level": 3
+      },
+      {
+        "id": "airlines-069",
+        "title": "Departures in the last 7 days",
+        "level": 3
+      },
+      {
+        "id": "sakila-050",
+        "title": "Revenue so far, and its share",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-098",
+        "title": "Purchasing over the last 7 days",
+        "level": 3
+      },
+      {
+        "id": "airlines-109",
+        "title": "The week before Christmas, cumulatively",
+        "level": 3
+      }
+    ]
+  },
+  "moving-average": {
+    "columns": [
+      "month",
+      "amount",
+      "avg_2_months"
+    ],
+    "rows": [
+      [
+        "1",
+        "100",
+        "100.0"
+      ],
+      [
+        "2",
+        "120",
+        "110.0"
+      ],
+      [
+        "3",
+        "90",
+        "105.0"
+      ],
+      [
+        "4",
+        "150",
+        "120.0"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 8,
+    "exercises": [
+      {
+        "id": "chinook-025",
+        "title": "Three-month moving average",
+        "level": 3
+      },
+      {
+        "id": "northwind-087",
+        "title": "A centred moving average of freight",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-070",
+        "title": "A three-month moving average",
+        "level": 3
+      },
+      {
+        "id": "lahman-019",
+        "title": "A three-season average",
+        "level": 3
+      },
+      {
+        "id": "delivery-067",
+        "title": "Record days in March",
+        "level": 3
+      },
+      {
+        "id": "northwind-126",
+        "title": "Each condiment against its price neighbours",
+        "level": 3
+      },
+      {
+        "id": "lahman-066",
+        "title": "A five-season average of home runs",
+        "level": 3
+      },
+      {
+        "id": "lahman-115",
+        "title": "A five-season winning percentage",
+        "level": 3
+      }
+    ]
+  },
+  "window-clause": {
+    "columns": [
+      "month",
+      "amount",
+      "previous",
+      "running"
+    ],
+    "rows": [
+      [
+        "1",
+        "100",
+        "NULL",
+        "100"
+      ],
+      [
+        "2",
+        "120",
+        "100",
+        "220"
+      ],
+      [
+        "3",
+        "90",
+        "120",
+        "310"
+      ],
+      [
+        "4",
+        "150",
+        "90",
+        "460"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 3,
+    "exercises": [
+      {
+        "id": "chinook-108",
+        "title": "The last_value trap",
+        "level": 3
+      },
+      {
+        "id": "lahman-115",
+        "title": "A five-season winning percentage",
+        "level": 3
+      },
+      {
+        "id": "employees-055",
+        "title": "A view of salary changes",
+        "level": 4
+      }
+    ]
+  },
+  "concat": {
+    "columns": [
+      "joined",
+      "abc"
+    ],
+    "rows": [
+      [
+        "SQL Playbook",
+        "abc"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 55,
+    "exercises": [
+      {
+        "id": "sakila-007",
+        "title": "\"Last, First\" names",
+        "level": 1
+      },
+      {
+        "id": "chinook-092",
+        "title": "A staff list with full names",
+        "level": 1
+      },
+      {
+        "id": "northwind-005",
+        "title": "Polite names",
+        "level": 1
+      },
+      {
+        "id": "employees-003",
+        "title": "Readable gender",
+        "level": 1
+      },
+      {
+        "id": "lahman-006",
+        "title": "Height in feet and inches",
+        "level": 1
+      },
+      {
+        "id": "chinook-021",
+        "title": "Whole dollars and price tags",
+        "level": 2
+      },
+      {
+        "id": "northwind-021",
+        "title": "Discounts as percentages",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-005",
+        "title": "Vice presidents and their bosses",
+        "level": 2
+      }
+    ]
+  },
+  "concat-ws": {
+    "columns": [
+      "address"
+    ],
+    "rows": [
+      [
+        "Main St 1, Oslo"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 4,
+    "exercises": [
+      {
+        "id": "northwind-005",
+        "title": "Polite names",
+        "level": 1
+      },
+      {
+        "id": "lahman-007",
+        "title": "The youngest debuts of 2025",
+        "level": 1
+      },
+      {
+        "id": "lahman-076",
+        "title": "Birthdays by day of the week",
+        "level": 2
+      },
+      {
+        "id": "chinook-064",
+        "title": "A one-line billing address",
+        "level": 4
+      }
+    ]
+  },
+  "length": {
+    "columns": [
+      "chars",
+      "bytes"
+    ],
+    "rows": [
+      [
+        "4",
+        "5"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 3,
+    "exercises": [
+      {
+        "id": "airlines-040",
+        "title": "Seats in cabin order",
+        "level": 2
+      },
+      {
+        "id": "sakila-074",
+        "title": "A table for staff notes",
+        "level": 4
+      },
+      {
+        "id": "chinook-036",
+        "title": "One composer per row",
+        "level": 4
+      }
+    ]
+  },
+  "upper-lower": {
+    "columns": [
+      "up",
+      "low",
+      "title"
+    ],
+    "rows": [
+      [
+        "SQL",
+        "sql",
+        "Hello"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 7,
+    "exercises": [
+      {
+        "id": "sakila-005",
+        "title": "Actors with \"gen\" in the last name",
+        "level": 1
+      },
+      {
+        "id": "chinook-003",
+        "title": "Countries, alphabetically — but whose alphabet?",
+        "level": 1
+      },
+      {
+        "id": "employees-109",
+        "title": "\"ann\" anywhere in the first name",
+        "level": 1
+      },
+      {
+        "id": "delivery-063",
+        "title": "Anything at the old port",
+        "level": 1
+      },
+      {
+        "id": "delivery-105",
+        "title": "An email built from other columns",
+        "level": 4
+      },
+      {
+        "id": "delivery-049",
+        "title": "Emails in lower case",
+        "level": 5
+      },
+      {
+        "id": "airlines-034",
+        "title": "Find a passenger by name, any case",
+        "level": 5
+      }
+    ]
+  },
+  "trim": {
+    "columns": [
+      "trimmed",
+      "dashes"
+    ],
+    "rows": [
+      [
+        "[hi]",
+        "a-b"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 4,
+    "exercises": [
+      {
+        "id": "sakila-074",
+        "title": "A table for staff notes",
+        "level": 4
+      },
+      {
+        "id": "chinook-036",
+        "title": "One composer per row",
+        "level": 4
+      },
+      {
+        "id": "lahman-051",
+        "title": "Clean names on the way in",
+        "level": 5
+      },
+      {
+        "id": "delivery-049",
+        "title": "Emails in lower case",
+        "level": 5
+      }
+    ]
+  },
+  "substring": {
+    "columns": [
+      "mid",
+      "l",
+      "r"
+    ],
+    "rows": [
+      [
+        "BCD",
+        "AB",
+        "EF"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 11,
+    "exercises": [
+      {
+        "id": "chinook-007",
+        "title": "Email domains",
+        "level": 1
+      },
+      {
+        "id": "airlines-006",
+        "title": "First and last names",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-083",
+        "title": "Is the order number just the id?",
+        "level": 2
+      },
+      {
+        "id": "airlines-040",
+        "title": "Seats in cabin order",
+        "level": 2
+      },
+      {
+        "id": "airlines-048",
+        "title": "Where passengers come from",
+        "level": 2
+      },
+      {
+        "id": "airlines-072",
+        "title": "Passenger countries, October vs November",
+        "level": 2
+      },
+      {
+        "id": "airlines-124",
+        "title": "Route numbers in numeric order",
+        "level": 2
+      },
+      {
+        "id": "sakila-096",
+        "title": "Split a list with recursion",
+        "level": 3
+      }
+    ]
+  },
+  "position": {
+    "columns": [
+      "at_sign",
+      "missing"
+    ],
+    "rows": [
+      [
+        "4",
+        "0"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 3,
+    "exercises": [
+      {
+        "id": "chinook-007",
+        "title": "Email domains",
+        "level": 1
+      },
+      {
+        "id": "airlines-006",
+        "title": "First and last names",
+        "level": 1
+      },
+      {
+        "id": "sakila-096",
+        "title": "Split a list with recursion",
+        "level": 3
+      }
+    ]
+  },
+  "replace": {
+    "columns": [
+      "digits",
+      "plain"
+    ],
+    "rows": [
+      [
+        "5550123",
+        "creme brulée"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 3,
+    "exercises": [
+      {
+        "id": "lahman-048",
+        "title": "Martinez, with or without the accent",
+        "level": 1
+      },
+      {
+        "id": "airlines-074",
+        "title": "Fewest changes to Okinawa",
+        "level": 3
+      },
+      {
+        "id": "delivery-105",
+        "title": "An email built from other columns",
+        "level": 4
+      }
+    ]
+  },
+  "lpad-rpad": {
+    "columns": [
+      "code",
+      "dotted"
+    ],
+    "rows": [
+      [
+        "000042",
+        "ab..."
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 8,
+    "exercises": [
+      {
+        "id": "delivery-104",
+        "title": "Order numbers for the receipt",
+        "level": 2
+      },
+      {
+        "id": "chinook-052",
+        "title": "Customers buying month after month",
+        "level": 3
+      },
+      {
+        "id": "northwind-029",
+        "title": "Ordering streaks of one customer",
+        "level": 3
+      },
+      {
+        "id": "chinook-098",
+        "title": "Months in a row with US sales",
+        "level": 3
+      },
+      {
+        "id": "northwind-049",
+        "title": "Months in a row",
+        "level": 3
+      },
+      {
+        "id": "chinook-039",
+        "title": "Track length as m:ss",
+        "level": 4
+      },
+      {
+        "id": "delivery-017",
+        "title": "The week of every order",
+        "level": 4
+      },
+      {
+        "id": "chinook-116",
+        "title": "Track length as m:ss, stored",
+        "level": 4
+      }
+    ]
+  },
+  "split-part": {
+    "columns": [
+      "domain",
+      "second"
+    ],
+    "rows": [
+      [
+        "mail.io",
+        "b"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 14,
+    "exercises": [
+      {
+        "id": "chinook-007",
+        "title": "Email domains",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-029",
+        "title": "User names from login ids",
+        "level": 1
+      },
+      {
+        "id": "airlines-006",
+        "title": "First and last names",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-075",
+        "title": "Product number prefixes",
+        "level": 1
+      },
+      {
+        "id": "airlines-078",
+        "title": "Families in one booking",
+        "level": 2
+      },
+      {
+        "id": "sakila-096",
+        "title": "Split a list with recursion",
+        "level": 3
+      },
+      {
+        "id": "sakila-105",
+        "title": "Each customer's third film",
+        "level": 4
+      },
+      {
+        "id": "chinook-036",
+        "title": "One composer per row",
+        "level": 4
+      }
+    ]
+  },
+  "repeat-reverse": {
+    "columns": [
+      "bar",
+      "backwards"
+    ],
+    "rows": [
+      [
+        "*****",
+        "desserts"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "format": {
+    "columns": [
+      "msg"
+    ],
+    "rows": [
+      [
+        "film has 1000 rows"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "employees-119",
+        "title": "Salaries with thousands separators",
+        "level": 2
+      },
+      {
+        "id": "delivery-035",
+        "title": "Prices as text",
+        "level": 2
+      }
+    ]
+  },
+  "regex-match": {
+    "columns": [
+      "code",
+      "valid"
+    ],
+    "rows": [
+      [
+        "A123",
+        "false"
+      ],
+      [
+        "AB12",
+        "true"
+      ],
+      [
+        "ab12",
+        "false"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 5,
+    "exercises": [
+      {
+        "id": "chinook-005",
+        "title": "Songs about love",
+        "level": 1
+      },
+      {
+        "id": "airlines-005",
+        "title": "Island airports in Australia",
+        "level": 1
+      },
+      {
+        "id": "sakila-083",
+        "title": "Postal codes as numbers, safely",
+        "level": 2
+      },
+      {
+        "id": "northwind-061",
+        "title": "Postal codes are not numbers",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-054",
+        "title": "Sizes that are numbers",
+        "level": 2
+      }
+    ]
+  },
+  "regexp-replace": {
+    "columns": [
+      "digits",
+      "number"
+    ],
+    "rows": [
+      [
+        "155501099",
+        "4521"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "airlines-040",
+        "title": "Seats in cabin order",
+        "level": 2
+      }
+    ]
+  },
+  "string-to-array": {
+    "columns": [
+      "tag"
+    ],
+    "rows": [
+      [
+        "blue"
+      ],
+      [
+        "green"
+      ],
+      [
+        "red"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 3,
+    "exercises": [
+      {
+        "id": "sakila-051",
+        "title": "Counting special features",
+        "level": 4
+      },
+      {
+        "id": "chinook-036",
+        "title": "One composer per row",
+        "level": 4
+      },
+      {
+        "id": "sakila-052",
+        "title": "One feature per row",
+        "level": 4
+      }
+    ]
+  },
+  "collate": {
+    "columns": [
+      "w"
+    ],
+    "rows": [
+      [
+        "B"
+      ],
+      [
+        "a"
+      ],
+      [
+        "b"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 11,
+    "exercises": [
+      {
+        "id": "adventureworks-065",
+        "title": "Page 3 of the catalog",
+        "level": 1
+      },
+      {
+        "id": "chinook-097",
+        "title": "The same song on different albums",
+        "level": 2
+      },
+      {
+        "id": "lahman-108",
+        "title": "Same name, different player",
+        "level": 2
+      },
+      {
+        "id": "northwind-068",
+        "title": "Customers by country and city, with totals",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-084",
+        "title": "Revenue by category and by year, in one result",
+        "level": 3
+      },
+      {
+        "id": "lahman-060",
+        "title": "Following links without going in circles",
+        "level": 3
+      },
+      {
+        "id": "airlines-074",
+        "title": "Fewest changes to Okinawa",
+        "level": 3
+      },
+      {
+        "id": "sakila-101",
+        "title": "Re-categorise films from a list",
+        "level": 4
+      }
+    ]
+  },
+  "round": {
+    "columns": [
+      "two_places",
+      "half",
+      "thousands"
+    ],
+    "rows": [
+      [
+        "2.35",
+        "3",
+        "12000"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 118,
+    "exercises": [
+      {
+        "id": "chinook-008",
+        "title": "Minutes and megabytes",
+        "level": 1
+      },
+      {
+        "id": "northwind-006",
+        "title": "Lines of one order",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-036",
+        "title": "The best margins",
+        "level": 1
+      },
+      {
+        "id": "lahman-002",
+        "title": "Winning percentage",
+        "level": 1
+      },
+      {
+        "id": "airlines-108",
+        "title": "How long can each airplane stay up",
+        "level": 1
+      },
+      {
+        "id": "chinook-073",
+        "title": "Tracks over ten minutes",
+        "level": 1
+      },
+      {
+        "id": "northwind-103",
+        "title": "Prices with VAT",
+        "level": 1
+      },
+      {
+        "id": "chinook-014",
+        "title": "Sales by billing country",
+        "level": 2
+      }
+    ]
+  },
+  "ceil-floor-trunc": {
+    "columns": [
+      "c",
+      "f",
+      "t"
+    ],
+    "rows": [
+      [
+        "-2",
+        "-3",
+        "-2.5"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 8,
+    "exercises": [
+      {
+        "id": "airlines-008",
+        "title": "Departures more than four hours late",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-097",
+        "title": "Casting rounds, it does not cut",
+        "level": 2
+      },
+      {
+        "id": "delivery-051",
+        "title": "Whole shekels, three ways",
+        "level": 2
+      },
+      {
+        "id": "delivery-012",
+        "title": "The quietest stretch per restaurant",
+        "level": 3
+      },
+      {
+        "id": "delivery-079",
+        "title": "Loyalty points with a cap",
+        "level": 3
+      },
+      {
+        "id": "delivery-099",
+        "title": "The longest silence",
+        "level": 3
+      },
+      {
+        "id": "airlines-067",
+        "title": "Delay in minutes, always up to date",
+        "level": 4
+      },
+      {
+        "id": "sakila-077",
+        "title": "Return a film, charge a late fee",
+        "level": 5
+      }
+    ]
+  },
+  "integer-division": {
+    "columns": [
+      "quotient",
+      "remainder",
+      "pct"
+    ],
+    "rows": [
+      [
+        "3",
+        "1",
+        "33.3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 36,
+    "exercises": [
+      {
+        "id": "sakila-008",
+        "title": "Hours and minutes",
+        "level": 1
+      },
+      {
+        "id": "chinook-008",
+        "title": "Minutes and megabytes",
+        "level": 1
+      },
+      {
+        "id": "lahman-006",
+        "title": "Height in feet and inches",
+        "level": 1
+      },
+      {
+        "id": "lahman-042",
+        "title": "Long given names",
+        "level": 1
+      },
+      {
+        "id": "chinook-043",
+        "title": "Album running time",
+        "level": 2
+      },
+      {
+        "id": "employees-014",
+        "title": "Monthly pay",
+        "level": 2
+      },
+      {
+        "id": "lahman-011",
+        "title": "World Series titles by decade and league",
+        "level": 2
+      },
+      {
+        "id": "airlines-097",
+        "title": "Departure times as text and as numbers",
+        "level": 2
+      }
+    ]
+  },
+  "abs-sign": {
+    "columns": [
+      "distance",
+      "direction",
+      "zero"
+    ],
+    "rows": [
+      [
+        "7",
+        "-1",
+        "0"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "delivery-065",
+        "title": "Two orders within ten minutes",
+        "level": 2
+      },
+      {
+        "id": "airlines-096",
+        "title": "Departures too close together",
+        "level": 2
+      }
+    ]
+  },
+  "power-sqrt": {
+    "columns": [
+      "kib",
+      "root",
+      "one"
+    ],
+    "rows": [
+      [
+        "1024",
+        "4",
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "airlines-025",
+        "title": "Great-circle distances",
+        "level": 3
+      },
+      {
+        "id": "airlines-117",
+        "title": "Distance between two airports, as a function",
+        "level": 5
+      }
+    ]
+  },
+  "random": {
+    "columns": [
+      "in_range"
+    ],
+    "rows": [
+      [
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "generate-series": {
+    "columns": [
+      "n"
+    ],
+    "rows": [
+      [
+        "1"
+      ],
+      [
+        "5"
+      ],
+      [
+        "9"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 31,
+    "exercises": [
+      {
+        "id": "sakila-025",
+        "title": "Rentals per month, including empty months",
+        "level": 3
+      },
+      {
+        "id": "chinook-055",
+        "title": "Monthly revenue of 2024 with a running total",
+        "level": 3
+      },
+      {
+        "id": "northwind-053",
+        "title": "Orders week by week",
+        "level": 3
+      },
+      {
+        "id": "employees-019",
+        "title": "Headcount at the start of every year",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-044",
+        "title": "The quiet first weeks",
+        "level": 3
+      },
+      {
+        "id": "lahman-059",
+        "title": "Debuts every month of 2025",
+        "level": 3
+      },
+      {
+        "id": "delivery-009",
+        "title": "Revenue every day of March 2025",
+        "level": 3
+      },
+      {
+        "id": "airlines-021",
+        "title": "Cancellations every day in October",
+        "level": 3
+      }
+    ]
+  },
+  "width-bucket": {
+    "columns": [
+      "price",
+      "bucket"
+    ],
+    "rows": [
+      [
+        "5",
+        "1"
+      ],
+      [
+        "30",
+        "2"
+      ],
+      [
+        "99",
+        "4"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "current-date": {
+    "columns": [
+      "after_2024",
+      "now_is_today_or_later"
+    ],
+    "rows": [
+      [
+        "true",
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 9,
+    "exercises": [
+      {
+        "id": "sakila-074",
+        "title": "A table for staff notes",
+        "level": 4
+      },
+      {
+        "id": "chinook-031",
+        "title": "A reviews table with proper keys",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-051",
+        "title": "A ratings table from scratch",
+        "level": 4
+      },
+      {
+        "id": "sakila-101",
+        "title": "Re-categorise films from a list",
+        "level": 4
+      },
+      {
+        "id": "chinook-079",
+        "title": "Followers of playlists",
+        "level": 4
+      },
+      {
+        "id": "sakila-067",
+        "title": "Touch last_update on every change",
+        "level": 5
+      },
+      {
+        "id": "chinook-082",
+        "title": "Keep the old version of every invoice",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-062",
+        "title": "Keep a price history automatically",
+        "level": 5
+      }
+    ]
+  },
+  "date-trunc": {
+    "columns": [
+      "month_start"
+    ],
+    "rows": [
+      [
+        "2025-03-01"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 7,
+    "exercises": [
+      {
+        "id": "delivery-077",
+        "title": "Each month against the same month last year",
+        "level": 2
+      },
+      {
+        "id": "sakila-100",
+        "title": "Running total that restarts every month",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-031",
+        "title": "Year-to-date sales",
+        "level": 3
+      },
+      {
+        "id": "delivery-078",
+        "title": "New and returning customers per month",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-070",
+        "title": "A three-month moving average",
+        "level": 3
+      },
+      {
+        "id": "delivery-084",
+        "title": "2025 revenue by quarter and month",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-041",
+        "title": "Monthly sales per territory group, stored",
+        "level": 4
+      }
+    ]
+  },
+  "extract": {
+    "columns": [
+      "y",
+      "m",
+      "dow"
+    ],
+    "rows": [
+      [
+        "2025",
+        "3",
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 72,
+    "exercises": [
+      {
+        "id": "chinook-009",
+        "title": "Invoices from March 2025",
+        "level": 1
+      },
+      {
+        "id": "northwind-004",
+        "title": "December 1997 orders",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-037",
+        "title": "Years of service",
+        "level": 1
+      },
+      {
+        "id": "lahman-007",
+        "title": "The youngest debuts of 2025",
+        "level": 1
+      },
+      {
+        "id": "airlines-008",
+        "title": "Departures more than four hours late",
+        "level": 1
+      },
+      {
+        "id": "northwind-060",
+        "title": "Countries shipped to each year",
+        "level": 1
+      },
+      {
+        "id": "chinook-061",
+        "title": "Quarter labels",
+        "level": 2
+      },
+      {
+        "id": "northwind-104",
+        "title": "1997 against 1998, month by month",
+        "level": 2
+      }
+    ]
+  },
+  "interval": {
+    "columns": [
+      "plus_month",
+      "plus_week"
+    ],
+    "rows": [
+      [
+        "2025-02-28",
+        "2025-03-08"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 42,
+    "exercises": [
+      {
+        "id": "northwind-069",
+        "title": "How fast did it ship",
+        "level": 1
+      },
+      {
+        "id": "airlines-008",
+        "title": "Departures more than four hours late",
+        "level": 1
+      },
+      {
+        "id": "airlines-066",
+        "title": "Punctuality classes",
+        "level": 1
+      },
+      {
+        "id": "delivery-065",
+        "title": "Two orders within ten minutes",
+        "level": 2
+      },
+      {
+        "id": "delivery-077",
+        "title": "Each month against the same month last year",
+        "level": 2
+      },
+      {
+        "id": "sakila-025",
+        "title": "Rentals per month, including empty months",
+        "level": 3
+      },
+      {
+        "id": "chinook-055",
+        "title": "Monthly revenue of 2024 with a running total",
+        "level": 3
+      },
+      {
+        "id": "northwind-053",
+        "title": "Orders week by week",
+        "level": 3
+      }
+    ]
+  },
+  "date-diff": {
+    "columns": [
+      "days"
+    ],
+    "rows": [
+      [
+        "28"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 19,
+    "exercises": [
+      {
+        "id": "northwind-020",
+        "title": "How the shippers perform",
+        "level": 2
+      },
+      {
+        "id": "employees-011",
+        "title": "Seniority by title",
+        "level": 2
+      },
+      {
+        "id": "chinook-028",
+        "title": "Days between purchases",
+        "level": 3
+      },
+      {
+        "id": "northwind-028",
+        "title": "Shipping, year by year",
+        "level": 3
+      },
+      {
+        "id": "employees-064",
+        "title": "The longest wait for a raise",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-018",
+        "title": "Shipping speed by method",
+        "level": 3
+      },
+      {
+        "id": "delivery-050",
+        "title": "Quiet days for one restaurant",
+        "level": 3
+      },
+      {
+        "id": "chinook-077",
+        "title": "The longest pause between purchases",
+        "level": 3
+      }
+    ]
+  },
+  "timestamp-diff": {
+    "columns": [
+      "minutes"
+    ],
+    "rows": [
+      [
+        "90"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 19,
+    "exercises": [
+      {
+        "id": "adventureworks-037",
+        "title": "Years of service",
+        "level": 1
+      },
+      {
+        "id": "lahman-007",
+        "title": "The youngest debuts of 2025",
+        "level": 1
+      },
+      {
+        "id": "airlines-008",
+        "title": "Departures more than four hours late",
+        "level": 1
+      },
+      {
+        "id": "delivery-065",
+        "title": "Two orders within ten minutes",
+        "level": 2
+      },
+      {
+        "id": "airlines-096",
+        "title": "Departures too close together",
+        "level": 2
+      },
+      {
+        "id": "airlines-097",
+        "title": "Departure times as text and as numbers",
+        "level": 2
+      },
+      {
+        "id": "sakila-029",
+        "title": "How long rentals last, by category",
+        "level": 3
+      },
+      {
+        "id": "delivery-012",
+        "title": "The quietest stretch per restaurant",
+        "level": 3
+      }
+    ]
+  },
+  "age": {
+    "columns": [
+      "years"
+    ],
+    "rows": [
+      [
+        "34"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 4,
+    "exercises": [
+      {
+        "id": "adventureworks-037",
+        "title": "Years of service",
+        "level": 1
+      },
+      {
+        "id": "lahman-007",
+        "title": "The youngest debuts of 2025",
+        "level": 1
+      },
+      {
+        "id": "employees-097",
+        "title": "Age at hire as a column",
+        "level": 4
+      },
+      {
+        "id": "employees-111",
+        "title": "Tenure of the current staff",
+        "level": 4
+      }
+    ]
+  },
+  "to-char": {
+    "columns": [
+      "dotted",
+      "label"
+    ],
+    "rows": [
+      [
+        "07.03.2025",
+        "March 2025"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 38,
+    "exercises": [
+      {
+        "id": "sakila-114",
+        "title": "A timestamp split into date and time",
+        "level": 2
+      },
+      {
+        "id": "chinook-061",
+        "title": "Quarter labels",
+        "level": 2
+      },
+      {
+        "id": "northwind-121",
+        "title": "A shipping sentence",
+        "level": 2
+      },
+      {
+        "id": "employees-053",
+        "title": "Dates as readable text",
+        "level": 2
+      },
+      {
+        "id": "delivery-035",
+        "title": "Prices as text",
+        "level": 2
+      },
+      {
+        "id": "airlines-012",
+        "title": "Flights by month and outcome",
+        "level": 2
+      },
+      {
+        "id": "employees-119",
+        "title": "Salaries with thousands separators",
+        "level": 2
+      },
+      {
+        "id": "delivery-044",
+        "title": "Sign-ups and first orders by month",
+        "level": 2
+      }
+    ]
+  },
+  "to-date": {
+    "columns": [
+      "d"
+    ],
+    "rows": [
+      [
+        "2025-03-07"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "lahman-007",
+        "title": "The youngest debuts of 2025",
+        "level": 1
+      },
+      {
+        "id": "employees-090",
+        "title": "Birthdays written the European way",
+        "level": 2
+      }
+    ]
+  },
+  "make-date": {
+    "columns": [
+      "d"
+    ],
+    "rows": [
+      [
+        "2025-03-07"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 5,
+    "exercises": [
+      {
+        "id": "lahman-007",
+        "title": "The youngest debuts of 2025",
+        "level": 1
+      },
+      {
+        "id": "lahman-076",
+        "title": "Birthdays by day of the week",
+        "level": 2
+      },
+      {
+        "id": "chinook-098",
+        "title": "Months in a row with US sales",
+        "level": 3
+      },
+      {
+        "id": "employees-057",
+        "title": "Yearly payroll, then growth",
+        "level": 4
+      },
+      {
+        "id": "employees-068",
+        "title": "Title counts per year, stored",
+        "level": 4
+      }
+    ]
+  },
+  "last-day": {
+    "columns": [
+      "last"
+    ],
+    "rows": [
+      [
+        "2024-02-29"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "at-time-zone": {
+    "columns": [
+      "oslo"
+    ],
+    "rows": [
+      [
+        "2025-06-01 14:00:00"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 4,
+    "exercises": [
+      {
+        "id": "airlines-087",
+        "title": "Which day is a booking on?",
+        "level": 2
+      },
+      {
+        "id": "airlines-017",
+        "title": "An itinerary in local time",
+        "level": 3
+      },
+      {
+        "id": "airlines-081",
+        "title": "Departures by local part of day",
+        "level": 3
+      },
+      {
+        "id": "airlines-028",
+        "title": "A timetable view",
+        "level": 4
+      }
+    ]
+  },
+  "overlaps": {
+    "columns": [
+      "overlap"
+    ],
+    "rows": [
+      [
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 4,
+    "exercises": [
+      {
+        "id": "airlines-016",
+        "title": "Which airplane flew it",
+        "level": 3
+      },
+      {
+        "id": "chinook-104",
+        "title": "Playlists that share a track with Grunge",
+        "level": 4
+      },
+      {
+        "id": "northwind-071",
+        "title": "Orders with products in common",
+        "level": 4
+      },
+      {
+        "id": "employees-108",
+        "title": "No overlapping salary periods",
+        "level": 5
+      }
+    ]
+  },
+  "cast": {
+    "columns": [
+      "n",
+      "pi",
+      "d"
+    ],
+    "rows": [
+      [
+        "43",
+        "3.14",
+        "2025-03-07"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 169,
+    "exercises": [
+      {
+        "id": "sakila-003",
+        "title": "Which ratings exist?",
+        "level": 1
+      },
+      {
+        "id": "northwind-060",
+        "title": "Countries shipped to each year",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-037",
+        "title": "Years of service",
+        "level": 1
+      },
+      {
+        "id": "lahman-002",
+        "title": "Winning percentage",
+        "level": 1
+      },
+      {
+        "id": "delivery-003",
+        "title": "Orders of one day",
+        "level": 1
+      },
+      {
+        "id": "airlines-008",
+        "title": "Departures more than four hours late",
+        "level": 1
+      },
+      {
+        "id": "sakila-009",
+        "title": "Rentals on the first day",
+        "level": 1
+      },
+      {
+        "id": "lahman-007",
+        "title": "The youngest debuts of 2025",
+        "level": 1
+      }
+    ]
+  },
+  "numeric-types": {
+    "columns": [
+      "exact",
+      "floating"
+    ],
+    "rows": [
+      [
+        "true",
+        "false"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 56,
+    "exercises": [
+      {
+        "id": "employees-060",
+        "title": "Five years of raises",
+        "level": 3
+      },
+      {
+        "id": "sakila-064",
+        "title": "New prices for two categories",
+        "level": 4
+      },
+      {
+        "id": "chinook-044",
+        "title": "Apply a price list",
+        "level": 4
+      },
+      {
+        "id": "northwind-046",
+        "title": "Line totals the database maintains",
+        "level": 4
+      },
+      {
+        "id": "employees-031",
+        "title": "A projects table",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-047",
+        "title": "Margin as a column",
+        "level": 4
+      },
+      {
+        "id": "lahman-039",
+        "title": "Batting average as a column",
+        "level": 4
+      },
+      {
+        "id": "delivery-014",
+        "title": "A refund, all or nothing",
+        "level": 4
+      }
+    ]
+  },
+  "boolean": {
+    "columns": [
+      "big_ones",
+      "any_huge"
+    ],
+    "rows": [
+      [
+        "2",
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 65,
+    "exercises": [
+      {
+        "id": "northwind-060",
+        "title": "Countries shipped to each year",
+        "level": 1
+      },
+      {
+        "id": "adventureworks-037",
+        "title": "Years of service",
+        "level": 1
+      },
+      {
+        "id": "lahman-007",
+        "title": "The youngest debuts of 2025",
+        "level": 1
+      },
+      {
+        "id": "airlines-008",
+        "title": "Departures more than four hours late",
+        "level": 1
+      },
+      {
+        "id": "northwind-021",
+        "title": "Discounts as percentages",
+        "level": 2
+      },
+      {
+        "id": "employees-049",
+        "title": "Hires and leavers per year",
+        "level": 2
+      },
+      {
+        "id": "adventureworks-006",
+        "title": "Online versus reseller orders",
+        "level": 2
+      },
+      {
+        "id": "lahman-075",
+        "title": "Left, right and switch hitters by debut year",
+        "level": 2
+      }
+    ]
+  },
+  "date-types": {
+    "columns": [
+      "day_only",
+      "midnight"
+    ],
+    "rows": [
+      [
+        "2025-03-07",
+        "2025-03-07 00:00:00"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 31,
+    "exercises": [
+      {
+        "id": "chinook-114",
+        "title": "One customer, quarter by quarter",
+        "level": 3
+      },
+      {
+        "id": "northwind-078",
+        "title": "Due, on time, late and open by month",
+        "level": 3
+      },
+      {
+        "id": "adventureworks-099",
+        "title": "Reseller orders, month by month",
+        "level": 3
+      },
+      {
+        "id": "delivery-054",
+        "title": "Orders per hour of 1 March 2025",
+        "level": 3
+      },
+      {
+        "id": "sakila-074",
+        "title": "A table for staff notes",
+        "level": 4
+      },
+      {
+        "id": "chinook-031",
+        "title": "A reviews table with proper keys",
+        "level": 4
+      },
+      {
+        "id": "employees-097",
+        "title": "Age at hire as a column",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-051",
+        "title": "A ratings table from scratch",
+        "level": 4
+      }
+    ]
+  },
+  "text-types": {
+    "columns": [
+      "char_len",
+      "cut"
+    ],
+    "rows": [
+      [
+        "2",
+        "abc"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 104,
+    "exercises": [
+      {
+        "id": "delivery-058",
+        "title": "Never ordered, shown as text",
+        "level": 1
+      },
+      {
+        "id": "chinook-021",
+        "title": "Whole dollars and price tags",
+        "level": 2
+      },
+      {
+        "id": "employees-053",
+        "title": "Dates as readable text",
+        "level": 2
+      },
+      {
+        "id": "lahman-100",
+        "title": "Innings pitched, the baseball way",
+        "level": 2
+      },
+      {
+        "id": "delivery-104",
+        "title": "Order numbers for the receipt",
+        "level": 2
+      },
+      {
+        "id": "lahman-124",
+        "title": "Heights in feet and inches, with quotes",
+        "level": 2
+      },
+      {
+        "id": "sakila-073",
+        "title": "Payments by store and month, with totals",
+        "level": 3
+      },
+      {
+        "id": "chinook-023",
+        "title": "The org chart",
+        "level": 3
+      }
+    ]
+  },
+  "uuid": {
+    "columns": [
+      "chars",
+      "different"
+    ],
+    "rows": [
+      [
+        "36",
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "pg-typeof": {
+    "columns": [
+      "int_div",
+      "dec_div",
+      "now_type"
+    ],
+    "rows": [
+      [
+        "integer",
+        "numeric",
+        "timestamp with time zone"
+      ]
+    ],
+    "mysqlChecked": false,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "json-arrow": {
+    "columns": [
+      "name",
+      "first_tag"
+    ],
+    "rows": [
+      [
+        "Ann",
+        "new"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "delivery-109",
+        "title": "Reading a nested order payload",
+        "level": 4
+      }
+    ]
+  },
+  "json-path": {
+    "columns": [
+      "city"
+    ],
+    "rows": [
+      [
+        "Oslo"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "json-contains": {
+    "columns": [
+      "is_vip",
+      "is_bob"
+    ],
+    "rows": [
+      [
+        "true",
+        "false"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 9,
+    "exercises": [
+      {
+        "id": "northwind-019",
+        "title": "Orders containing both products",
+        "level": 2
+      },
+      {
+        "id": "airlines-016",
+        "title": "Which airplane flew it",
+        "level": 3
+      },
+      {
+        "id": "sakila-088",
+        "title": "Films with both actors in the cast",
+        "level": 4
+      },
+      {
+        "id": "chinook-038",
+        "title": "Playlists with the whole first album",
+        "level": 4
+      },
+      {
+        "id": "employees-078",
+        "title": "From Production to Development",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-094",
+        "title": "Models made in black and in red",
+        "level": 4
+      },
+      {
+        "id": "lahman-089",
+        "title": "Yankees and Red Sox, both",
+        "level": 4
+      },
+      {
+        "id": "airlines-026",
+        "title": "Sunday departures from Frankfurt",
+        "level": 4
+      }
+    ]
+  },
+  "json-key-exists": {
+    "columns": [
+      "has_name",
+      "has_email"
+    ],
+    "rows": [
+      [
+        "true",
+        "false"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "json-build-object": {
+    "columns": [
+      "name",
+      "n"
+    ],
+    "rows": [
+      [
+        "tea",
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 10,
+    "exercises": [
+      {
+        "id": "sakila-058",
+        "title": "A film with its cast, as JSON",
+        "level": 4
+      },
+      {
+        "id": "chinook-032",
+        "title": "Track details as JSON",
+        "level": 4
+      },
+      {
+        "id": "northwind-039",
+        "title": "Order lines as a JSON array",
+        "level": 4
+      },
+      {
+        "id": "employees-045",
+        "title": "An employee profile as JSON",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-078",
+        "title": "A sales order as one document",
+        "level": 4
+      },
+      {
+        "id": "lahman-038",
+        "title": "Query JSON documents",
+        "level": 4
+      },
+      {
+        "id": "delivery-016",
+        "title": "An order as JSON",
+        "level": 4
+      },
+      {
+        "id": "airlines-116",
+        "title": "A route as a JSON document",
+        "level": 4
+      }
+    ]
+  },
+  "json-agg": {
+    "columns": [
+      "n",
+      "cake"
+    ],
+    "rows": [
+      [
+        "2",
+        "7"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 15,
+    "exercises": [
+      {
+        "id": "sakila-058",
+        "title": "A film with its cast, as JSON",
+        "level": 4
+      },
+      {
+        "id": "chinook-071",
+        "title": "A playlist as a JSON document",
+        "level": 4
+      },
+      {
+        "id": "northwind-039",
+        "title": "Order lines as a JSON array",
+        "level": 4
+      },
+      {
+        "id": "employees-045",
+        "title": "An employee profile as JSON",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-033",
+        "title": "Catalog sizes as JSON",
+        "level": 4
+      },
+      {
+        "id": "lahman-089",
+        "title": "Yankees and Red Sox, both",
+        "level": 4
+      },
+      {
+        "id": "delivery-096",
+        "title": "Cuisines per city as a JSON object",
+        "level": 4
+      },
+      {
+        "id": "sakila-088",
+        "title": "Films with both actors in the cast",
+        "level": 4
+      }
+    ]
+  },
+  "json-array-elements": {
+    "columns": [
+      "tag"
+    ],
+    "rows": [
+      [
+        "new"
+      ],
+      [
+        "vip"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 5,
+    "exercises": [
+      {
+        "id": "northwind-080",
+        "title": "Price a cart sent as JSON",
+        "level": 4
+      },
+      {
+        "id": "lahman-056",
+        "title": "Read a JSON array as rows",
+        "level": 4
+      },
+      {
+        "id": "delivery-047",
+        "title": "A filter passed as JSON",
+        "level": 4
+      },
+      {
+        "id": "airlines-027",
+        "title": "Routes per weekday",
+        "level": 4
+      },
+      {
+        "id": "airlines-082",
+        "title": "Weekdays out of the array",
+        "level": 4
+      }
+    ]
+  },
+  "json-each-keys": {
+    "columns": [
+      "k"
+    ],
+    "rows": [
+      [
+        "address"
+      ],
+      [
+        "name"
+      ],
+      [
+        "tags"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "jsonb-set": {
+    "columns": [
+      "city",
+      "name"
+    ],
+    "rows": [
+      [
+        "Rome",
+        "Bob"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "sakila-072",
+        "title": "Change one key inside JSON",
+        "level": 4
+      }
+    ]
+  },
+  "json-types": {
+    "columns": [
+      "kind",
+      "n"
+    ],
+    "rows": [
+      [
+        "array",
+        "2"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 21,
+    "exercises": [
+      {
+        "id": "sakila-058",
+        "title": "A film with its cast, as JSON",
+        "level": 4
+      },
+      {
+        "id": "chinook-032",
+        "title": "Track details as JSON",
+        "level": 4
+      },
+      {
+        "id": "northwind-039",
+        "title": "Order lines as a JSON array",
+        "level": 4
+      },
+      {
+        "id": "employees-039",
+        "title": "Career path as an array",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-049",
+        "title": "Colours of each subcategory",
+        "level": 4
+      },
+      {
+        "id": "lahman-038",
+        "title": "Query JSON documents",
+        "level": 4
+      },
+      {
+        "id": "delivery-047",
+        "title": "A filter passed as JSON",
+        "level": 4
+      },
+      {
+        "id": "airlines-042",
+        "title": "Destinations as an array",
+        "level": 4
+      }
+    ]
+  },
+  "array-constructor": {
+    "columns": [
+      "second",
+      "past_end"
+    ],
+    "rows": [
+      [
+        "20",
+        "NULL"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 9,
+    "exercises": [
+      {
+        "id": "northwind-019",
+        "title": "Orders containing both products",
+        "level": 2
+      },
+      {
+        "id": "airlines-074",
+        "title": "Fewest changes to Okinawa",
+        "level": 3
+      },
+      {
+        "id": "sakila-088",
+        "title": "Films with both actors in the cast",
+        "level": 4
+      },
+      {
+        "id": "employees-078",
+        "title": "From Production to Development",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-094",
+        "title": "Models made in black and in red",
+        "level": 4
+      },
+      {
+        "id": "lahman-089",
+        "title": "Yankees and Red Sox, both",
+        "level": 4
+      },
+      {
+        "id": "airlines-026",
+        "title": "Sunday departures from Frankfurt",
+        "level": 4
+      },
+      {
+        "id": "employees-102",
+        "title": "Careers that started Engineer, then Senior Engineer",
+        "level": 4
+      }
+    ]
+  },
+  "unnest": {
+    "columns": [
+      "value",
+      "pos"
+    ],
+    "rows": [
+      [
+        "a",
+        "1"
+      ],
+      [
+        "b",
+        "2"
+      ],
+      [
+        "c",
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 6,
+    "exercises": [
+      {
+        "id": "sakila-051",
+        "title": "Counting special features",
+        "level": 4
+      },
+      {
+        "id": "chinook-036",
+        "title": "One composer per row",
+        "level": 4
+      },
+      {
+        "id": "northwind-071",
+        "title": "Orders with products in common",
+        "level": 4
+      },
+      {
+        "id": "airlines-027",
+        "title": "Routes per weekday",
+        "level": 4
+      },
+      {
+        "id": "sakila-052",
+        "title": "One feature per row",
+        "level": 4
+      },
+      {
+        "id": "airlines-082",
+        "title": "Weekdays out of the array",
+        "level": 4
+      }
+    ]
+  },
+  "any-array": {
+    "columns": [
+      "has_three",
+      "has_five"
+    ],
+    "rows": [
+      [
+        "true",
+        "false"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "delivery-047",
+        "title": "A filter passed as JSON",
+        "level": 4
+      },
+      {
+        "id": "airlines-026",
+        "title": "Sunday departures from Frankfurt",
+        "level": 4
+      }
+    ]
+  },
+  "array-length": {
+    "columns": [
+      "n",
+      "no_items"
+    ],
+    "rows": [
+      [
+        "2",
+        "0"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 6,
+    "exercises": [
+      {
+        "id": "airlines-074",
+        "title": "Fewest changes to Okinawa",
+        "level": 3
+      },
+      {
+        "id": "northwind-118",
+        "title": "Baskets bought more than once",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-049",
+        "title": "Colours of each subcategory",
+        "level": 4
+      },
+      {
+        "id": "lahman-052",
+        "title": "Seasons as an array",
+        "level": 4
+      },
+      {
+        "id": "airlines-043",
+        "title": "December routes, prepared once",
+        "level": 4
+      },
+      {
+        "id": "lahman-111",
+        "title": "One-club players",
+        "level": 4
+      }
+    ]
+  },
+  "array-contains": {
+    "columns": [
+      "contains",
+      "overlaps"
+    ],
+    "rows": [
+      [
+        "true",
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 8,
+    "exercises": [
+      {
+        "id": "northwind-019",
+        "title": "Orders containing both products",
+        "level": 2
+      },
+      {
+        "id": "sakila-088",
+        "title": "Films with both actors in the cast",
+        "level": 4
+      },
+      {
+        "id": "chinook-104",
+        "title": "Playlists that share a track with Grunge",
+        "level": 4
+      },
+      {
+        "id": "employees-078",
+        "title": "From Production to Development",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-094",
+        "title": "Models made in black and in red",
+        "level": 4
+      },
+      {
+        "id": "lahman-089",
+        "title": "Yankees and Red Sox, both",
+        "level": 4
+      },
+      {
+        "id": "airlines-026",
+        "title": "Sunday departures from Frankfurt",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-129",
+        "title": "Products both vendors can supply",
+        "level": 4
+      }
+    ]
+  },
+  "array-agg": {
+    "columns": [
+      "team",
+      "players"
+    ],
+    "rows": [
+      [
+        "blue",
+        "1"
+      ],
+      [
+        "red",
+        "2"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 19,
+    "exercises": [
+      {
+        "id": "northwind-019",
+        "title": "Orders containing both products",
+        "level": 2
+      },
+      {
+        "id": "sakila-088",
+        "title": "Films with both actors in the cast",
+        "level": 4
+      },
+      {
+        "id": "chinook-038",
+        "title": "Playlists with the whole first album",
+        "level": 4
+      },
+      {
+        "id": "northwind-071",
+        "title": "Orders with products in common",
+        "level": 4
+      },
+      {
+        "id": "employees-039",
+        "title": "Career path as an array",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-049",
+        "title": "Colours of each subcategory",
+        "level": 4
+      },
+      {
+        "id": "lahman-052",
+        "title": "Seasons as an array",
+        "level": 4
+      },
+      {
+        "id": "delivery-048",
+        "title": "The last three orders in one cell",
+        "level": 4
+      }
+    ]
+  },
+  "array-position": {
+    "columns": [
+      "pos",
+      "joined"
+    ],
+    "rows": [
+      [
+        "2",
+        "a-b"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "airlines-074",
+        "title": "Fewest changes to Okinawa",
+        "level": 3
+      },
+      {
+        "id": "northwind-118",
+        "title": "Baskets bought more than once",
+        "level": 4
+      }
+    ]
+  },
+  "array-append": {
+    "columns": [
+      "appended",
+      "removed"
+    ],
+    "rows": [
+      [
+        "3",
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "insert": {
+    "columns": [
+      "id",
+      "name",
+      "price"
+    ],
+    "rows": [
+      [
+        "1",
+        "tea",
+        "3"
+      ],
+      [
+        "2",
+        "cake",
+        "7"
+      ],
+      [
+        "3",
+        "pie",
+        "NULL"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 72,
+    "exercises": [
+      {
+        "id": "sakila-033",
+        "title": "Add an actor and get her id",
+        "level": 4
+      },
+      {
+        "id": "chinook-031",
+        "title": "A reviews table with proper keys",
+        "level": 4
+      },
+      {
+        "id": "northwind-035",
+        "title": "Add a shipper and get its id",
+        "level": 4
+      },
+      {
+        "id": "employees-031",
+        "title": "A projects table",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-023",
+        "title": "Receive stock",
+        "level": 4
+      },
+      {
+        "id": "lahman-027",
+        "title": "Insert or update a player",
+        "level": 4
+      },
+      {
+        "id": "delivery-015",
+        "title": "Apply a batch of corrections",
+        "level": 4
+      },
+      {
+        "id": "airlines-038",
+        "title": "Issue or change a boarding pass",
+        "level": 4
+      }
+    ]
+  },
+  "insert-select": {
+    "columns": [
+      "id",
+      "name"
+    ],
+    "rows": [
+      [
+        "1",
+        "tea"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 65,
+    "exercises": [
+      {
+        "id": "sakila-032",
+        "title": "Rental counts in a temporary table",
+        "level": 4
+      },
+      {
+        "id": "chinook-032",
+        "title": "Track details as JSON",
+        "level": 4
+      },
+      {
+        "id": "northwind-033",
+        "title": "Move shipping addresses to their own table",
+        "level": 4
+      },
+      {
+        "id": "employees-047",
+        "title": "Load new titles, skip known ones",
+        "level": 4
+      },
+      {
+        "id": "lahman-026",
+        "title": "A payroll table",
+        "level": 4
+      },
+      {
+        "id": "delivery-014",
+        "title": "A refund, all or nothing",
+        "level": 4
+      },
+      {
+        "id": "airlines-064",
+        "title": "A new cabin layout",
+        "level": 4
+      },
+      {
+        "id": "sakila-052",
+        "title": "One feature per row",
+        "level": 4
+      }
+    ]
+  },
+  "update": {
+    "columns": [
+      "id",
+      "price"
+    ],
+    "rows": [
+      [
+        "1",
+        "6"
+      ],
+      [
+        "2",
+        "7"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 66,
+    "exercises": [
+      {
+        "id": "sakila-034",
+        "title": "Raise prices of horror films",
+        "level": 4
+      },
+      {
+        "id": "chinook-044",
+        "title": "Apply a price list",
+        "level": 4
+      },
+      {
+        "id": "northwind-033",
+        "title": "Move shipping addresses to their own table",
+        "level": 4
+      },
+      {
+        "id": "employees-029",
+        "title": "Someone leaves",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-042",
+        "title": "Sync an inventory count",
+        "level": 4
+      },
+      {
+        "id": "lahman-072",
+        "title": "Sync franchise names",
+        "level": 4
+      },
+      {
+        "id": "delivery-014",
+        "title": "A refund, all or nothing",
+        "level": 4
+      },
+      {
+        "id": "airlines-029",
+        "title": "Delay a flight",
+        "level": 4
+      }
+    ]
+  },
+  "update-join": {
+    "columns": [
+      "id",
+      "price"
+    ],
+    "rows": [
+      [
+        "1",
+        "3"
+      ],
+      [
+        "2",
+        "9"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 17,
+    "exercises": [
+      {
+        "id": "sakila-034",
+        "title": "Raise prices of horror films",
+        "level": 4
+      },
+      {
+        "id": "chinook-044",
+        "title": "Apply a price list",
+        "level": 4
+      },
+      {
+        "id": "northwind-033",
+        "title": "Move shipping addresses to their own table",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-042",
+        "title": "Sync an inventory count",
+        "level": 4
+      },
+      {
+        "id": "lahman-072",
+        "title": "Sync franchise names",
+        "level": 4
+      },
+      {
+        "id": "delivery-029",
+        "title": "Cities as their own table",
+        "level": 4
+      },
+      {
+        "id": "airlines-052",
+        "title": "Apply a status feed",
+        "level": 4
+      },
+      {
+        "id": "sakila-064",
+        "title": "New prices for two categories",
+        "level": 4
+      }
+    ]
+  },
+  "delete": {
+    "columns": [
+      "id",
+      "name"
+    ],
+    "rows": [
+      [
+        "1",
+        "tea"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 18,
+    "exercises": [
+      {
+        "id": "sakila-035",
+        "title": "Remove zero payments",
+        "level": 4
+      },
+      {
+        "id": "chinook-080",
+        "title": "Sync a playlist with a list of tracks",
+        "level": 4
+      },
+      {
+        "id": "northwind-034",
+        "title": "Drop discontinued products from open orders",
+        "level": 4
+      },
+      {
+        "id": "employees-076",
+        "title": "Sync a stale summary, deletions included",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-042",
+        "title": "Sync an inventory count",
+        "level": 4
+      },
+      {
+        "id": "lahman-036",
+        "title": "Refresh a leaderboard in one statement",
+        "level": 4
+      },
+      {
+        "id": "delivery-046",
+        "title": "Keep a stats table in sync",
+        "level": 4
+      },
+      {
+        "id": "airlines-064",
+        "title": "A new cabin layout",
+        "level": 4
+      }
+    ]
+  },
+  "upsert": {
+    "columns": [
+      "id",
+      "name",
+      "price"
+    ],
+    "rows": [
+      [
+        "1",
+        "tea",
+        "3"
+      ],
+      [
+        "2",
+        "cheesecake",
+        "8"
+      ],
+      [
+        "3",
+        "pie",
+        "5"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 38,
+    "exercises": [
+      {
+        "id": "sakila-036",
+        "title": "Insert or update in one statement",
+        "level": 4
+      },
+      {
+        "id": "chinook-049",
+        "title": "Add tracks, skip duplicates",
+        "level": 4
+      },
+      {
+        "id": "northwind-052",
+        "title": "Import customers from a CRM",
+        "level": 4
+      },
+      {
+        "id": "employees-044",
+        "title": "Rename or add a department",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-023",
+        "title": "Receive stock",
+        "level": 4
+      },
+      {
+        "id": "lahman-027",
+        "title": "Insert or update a player",
+        "level": 4
+      },
+      {
+        "id": "delivery-015",
+        "title": "Apply a batch of corrections",
+        "level": 4
+      },
+      {
+        "id": "airlines-038",
+        "title": "Issue or change a boarding pass",
+        "level": 4
+      }
+    ]
+  },
+  "returning": {
+    "columns": [
+      "id",
+      "body"
+    ],
+    "rows": [
+      [
+        "1",
+        "a"
+      ],
+      [
+        "2",
+        "b"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 5,
+    "exercises": [
+      {
+        "id": "sakila-033",
+        "title": "Add an actor and get her id",
+        "level": 4
+      },
+      {
+        "id": "northwind-035",
+        "title": "Add a shipper and get its id",
+        "level": 4
+      },
+      {
+        "id": "employees-029",
+        "title": "Someone leaves",
+        "level": 4
+      },
+      {
+        "id": "lahman-090",
+        "title": "Bring a last-season table up to date",
+        "level": 4
+      },
+      {
+        "id": "sakila-111",
+        "title": "Move zero payments to an archive, all or nothing",
+        "level": 4
+      }
+    ]
+  },
+  "merge": {
+    "columns": [
+      "id",
+      "name",
+      "price"
+    ],
+    "rows": [
+      [
+        "1",
+        "tea",
+        "3"
+      ],
+      [
+        "2",
+        "cake",
+        "8"
+      ],
+      [
+        "3",
+        "pie",
+        "5"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 26,
+    "exercises": [
+      {
+        "id": "sakila-036",
+        "title": "Insert or update in one statement",
+        "level": 4
+      },
+      {
+        "id": "chinook-044",
+        "title": "Apply a price list",
+        "level": 4
+      },
+      {
+        "id": "northwind-051",
+        "title": "Import a supplier price list",
+        "level": 4
+      },
+      {
+        "id": "employees-047",
+        "title": "Load new titles, skip known ones",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-042",
+        "title": "Sync an inventory count",
+        "level": 4
+      },
+      {
+        "id": "lahman-036",
+        "title": "Refresh a leaderboard in one statement",
+        "level": 4
+      },
+      {
+        "id": "delivery-015",
+        "title": "Apply a batch of corrections",
+        "level": 4
+      },
+      {
+        "id": "airlines-052",
+        "title": "Apply a status feed",
+        "level": 4
+      }
+    ]
+  },
+  "truncate": {
+    "columns": [
+      "left_over"
+    ],
+    "rows": [
+      [
+        "0"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "lahman-028",
+        "title": "Stored season totals",
+        "level": 4
+      }
+    ]
+  },
+  "writable-cte": {
+    "columns": [
+      "kept",
+      "archived"
+    ],
+    "rows": [
+      [
+        "1",
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "sakila-111",
+        "title": "Move zero payments to an archive, all or nothing",
+        "level": 4
+      },
+      {
+        "id": "employees-029",
+        "title": "Someone leaves",
+        "level": 4
+      }
+    ]
+  },
+  "create-table": {
+    "columns": [
+      "id",
+      "email"
+    ],
+    "rows": [
+      [
+        "1",
+        "ann@x.io"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 103,
+    "exercises": [
+      {
+        "id": "sakila-044",
+        "title": "Pre-computed revenue by category",
+        "level": 4
+      },
+      {
+        "id": "chinook-031",
+        "title": "A reviews table with proper keys",
+        "level": 4
+      },
+      {
+        "id": "northwind-033",
+        "title": "Move shipping addresses to their own table",
+        "level": 4
+      },
+      {
+        "id": "employees-031",
+        "title": "A projects table",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-041",
+        "title": "Monthly sales per territory group, stored",
+        "level": 4
+      },
+      {
+        "id": "lahman-026",
+        "title": "A payroll table",
+        "level": 4
+      },
+      {
+        "id": "delivery-014",
+        "title": "A refund, all or nothing",
+        "level": 4
+      },
+      {
+        "id": "airlines-051",
+        "title": "Passengers per route, stored",
+        "level": 4
+      }
+    ]
+  },
+  "primary-key": {
+    "columns": [
+      "accounts",
+      "with_email"
+    ],
+    "rows": [
+      [
+        "3",
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 92,
+    "exercises": [
+      {
+        "id": "sakila-032",
+        "title": "Rental counts in a temporary table",
+        "level": 4
+      },
+      {
+        "id": "chinook-031",
+        "title": "A reviews table with proper keys",
+        "level": 4
+      },
+      {
+        "id": "northwind-033",
+        "title": "Move shipping addresses to their own table",
+        "level": 4
+      },
+      {
+        "id": "employees-031",
+        "title": "A projects table",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-042",
+        "title": "Sync an inventory count",
+        "level": 4
+      },
+      {
+        "id": "lahman-026",
+        "title": "A payroll table",
+        "level": 4
+      },
+      {
+        "id": "delivery-014",
+        "title": "A refund, all or nothing",
+        "level": 4
+      },
+      {
+        "id": "airlines-052",
+        "title": "Apply a status feed",
+        "level": 4
+      }
+    ]
+  },
+  "foreign-key": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "12"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 16,
+    "exercises": [
+      {
+        "id": "sakila-052",
+        "title": "One feature per row",
+        "level": 4
+      },
+      {
+        "id": "chinook-031",
+        "title": "A reviews table with proper keys",
+        "level": 4
+      },
+      {
+        "id": "northwind-033",
+        "title": "Move shipping addresses to their own table",
+        "level": 4
+      },
+      {
+        "id": "employees-031",
+        "title": "A projects table",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-051",
+        "title": "A ratings table from scratch",
+        "level": 4
+      },
+      {
+        "id": "lahman-026",
+        "title": "A payroll table",
+        "level": 4
+      },
+      {
+        "id": "delivery-014",
+        "title": "A refund, all or nothing",
+        "level": 4
+      },
+      {
+        "id": "airlines-084",
+        "title": "Crew tables",
+        "level": 4
+      }
+    ]
+  },
+  "check": {
+    "columns": [
+      "valid_rows"
+    ],
+    "rows": [
+      [
+        "2"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 15,
+    "exercises": [
+      {
+        "id": "sakila-043",
+        "title": "No negative payments",
+        "level": 4
+      },
+      {
+        "id": "chinook-031",
+        "title": "A reviews table with proper keys",
+        "level": 4
+      },
+      {
+        "id": "northwind-037",
+        "title": "Guard the order lines",
+        "level": 4
+      },
+      {
+        "id": "employees-030",
+        "title": "A period cannot end before it starts",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-046",
+        "title": "Never sell below cost",
+        "level": 4
+      },
+      {
+        "id": "lahman-098",
+        "title": "Rules a batting line must follow",
+        "level": 4
+      },
+      {
+        "id": "delivery-039",
+        "title": "Rules for orders",
+        "level": 4
+      },
+      {
+        "id": "airlines-031",
+        "title": "Bring back the rules",
+        "level": 4
+      }
+    ]
+  },
+  "default": {
+    "columns": [
+      "id",
+      "status"
+    ],
+    "rows": [
+      [
+        "1",
+        "new"
+      ],
+      [
+        "2",
+        "closed"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 21,
+    "exercises": [
+      {
+        "id": "sakila-072",
+        "title": "Change one key inside JSON",
+        "level": 4
+      },
+      {
+        "id": "chinook-031",
+        "title": "A reviews table with proper keys",
+        "level": 4
+      },
+      {
+        "id": "northwind-056",
+        "title": "Reshape the shippers table",
+        "level": 4
+      },
+      {
+        "id": "employees-031",
+        "title": "A projects table",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-051",
+        "title": "A ratings table from scratch",
+        "level": 4
+      },
+      {
+        "id": "delivery-030",
+        "title": "A new column on 200,000 rows",
+        "level": 4
+      },
+      {
+        "id": "sakila-074",
+        "title": "A table for staff notes",
+        "level": 4
+      },
+      {
+        "id": "chinook-079",
+        "title": "Followers of playlists",
+        "level": 4
+      }
+    ]
+  },
+  "identity": {
+    "columns": [
+      "id",
+      "title"
+    ],
+    "rows": [
+      [
+        "1",
+        "first"
+      ],
+      [
+        "2",
+        "second"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 7,
+    "exercises": [
+      {
+        "id": "sakila-074",
+        "title": "A table for staff notes",
+        "level": 4
+      },
+      {
+        "id": "chinook-031",
+        "title": "A reviews table with proper keys",
+        "level": 4
+      },
+      {
+        "id": "northwind-033",
+        "title": "Move shipping addresses to their own table",
+        "level": 4
+      },
+      {
+        "id": "employees-031",
+        "title": "A projects table",
+        "level": 4
+      },
+      {
+        "id": "delivery-029",
+        "title": "Cities as their own table",
+        "level": 4
+      },
+      {
+        "id": "airlines-084",
+        "title": "Crew tables",
+        "level": 4
+      },
+      {
+        "id": "sakila-110",
+        "title": "An email type you can reuse",
+        "level": 4
+      }
+    ]
+  },
+  "generated-column": {
+    "columns": [
+      "qty",
+      "price",
+      "total"
+    ],
+    "rows": [
+      [
+        "3",
+        "4",
+        "12"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 27,
+    "exercises": [
+      {
+        "id": "sakila-042",
+        "title": "A column that computes itself",
+        "level": 4
+      },
+      {
+        "id": "chinook-039",
+        "title": "Track length as m:ss",
+        "level": 4
+      },
+      {
+        "id": "northwind-046",
+        "title": "Line totals the database maintains",
+        "level": 4
+      },
+      {
+        "id": "employees-037",
+        "title": "A full name column",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-047",
+        "title": "Margin as a column",
+        "level": 4
+      },
+      {
+        "id": "lahman-039",
+        "title": "Batting average as a column",
+        "level": 4
+      },
+      {
+        "id": "delivery-017",
+        "title": "The week of every order",
+        "level": 4
+      },
+      {
+        "id": "airlines-030",
+        "title": "Scheduled minutes as a column",
+        "level": 4
+      }
+    ]
+  },
+  "alter-table": {
+    "columns": [
+      "id",
+      "title",
+      "stock"
+    ],
+    "rows": [
+      [
+        "1",
+        "tea",
+        "5"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 63,
+    "exercises": [
+      {
+        "id": "sakila-042",
+        "title": "A column that computes itself",
+        "level": 4
+      },
+      {
+        "id": "chinook-039",
+        "title": "Track length as m:ss",
+        "level": 4
+      },
+      {
+        "id": "northwind-033",
+        "title": "Move shipping addresses to their own table",
+        "level": 4
+      },
+      {
+        "id": "employees-030",
+        "title": "A period cannot end before it starts",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-046",
+        "title": "Never sell below cost",
+        "level": 4
+      },
+      {
+        "id": "lahman-039",
+        "title": "Batting average as a column",
+        "level": 4
+      },
+      {
+        "id": "delivery-017",
+        "title": "The week of every order",
+        "level": 4
+      },
+      {
+        "id": "airlines-030",
+        "title": "Scheduled minutes as a column",
+        "level": 4
+      }
+    ]
+  },
+  "create-table-as": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "2"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 44,
+    "exercises": [
+      {
+        "id": "sakila-032",
+        "title": "Rental counts in a temporary table",
+        "level": 4
+      },
+      {
+        "id": "chinook-036",
+        "title": "One composer per row",
+        "level": 4
+      },
+      {
+        "id": "northwind-038",
+        "title": "Monthly revenue as a scratch table",
+        "level": 4
+      },
+      {
+        "id": "employees-036",
+        "title": "Department salary statistics, stored",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-041",
+        "title": "Monthly sales per territory group, stored",
+        "level": 4
+      },
+      {
+        "id": "lahman-028",
+        "title": "Stored season totals",
+        "level": 4
+      },
+      {
+        "id": "delivery-036",
+        "title": "A temp table with its own index",
+        "level": 4
+      },
+      {
+        "id": "airlines-043",
+        "title": "December routes, prepared once",
+        "level": 4
+      }
+    ]
+  },
+  "temporary-table": {
+    "columns": [
+      "n"
+    ],
+    "rows": [
+      [
+        "2"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 29,
+    "exercises": [
+      {
+        "id": "sakila-032",
+        "title": "Rental counts in a temporary table",
+        "level": 4
+      },
+      {
+        "id": "chinook-045",
+        "title": "Customer spend as a working table",
+        "level": 4
+      },
+      {
+        "id": "northwind-038",
+        "title": "Monthly revenue as a scratch table",
+        "level": 4
+      },
+      {
+        "id": "employees-041",
+        "title": "A snapshot of the current staff",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-048",
+        "title": "Best customers, step one",
+        "level": 4
+      },
+      {
+        "id": "lahman-029",
+        "title": "Qualified hitters, step by step",
+        "level": 4
+      },
+      {
+        "id": "delivery-036",
+        "title": "A temp table with its own index",
+        "level": 4
+      },
+      {
+        "id": "airlines-043",
+        "title": "December routes, prepared once",
+        "level": 4
+      }
+    ]
+  },
+  "create-view": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "2"
+      ],
+      [
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 29,
+    "exercises": [
+      {
+        "id": "sakila-031",
+        "title": "A view of customer spending",
+        "level": 4
+      },
+      {
+        "id": "chinook-046",
+        "title": "A view that guards its rows",
+        "level": 4
+      },
+      {
+        "id": "northwind-032",
+        "title": "A view of order revenue",
+        "level": 4
+      },
+      {
+        "id": "employees-024",
+        "title": "A view of the current state",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-021",
+        "title": "A product catalogue view",
+        "level": 4
+      },
+      {
+        "id": "lahman-047",
+        "title": "A career totals view",
+        "level": 4
+      },
+      {
+        "id": "delivery-037",
+        "title": "A customer summary view",
+        "level": 4
+      },
+      {
+        "id": "airlines-028",
+        "title": "A timetable view",
+        "level": 4
+      }
+    ]
+  },
+  "materialized-view": {
+    "columns": [
+      "before_refresh"
+    ],
+    "rows": [
+      [
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 27,
+    "exercises": [
+      {
+        "id": "sakila-044",
+        "title": "Pre-computed revenue by category",
+        "level": 4
+      },
+      {
+        "id": "chinook-047",
+        "title": "Refresh without blocking readers",
+        "level": 4
+      },
+      {
+        "id": "northwind-040",
+        "title": "A stored customer summary",
+        "level": 4
+      },
+      {
+        "id": "employees-036",
+        "title": "Department salary statistics, stored",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-041",
+        "title": "Monthly sales per territory group, stored",
+        "level": 4
+      },
+      {
+        "id": "lahman-028",
+        "title": "Stored season totals",
+        "level": 4
+      },
+      {
+        "id": "delivery-038",
+        "title": "Daily revenue, stored and refreshed",
+        "level": 4
+      },
+      {
+        "id": "airlines-051",
+        "title": "Passengers per route, stored",
+        "level": 4
+      }
+    ]
+  },
+  "schema": {
+    "columns": [
+      "n"
+    ],
+    "rows": [
+      [
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "sequence": {
+    "columns": [
+      "first",
+      "second"
+    ],
+    "rows": [
+      [
+        "1000",
+        "1001"
+      ]
+    ],
+    "mysqlChecked": false,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "partitioning": {
+    "columns": [
+      "in_2025",
+      "total"
+    ],
+    "rows": [
+      [
+        "2",
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 27,
+    "exercises": [
+      {
+        "id": "sakila-057",
+        "title": "Payments, one partition per month",
+        "level": 5
+      },
+      {
+        "id": "chinook-040",
+        "title": "Invoices split by region",
+        "level": 5
+      },
+      {
+        "id": "northwind-055",
+        "title": "Orders by year",
+        "level": 5
+      },
+      {
+        "id": "employees-026",
+        "title": "Split salaries by period",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-043",
+        "title": "Orders split by year",
+        "level": 5
+      },
+      {
+        "id": "lahman-035",
+        "title": "Batting split by era",
+        "level": 5
+      },
+      {
+        "id": "delivery-021",
+        "title": "One partition per year",
+        "level": 5
+      },
+      {
+        "id": "airlines-039",
+        "title": "Spread bookings evenly",
+        "level": 5
+      }
+    ]
+  },
+  "drop": {
+    "columns": [
+      "result"
+    ],
+    "rows": [
+      [
+        "dropped twice without an error"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "chinook-101",
+        "title": "An index nobody needs",
+        "level": 5
+      }
+    ]
+  },
+  "create-function-sql": {
+    "columns": [
+      "price"
+    ],
+    "rows": [
+      [
+        "12.50"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 53,
+    "exercises": [
+      {
+        "id": "sakila-038",
+        "title": "A function: rentals of a customer",
+        "level": 5
+      },
+      {
+        "id": "chinook-033",
+        "title": "Return a table from the database",
+        "level": 5
+      },
+      {
+        "id": "northwind-041",
+        "title": "Revenue of one order",
+        "level": 5
+      },
+      {
+        "id": "employees-027",
+        "title": "Salary on any date",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-022",
+        "title": "A recursive function: team size",
+        "level": 5
+      },
+      {
+        "id": "lahman-030",
+        "title": "A batting average function",
+        "level": 5
+      },
+      {
+        "id": "delivery-023",
+        "title": "Log every status change",
+        "level": 5
+      },
+      {
+        "id": "airlines-032",
+        "title": "Which airplane, as a function",
+        "level": 5
+      }
+    ]
+  },
+  "plpgsql": {
+    "columns": [
+      "a",
+      "b",
+      "c"
+    ],
+    "rows": [
+      [
+        "A",
+        "B",
+        "C"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 58,
+    "exercises": [
+      {
+        "id": "sakila-038",
+        "title": "A function: rentals of a customer",
+        "level": 5
+      },
+      {
+        "id": "chinook-034",
+        "title": "A procedure that reassigns customers",
+        "level": 5
+      },
+      {
+        "id": "northwind-042",
+        "title": "Stock goes down with every sale",
+        "level": 5
+      },
+      {
+        "id": "employees-035",
+        "title": "Counting working days with a loop",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-025",
+        "title": "Never sell below cost",
+        "level": 5
+      },
+      {
+        "id": "lahman-037",
+        "title": "A procedure with output parameters",
+        "level": 5
+      },
+      {
+        "id": "delivery-022",
+        "title": "A procedure that refuses bad cancellations",
+        "level": 5
+      },
+      {
+        "id": "airlines-033",
+        "title": "Landing updates the status",
+        "level": 5
+      }
+    ]
+  },
+  "loops": {
+    "columns": [
+      "f5",
+      "f10"
+    ],
+    "rows": [
+      [
+        "120",
+        "3628800"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 6,
+    "exercises": [
+      {
+        "id": "sakila-119",
+        "title": "Add copies of a film with a loop",
+        "level": 5
+      },
+      {
+        "id": "northwind-043",
+        "title": "Reorder what is running low",
+        "level": 5
+      },
+      {
+        "id": "employees-035",
+        "title": "Counting working days with a loop",
+        "level": 5
+      },
+      {
+        "id": "lahman-055",
+        "title": "Longest winning streak, with a loop",
+        "level": 5
+      },
+      {
+        "id": "northwind-092",
+        "title": "Shipping time in working days",
+        "level": 5
+      },
+      {
+        "id": "lahman-083",
+        "title": "Winning seasons in a row, with a loop",
+        "level": 5
+      }
+    ]
+  },
+  "returns-table": {
+    "columns": [
+      "id",
+      "name"
+    ],
+    "rows": [
+      [
+        "1",
+        "tea"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "chinook-033",
+        "title": "Return a table from the database",
+        "level": 5
+      },
+      {
+        "id": "delivery-087",
+        "title": "Top restaurants of a city, as a table",
+        "level": 5
+      }
+    ]
+  },
+  "procedure": {
+    "columns": [
+      "id",
+      "price"
+    ],
+    "rows": [
+      [
+        "1",
+        "6"
+      ],
+      [
+        "2",
+        "12"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 27,
+    "exercises": [
+      {
+        "id": "sakila-061",
+        "title": "A procedure to rent a film",
+        "level": 5
+      },
+      {
+        "id": "chinook-033",
+        "title": "Return a table from the database",
+        "level": 5
+      },
+      {
+        "id": "northwind-043",
+        "title": "Reorder what is running low",
+        "level": 5
+      },
+      {
+        "id": "employees-028",
+        "title": "A procedure for raises",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-045",
+        "title": "Receive stock",
+        "level": 5
+      },
+      {
+        "id": "lahman-037",
+        "title": "A procedure with output parameters",
+        "level": 5
+      },
+      {
+        "id": "delivery-022",
+        "title": "A procedure that refuses bad cancellations",
+        "level": 5
+      },
+      {
+        "id": "airlines-057",
+        "title": "Cancel a flight properly",
+        "level": 5
+      }
+    ]
+  },
+  "do-block": {
+    "columns": [
+      "items"
+    ],
+    "rows": [
+      [
+        "5"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "raise-signal": {
+    "columns": [
+      "ok"
+    ],
+    "rows": [
+      [
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 19,
+    "exercises": [
+      {
+        "id": "sakila-092",
+        "title": "Deactivate a customer, but not with films at home",
+        "level": 5
+      },
+      {
+        "id": "chinook-034",
+        "title": "A procedure that reassigns customers",
+        "level": 5
+      },
+      {
+        "id": "northwind-077",
+        "title": "A procedure that ships an order",
+        "level": 5
+      },
+      {
+        "id": "employees-063",
+        "title": "No salary cuts",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-025",
+        "title": "Never sell below cost",
+        "level": 5
+      },
+      {
+        "id": "lahman-102",
+        "title": "All-Stars must have played that season",
+        "level": 5
+      },
+      {
+        "id": "delivery-075",
+        "title": "No orders before sign-up, from now on",
+        "level": 5
+      },
+      {
+        "id": "airlines-041",
+        "title": "Only real seats on boarding passes",
+        "level": 5
+      }
+    ]
+  },
+  "exception-handler": {
+    "columns": [
+      "good",
+      "bad"
+    ],
+    "rows": [
+      [
+        "42",
+        "NULL"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 3,
+    "exercises": [
+      {
+        "id": "northwind-043",
+        "title": "Reorder what is running low",
+        "level": 5
+      },
+      {
+        "id": "lahman-055",
+        "title": "Longest winning streak, with a loop",
+        "level": 5
+      },
+      {
+        "id": "delivery-027",
+        "title": "Division that never fails",
+        "level": 5
+      }
+    ]
+  },
+  "trigger-before": {
+    "columns": [
+      "id",
+      "name"
+    ],
+    "rows": [
+      [
+        "1",
+        "tea"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 15,
+    "exercises": [
+      {
+        "id": "sakila-067",
+        "title": "Touch last_update on every change",
+        "level": 5
+      },
+      {
+        "id": "northwind-081",
+        "title": "The catalog price as the default",
+        "level": 5
+      },
+      {
+        "id": "employees-063",
+        "title": "No salary cuts",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-025",
+        "title": "Never sell below cost",
+        "level": 5
+      },
+      {
+        "id": "lahman-051",
+        "title": "Clean names on the way in",
+        "level": 5
+      },
+      {
+        "id": "delivery-049",
+        "title": "Emails in lower case",
+        "level": 5
+      },
+      {
+        "id": "airlines-033",
+        "title": "Landing updates the status",
+        "level": 5
+      },
+      {
+        "id": "northwind-102",
+        "title": "No price jump above 50%",
+        "level": 5
+      }
+    ]
+  },
+  "trigger-audit": {
+    "columns": [
+      "id",
+      "old_price",
+      "new_price"
+    ],
+    "rows": [
+      [
+        "1",
+        "4",
+        "5"
+      ],
+      [
+        "2",
+        "8",
+        "9"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 11,
+    "exercises": [
+      {
+        "id": "sakila-040",
+        "title": "An audit trail with a trigger",
+        "level": 5
+      },
+      {
+        "id": "chinook-051",
+        "title": "Keep the invoice total in step",
+        "level": 5
+      },
+      {
+        "id": "northwind-042",
+        "title": "Stock goes down with every sale",
+        "level": 5
+      },
+      {
+        "id": "employees-043",
+        "title": "Audit every new salary",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-062",
+        "title": "Keep a price history automatically",
+        "level": 5
+      },
+      {
+        "id": "lahman-069",
+        "title": "A summary kept current by a trigger",
+        "level": 5
+      },
+      {
+        "id": "delivery-023",
+        "title": "Log every status change",
+        "level": 5
+      },
+      {
+        "id": "sakila-112",
+        "title": "Renting reactivates a customer",
+        "level": 5
+      }
+    ]
+  },
+  "create-index": {
+    "columns": [
+      "index_name"
+    ],
+    "rows": [
+      [
+        "customer_email_idx"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 80,
+    "exercises": [
+      {
+        "id": "sakila-094",
+        "title": "Copies on the shelf, stored",
+        "level": 4
+      },
+      {
+        "id": "chinook-047",
+        "title": "Refresh without blocking readers",
+        "level": 4
+      },
+      {
+        "id": "northwind-088",
+        "title": "Sales per employee and year, stored",
+        "level": 4
+      },
+      {
+        "id": "employees-094",
+        "title": "Salary bands, stored",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-080",
+        "title": "Product sales, stored",
+        "level": 4
+      },
+      {
+        "id": "lahman-110",
+        "title": "A run-differential leaderboard, stored",
+        "level": 4
+      },
+      {
+        "id": "delivery-038",
+        "title": "Daily revenue, stored and refreshed",
+        "level": 4
+      },
+      {
+        "id": "airlines-076",
+        "title": "A searchable last name",
+        "level": 4
+      }
+    ]
+  },
+  "composite-index": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "1"
+      ],
+      [
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 34,
+    "exercises": [
+      {
+        "id": "sakila-094",
+        "title": "Copies on the shelf, stored",
+        "level": 4
+      },
+      {
+        "id": "northwind-088",
+        "title": "Sales per employee and year, stored",
+        "level": 4
+      },
+      {
+        "id": "employees-115",
+        "title": "Headcount history, stored",
+        "level": 4
+      },
+      {
+        "id": "lahman-110",
+        "title": "A run-differential leaderboard, stored",
+        "level": 4
+      },
+      {
+        "id": "delivery-062",
+        "title": "Revenue by city and cuisine, stored",
+        "level": 4
+      },
+      {
+        "id": "sakila-059",
+        "title": "Index only what is still out",
+        "level": 5
+      },
+      {
+        "id": "chinook-063",
+        "title": "Who composed it",
+        "level": 5
+      },
+      {
+        "id": "northwind-048",
+        "title": "An index for open orders only",
+        "level": 5
+      }
+    ]
+  },
+  "expression-index": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 3,
+    "exercises": [
+      {
+        "id": "northwind-085",
+        "title": "Unique names among active products",
+        "level": 5
+      },
+      {
+        "id": "employees-121",
+        "title": "At most one current salary per person",
+        "level": 5
+      },
+      {
+        "id": "airlines-034",
+        "title": "Find a passenger by name, any case",
+        "level": 5
+      }
+    ]
+  },
+  "partial-index": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "1"
+      ],
+      [
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 24,
+    "exercises": [
+      {
+        "id": "sakila-059",
+        "title": "Index only what is still out",
+        "level": 5
+      },
+      {
+        "id": "chinook-035",
+        "title": "Index only the rows you query",
+        "level": 5
+      },
+      {
+        "id": "northwind-048",
+        "title": "An index for open orders only",
+        "level": 5
+      },
+      {
+        "id": "employees-025",
+        "title": "An index for current salaries",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-059",
+        "title": "An index for store orders",
+        "level": 5
+      },
+      {
+        "id": "lahman-050",
+        "title": "An index for closers",
+        "level": 5
+      },
+      {
+        "id": "delivery-019",
+        "title": "An index for the problem orders",
+        "level": 5
+      },
+      {
+        "id": "airlines-045",
+        "title": "An index for flights still to come",
+        "level": 5
+      }
+    ]
+  },
+  "covering-index": {
+    "columns": [
+      "email"
+    ],
+    "rows": [
+      [
+        "bob@x.io"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 13,
+    "exercises": [
+      {
+        "id": "sakila-115",
+        "title": "An index for unusually large payments",
+        "level": 5
+      },
+      {
+        "id": "chinook-117",
+        "title": "An index for business customers",
+        "level": 5
+      },
+      {
+        "id": "employees-083",
+        "title": "Search by title, not by person",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-035",
+        "title": "Order history from the index",
+        "level": 5
+      },
+      {
+        "id": "lahman-080",
+        "title": "An index for champions only",
+        "level": 5
+      },
+      {
+        "id": "delivery-020",
+        "title": "Answer from the index alone",
+        "level": 5
+      },
+      {
+        "id": "airlines-077",
+        "title": "An index for business class only",
+        "level": 5
+      },
+      {
+        "id": "chinook-121",
+        "title": "Invoices of a date range",
+        "level": 5
+      }
+    ]
+  },
+  "unique-index": {
+    "columns": [
+      "n"
+    ],
+    "rows": [
+      [
+        "4"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 18,
+    "exercises": [
+      {
+        "id": "sakila-094",
+        "title": "Copies on the shelf, stored",
+        "level": 4
+      },
+      {
+        "id": "chinook-047",
+        "title": "Refresh without blocking readers",
+        "level": 4
+      },
+      {
+        "id": "northwind-088",
+        "title": "Sales per employee and year, stored",
+        "level": 4
+      },
+      {
+        "id": "employees-094",
+        "title": "Salary bands, stored",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-080",
+        "title": "Product sales, stored",
+        "level": 4
+      },
+      {
+        "id": "lahman-110",
+        "title": "A run-differential leaderboard, stored",
+        "level": 4
+      },
+      {
+        "id": "delivery-038",
+        "title": "Daily revenue, stored and refreshed",
+        "level": 4
+      },
+      {
+        "id": "airlines-085",
+        "title": "Average arrival delay per route, stored",
+        "level": 4
+      }
+    ]
+  },
+  "explain": {
+    "columns": [
+      "QUERY PLAN"
+    ],
+    "rows": [
+      [
+        "Seq Scan on customer"
+      ],
+      [
+        "  Filter: ((city)::text = 'Oslo'::text)"
+      ]
+    ],
+    "mysqlChecked": false,
+    "exerciseCount": 11,
+    "exercises": [
+      {
+        "id": "sakila-102",
+        "title": "An index that also sorts",
+        "level": 5
+      },
+      {
+        "id": "chinook-121",
+        "title": "Invoices of a date range",
+        "level": 5
+      },
+      {
+        "id": "employees-083",
+        "title": "Search by title, not by person",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-095",
+        "title": "An index that starts with the wrong column",
+        "level": 5
+      },
+      {
+        "id": "lahman-084",
+        "title": "A function on the column hides the index",
+        "level": 5
+      },
+      {
+        "id": "delivery-018",
+        "title": "Foreign keys are not indexed for you",
+        "level": 5
+      },
+      {
+        "id": "employees-112",
+        "title": "Counting hires from the index alone",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-115",
+        "title": "Top-N without sorting everything",
+        "level": 5
+      }
+    ]
+  },
+  "explain-analyze": {
+    "columns": [
+      "QUERY PLAN"
+    ],
+    "rows": [
+      [
+        "Seq Scan on customer (actual rows=2.00 loops=1)"
+      ],
+      [
+        "  Filter: ((city)::text = 'Oslo'::text)"
+      ],
+      [
+        "  Rows Removed by Filter: 1"
+      ]
+    ],
+    "mysqlChecked": false,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "analyze": {
+    "columns": [
+      "n"
+    ],
+    "rows": [
+      [
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 1,
+    "exercises": [
+      {
+        "id": "delivery-036",
+        "title": "A temp table with its own index",
+        "level": 4
+      }
+    ]
+  },
+  "transaction": {
+    "columns": [
+      "id",
+      "balance"
+    ],
+    "rows": [
+      [
+        "1",
+        "50"
+      ],
+      [
+        "2",
+        "70"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 23,
+    "exercises": [
+      {
+        "id": "sakila-037",
+        "title": "Undo part of a transaction",
+        "level": 4
+      },
+      {
+        "id": "northwind-036",
+        "title": "Place an order, all or nothing",
+        "level": 4
+      },
+      {
+        "id": "employees-034",
+        "title": "Move an employee to another department",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-056",
+        "title": "Keep the good lines",
+        "level": 4
+      },
+      {
+        "id": "delivery-014",
+        "title": "A refund, all or nothing",
+        "level": 4
+      },
+      {
+        "id": "sakila-111",
+        "title": "Move zero payments to an archive, all or nothing",
+        "level": 4
+      },
+      {
+        "id": "employees-105",
+        "title": "Hand a department to a new manager",
+        "level": 4
+      },
+      {
+        "id": "sakila-079",
+        "title": "Move a copy to the other store",
+        "level": 5
+      }
+    ]
+  },
+  "rollback": {
+    "columns": [
+      "still_there"
+    ],
+    "rows": [
+      [
+        "2"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "savepoint": {
+    "columns": [
+      "id",
+      "balance"
+    ],
+    "rows": [
+      [
+        "1",
+        "105"
+      ],
+      [
+        "2",
+        "20"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "sakila-037",
+        "title": "Undo part of a transaction",
+        "level": 4
+      },
+      {
+        "id": "adventureworks-056",
+        "title": "Keep the good lines",
+        "level": 4
+      }
+    ]
+  },
+  "isolation-level": {
+    "columns": [
+      "level"
+    ],
+    "rows": [
+      [
+        "read committed"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "adventureworks-096",
+        "title": "At most two reviews per product",
+        "level": 5
+      },
+      {
+        "id": "delivery-026",
+        "title": "A report that sees one moment",
+        "level": 5
+      }
+    ]
+  },
+  "for-update": {
+    "columns": [
+      "balance"
+    ],
+    "rows": [
+      [
+        "70"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 21,
+    "exercises": [
+      {
+        "id": "sakila-056",
+        "title": "Grab a free copy",
+        "level": 5
+      },
+      {
+        "id": "chinook-048",
+        "title": "Copy the address while it cannot change",
+        "level": 5
+      },
+      {
+        "id": "northwind-050",
+        "title": "Lock in a fixed order",
+        "level": 5
+      },
+      {
+        "id": "employees-069",
+        "title": "Lock the salary, not the employee",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-057",
+        "title": "Workers pulling purchase orders",
+        "level": 5
+      },
+      {
+        "id": "lahman-067",
+        "title": "Move a salary row to another team",
+        "level": 5
+      },
+      {
+        "id": "delivery-024",
+        "title": "A work queue with SKIP LOCKED",
+        "level": 5
+      },
+      {
+        "id": "airlines-053",
+        "title": "Board passengers one at a time",
+        "level": 5
+      }
+    ]
+  },
+  "skip-locked": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 4,
+    "exercises": [
+      {
+        "id": "sakila-056",
+        "title": "Grab a free copy",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-057",
+        "title": "Workers pulling purchase orders",
+        "level": 5
+      },
+      {
+        "id": "delivery-024",
+        "title": "A work queue with SKIP LOCKED",
+        "level": 5
+      },
+      {
+        "id": "delivery-025",
+        "title": "Lock it now or give up",
+        "level": 5
+      }
+    ]
+  },
+  "advisory-lock": {
+    "columns": [
+      "got_it",
+      "released"
+    ],
+    "rows": [
+      [
+        "true",
+        "true"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "employees-038",
+        "title": "Only one payroll run at a time",
+        "level": 5
+      },
+      {
+        "id": "airlines-112",
+        "title": "One boarding-number counter per flight",
+        "level": 5
+      }
+    ]
+  },
+  "lock-table": {
+    "columns": [
+      "id",
+      "balance"
+    ],
+    "rows": [
+      [
+        "1",
+        "100"
+      ],
+      [
+        "2",
+        "0"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 2,
+    "exercises": [
+      {
+        "id": "chinook-126",
+        "title": "A consistent export without stopping readers",
+        "level": 5
+      },
+      {
+        "id": "lahman-088",
+        "title": "Reload a team's salaries under a table lock",
+        "level": 5
+      }
+    ]
+  },
+  "tsvector-tsquery": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 10,
+    "exercises": [
+      {
+        "id": "chinook-037",
+        "title": "Search track names by word",
+        "level": 5
+      },
+      {
+        "id": "northwind-047",
+        "title": "Who speaks French or German",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-020",
+        "title": "Find \"aluminum\" in the catalogue",
+        "level": 5
+      },
+      {
+        "id": "lahman-081",
+        "title": "Ray as a word, not a fragment",
+        "level": 5
+      },
+      {
+        "id": "delivery-031",
+        "title": "Search by word beginnings",
+        "level": 5
+      },
+      {
+        "id": "airlines-092",
+        "title": "Passengers called Anna",
+        "level": 5
+      },
+      {
+        "id": "lahman-087",
+        "title": "Stadiums, but not the Yankees'",
+        "level": 5
+      },
+      {
+        "id": "delivery-076",
+        "title": "Search box for restaurants",
+        "level": 5
+      }
+    ]
+  },
+  "websearch-to-tsquery": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "1"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 12,
+    "exercises": [
+      {
+        "id": "sakila-066",
+        "title": "A phrase, not two words",
+        "level": 5
+      },
+      {
+        "id": "chinook-037",
+        "title": "Search track names by word",
+        "level": 5
+      },
+      {
+        "id": "northwind-047",
+        "title": "Who speaks French or German",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-122",
+        "title": "Light, lighter, lightweight",
+        "level": 5
+      },
+      {
+        "id": "lahman-081",
+        "title": "Ray as a word, not a fragment",
+        "level": 5
+      },
+      {
+        "id": "delivery-031",
+        "title": "Search by word beginnings",
+        "level": 5
+      },
+      {
+        "id": "airlines-092",
+        "title": "Passengers called Anna",
+        "level": 5
+      },
+      {
+        "id": "lahman-087",
+        "title": "Stadiums, but not the Yankees'",
+        "level": 5
+      }
+    ]
+  },
+  "ts-rank": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "1"
+      ],
+      [
+        "3"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 0,
+    "exercises": []
+  },
+  "gin-index": {
+    "columns": [
+      "id"
+    ],
+    "rows": [
+      [
+        "2"
+      ]
+    ],
+    "mysqlChecked": true,
+    "exerciseCount": 22,
+    "exercises": [
+      {
+        "id": "sakila-053",
+        "title": "Films with a crocodile and a shark",
+        "level": 5
+      },
+      {
+        "id": "chinook-037",
+        "title": "Search track names by word",
+        "level": 5
+      },
+      {
+        "id": "northwind-047",
+        "title": "Who speaks French or German",
+        "level": 5
+      },
+      {
+        "id": "adventureworks-050",
+        "title": "Black frames",
+        "level": 5
+      },
+      {
+        "id": "lahman-081",
+        "title": "Ray as a word, not a fragment",
+        "level": 5
+      },
+      {
+        "id": "delivery-031",
+        "title": "Search by word beginnings",
+        "level": 5
+      },
+      {
+        "id": "airlines-050",
+        "title": "The word, not the letters",
+        "level": 5
+      },
+      {
+        "id": "sakila-066",
+        "title": "A phrase, not two words",
+        "level": 5
+      }
+    ]
+  },
+  "ts-headline": {
+    "columns": [
+      "snippet"
+    ],
+    "rows": [
+      [
+        "Cooking fresh [pasta] at home"
+      ]
+    ],
+    "mysqlChecked": false,
+    "exerciseCount": 0,
+    "exercises": []
+  }
+}

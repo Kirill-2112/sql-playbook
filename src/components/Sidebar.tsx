@@ -17,6 +17,7 @@ export function Sidebar() {
           Path
         </Link>
         <Link to="/progress">Progress</Link>
+        <Link to="/practice">Practice by keyword</Link>
       </Section>
 
       <Section>

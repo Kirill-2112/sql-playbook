@@ -110,6 +110,9 @@ Audit of 2026-10-15:
   (Pages, Vercel Hobby) forbid commercial use: move to a paid plan before the subscription. Vercel later for previews/functions.
 - Learning app v1 (2026-10-22): path for levels 1–2 (62 lessons), XP, streak, daily goal, bottom tabs on phones.
 - PWA: public/manifest.webmanifest, public/icons/, public/sw.js (cache-first for hashed assets, network-first otherwise).
-- Next: reviews of missed tasks, practice by keyword, levels 3–5,
+- Reviews: missed tasks go into Leitner boxes (`review` in the store), due 1, 2, 4, 8 days later; `/review`.
+- Practice by keyword: `/practice` (most used + all reference groups), `/practice/:id`, `/practice/:id/drill`
+  (the entry's easiest exercises as write tasks). `LessonPlayer` plays lessons, reviews and drills alike.
+- Next: levels 3–5,
   more home-dataset (Northwind) exercises, reminders (needs a server), two replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
-import { unlockLevel, useProgress } from '../progress/store'
+import { dueReviews, unlockLevel, useProgress } from '../progress/store'
 import { SkillNode } from './SkillNode'
 import { StatsBar } from './StatsBar'
 
@@ -11,10 +11,22 @@ export function LearnPage() {
   const course = useCourse()
   const progress = useProgress()
   const units = course ? pathProgress(course, progress) : []
+  const due = dueReviews(progress.review).length
 
   return (
     <Page>
       <StatsBar />
+      {due > 0 && (
+        <Review to="/review">
+          <span>
+            <strong>
+              {due} task{due === 1 ? '' : 's'} to review
+            </strong>
+            <small>Things you missed earlier. A few minutes keeps them from fading.</small>
+          </span>
+          <b>Review</b>
+        </Review>
+      )}
       {course === null && <Muted>Loading the path…</Muted>}
       {units.map((unit) => (
         <Unit key={unit.level} aria-labelledby={`unit-${unit.level}`}>
@@ -121,4 +133,37 @@ const Note = styled.p`
   font-size: ${({ theme }) => theme.size.sm};
   color: ${({ theme }) => theme.color.muted};
   text-align: center;
+`
+
+const Review = styled(Link)`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.md};
+  padding: ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: 2px solid ${({ theme }) => theme.color.streak};
+  background: ${({ theme }) => theme.color.missSoft};
+  color: ${({ theme }) => theme.color.ink};
+  text-decoration: none;
+
+  span {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  small {
+    font-size: ${({ theme }) => theme.size.sm};
+    color: ${({ theme }) => theme.color.muted};
+  }
+
+  b {
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 16px;
+    border-radius: ${({ theme }) => theme.radius.md};
+    background: ${({ theme }) => theme.color.missStrong};
+    color: ${({ theme }) => theme.color.surface};
+  }
 `

@@ -12,7 +12,7 @@ export function BottomNav() {
         </svg>
         Learn
       </Tab>
-      <Tab to="/exercises">
+      <Tab to="/practice">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <path d="M4 6h16M4 12h10M4 18h7" />
           <circle cx="18" cy="16" r="3" />

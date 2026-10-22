@@ -21,6 +21,11 @@ export interface ProgressState {
   dailyGoal: number
   /** Levels opened early with "start anyway". */
   unlockedLevels: number[]
+  /**
+   * Tasks to review, keyed "lessonId#taskIndex" (Leitner boxes): a miss puts the task in box 1, due tomorrow; each
+   * right answer in a review moves it up a box and doubles the wait (2, 4, 8 days); after box 4 it is learned.
+   */
+  review: Record<string, { box: number; due: string }>
 }
 
 const KEY = 'sql-playbook.progress.v1'
@@ -31,14 +36,14 @@ export const DAILY_GOALS = [
   { xp: 100, name: 'Intense', about: 'Five lessons a day.' },
 ] as const
 
-const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [] }
+const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {} }
 
 function load(): ProgressState {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as Partial<ProgressState>
-    return { ...EMPTY, ...parsed, version: 1 }
+    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, version: 1 }
   } catch {
     return EMPTY
   }
@@ -69,10 +74,19 @@ export function lessonXp(correct: number): number {
   return 10 + 2 * correct
 }
 
-export function recordLesson(lessonId: string, correct: number, total: number): number {
+function addDays(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return localDate(d)
+}
+
+/** Records a finished lesson; the keys of tasks missed the first time go into review, due tomorrow. */
+export function recordLesson(lessonId: string, correct: number, total: number, missed: string[] = []): number {
   const xp = lessonXp(correct)
   const today = localDate()
   const previous = state.lessons[lessonId]
+  const review = { ...state.review }
+  for (const key of missed) review[key] = { box: 1, due: addDays(1) }
   save({
     ...state,
     xp: state.xp + xp,
@@ -81,8 +95,39 @@ export function recordLesson(lessonId: string, correct: number, total: number): 
       [lessonId]: { completedAt: new Date().toISOString(), correct, total, times: (previous?.times ?? 0) + 1 },
     },
     days: { ...state.days, [today]: (state.days[today] ?? 0) + xp },
+    review,
   })
   return xp
+}
+
+/** Records a review session: right answers move up a box, wrong ones go back to box 1. */
+export function recordReview(results: { key: string; correct: boolean }[]): number {
+  const correct = results.filter((r) => r.correct).length
+  const xp = lessonXp(correct)
+  const today = localDate()
+  const review = { ...state.review }
+  for (const { key, correct: right } of results) {
+    const box = right ? (review[key]?.box ?? 1) + 1 : 1
+    if (box > 4) delete review[key]
+    else review[key] = { box, due: addDays(2 ** (box - 1)) }
+  }
+  save({ ...state, xp: state.xp + xp, days: { ...state.days, [today]: (state.days[today] ?? 0) + xp }, review })
+  return xp
+}
+
+/** XP for a practice drill, which is not part of the path. */
+export function recordPractice(correct: number): number {
+  const xp = lessonXp(correct)
+  const today = localDate()
+  save({ ...state, xp: state.xp + xp, days: { ...state.days, [today]: (state.days[today] ?? 0) + xp } })
+  return xp
+}
+
+export function dueReviews(review: Record<string, { box: number; due: string }>, today = localDate()): string[] {
+  return Object.entries(review)
+    .filter(([, r]) => r.due <= today)
+    .sort(([, a], [, b]) => a.due.localeCompare(b.due) || a.box - b.box)
+    .map(([key]) => key)
 }
 
 export function setDailyGoal(xp: number) {

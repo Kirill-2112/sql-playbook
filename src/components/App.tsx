@@ -8,7 +8,10 @@ import { ExercisesPage } from './ExercisesPage'
 import { HomePage } from './HomePage'
 import { IndexLabPage } from './IndexLabPage'
 import { Layout } from './Layout'
+import { LearnPage } from './LearnPage'
+import { LessonPage } from './LessonPage'
 import { LicensesPage } from './LicensesPage'
+import { ProgressPage } from './ProgressPage'
 import { ReferenceEntryPage } from './ReferenceEntryPage'
 import { ReferencePage } from './ReferencePage'
 import { SituationPage } from './SituationPage'
@@ -20,8 +23,12 @@ export function App() {
       <GlobalStyle />
       <HashRouter>
         <Routes>
+          {/* Lessons take the whole screen, without the sidebar or tabs. */}
+          <Route path="learn/:lessonId" element={<LessonPage />} />
           <Route element={<Layout />}>
-            <Route index element={<HomePage />} />
+            <Route index element={<LearnPage />} />
+            <Route path="overview" element={<HomePage />} />
+            <Route path="progress" element={<ProgressPage />} />
             <Route path="exercises" element={<ExercisesPage />} />
             <Route path="exercises/:id" element={<ExercisePage />} />
             <Route path="datasets/:id" element={<DatasetPage />} />

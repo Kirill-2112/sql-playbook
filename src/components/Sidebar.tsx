@@ -12,10 +12,19 @@ export function Sidebar() {
       </Brand>
 
       <Section>
+        <SectionTitle>Learn</SectionTitle>
+        <Link to="/" end>
+          Path
+        </Link>
+        <Link to="/progress">Progress</Link>
+      </Section>
+
+      <Section>
         <SectionTitle>Practice</SectionTitle>
         <Link to="/exercises" end>
           All exercises
         </Link>
+        <Link to="/overview">Overview of the datasets</Link>
         {DATASET_IDS.map((id) => (
           <Link key={id} to={`/datasets/${id}`}>
             {DATASETS[id].name}

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
+import { BottomNav } from './BottomNav'
 import { Sidebar } from './Sidebar'
 
 export function Layout() {
@@ -12,12 +13,15 @@ export function Layout() {
 
   return (
     <Shell>
-      <Sidebar />
+      <SidebarSlot>
+        <Sidebar />
+      </SidebarSlot>
       <Main>
         <Content>
           <Outlet />
         </Content>
       </Main>
+      <BottomNav />
     </Shell>
   )
 }
@@ -37,6 +41,10 @@ const Main = styled.main`
   padding-inline: ${({ theme }) => theme.space.lg};
   padding-block: ${({ theme }) => theme.space.xl} ${({ theme }) => theme.space.xxl};
 
+  @media (max-width: 900px) {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+
   @media (max-width: 600px) {
     padding-inline: ${({ theme }) => theme.space.md};
   }
@@ -45,4 +53,11 @@ const Main = styled.main`
 const Content = styled.div`
   max-width: ${({ theme }) => theme.layout.content};
   margin: 0 auto;
+`
+
+// On phones the sidebar is replaced by the bottom tabs.
+const SidebarSlot = styled.div`
+  @media (max-width: 900px) {
+    display: none;
+  }
 `

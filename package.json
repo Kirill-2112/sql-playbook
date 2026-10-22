@@ -11,7 +11,8 @@
     "build:datasets": "tsx scripts/build-datasets.ts",
     "verify": "tsx scripts/verify.ts",
     "licenses": "tsx scripts/licenses.ts",
-    "build:reference": "tsx scripts/build-reference.ts"
+    "build:reference": "tsx scripts/build-reference.ts",
+    "build:lessons": "tsx scripts/build-lessons.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.9",

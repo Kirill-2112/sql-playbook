@@ -132,3 +132,51 @@ export interface ReferenceGenerated {
   exerciseCount: number
   exercises: { id: string; title: string; level: Level }[]
 }
+
+/** One step of a lesson in the learning path (built by scripts/build-lessons.ts). */
+export type LessonTask =
+  | {
+      /** Fill the blank (____) in a verified solution. Every wrong option was run and changes the result. */
+      kind: 'gap'
+      exerciseId: string
+      prompt: string
+      code: string
+      options: string[]
+      answer: number
+      explanation: string
+    }
+  | {
+      /** How many rows does this query return? */
+      kind: 'rows'
+      exerciseId: string
+      prompt: string
+      code: string
+      options: string[]
+      answer: number
+      explanation: string
+    }
+  | {
+      /** Write the whole query: the exercise itself, checked like on its page. */
+      kind: 'write'
+      exerciseId: string
+    }
+
+export interface Lesson {
+  /** e.g. "null-2": the second lesson of the NULL skill. */
+  id: string
+  topic: string
+  level: Level
+  index: number
+  tasks: LessonTask[]
+}
+
+export interface Skill {
+  topic: string
+  name: string
+  terms: string
+  lessons: Lesson[]
+}
+
+export interface Course {
+  units: { level: Level; name: string; skills: Skill[] }[]
+}

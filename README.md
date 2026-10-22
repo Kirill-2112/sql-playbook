@@ -83,6 +83,14 @@ npm run verify
 Documentation links point to the official [PostgreSQL](https://www.postgresql.org/docs/current/) and
 [MySQL 8.4](https://dev.mysql.com/doc/refman/8.4/en/) manuals. MySQL documentation text is not copied (Oracle license); explanations are original.
 
+## Learning path
+
+The home page is a Duolingo-style path: levels 1–2, one skill per topic, short lessons that mix tap-friendly tasks with
+one full query. `npm run build:lessons` generates them from the verified exercises (`src/content/generated/lessons.json`):
+"fill the gap" tasks blank a keyword of a reference solution, and every wrong option is run on PostgreSQL and kept only
+if it really changes the result; "how many rows" tasks take their distractors from what those near-miss queries return.
+XP, streak and daily goal are stored on the device.
+
 ## Functions & keywords reference
 
 `src/content/reference/` holds 188 entries in 18 groups: PostgreSQL syntax, the MySQL 8.4 equivalent (or why there is

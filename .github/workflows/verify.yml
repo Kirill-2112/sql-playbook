@@ -69,6 +69,9 @@ jobs:
       - name: Reference examples give the same rows on PostgreSQL and MySQL, and the stored results are current
         run: npm run build:reference && git diff --exit-code -- src/content/generated/reference.json
 
+      - name: Lessons are rebuilt from the verified exercises and the stored ones are current
+        run: npm run build:lessons && git diff --exit-code -- src/content/generated/lessons.json
+
       - name: Licenses page lists every shipped package (and only allowed licenses)
         run: npm run licenses && git diff --exit-code -- src/content/generated/licenses.json
 

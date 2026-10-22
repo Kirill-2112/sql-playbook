@@ -23,6 +23,7 @@ import type { Course, DatasetId, Exercise, Lesson, LessonTask } from '../src/con
 import { emulateTransactions, splitStatements } from '../src/utils/emulateTransactions'
 import { attachFiles } from '../src/utils/exerciseFiles'
 import { exerciseScript } from '../src/utils/exerciseScript'
+import { indexScenarios } from '../src/content/indexScenarios'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 // Filled by gapTasks as a by-product: every verified wrong variant is also a "find the bug" task.
@@ -372,6 +373,90 @@ async function rowsTask(db: PGlite, ex: Exercise, reference: unknown[][]): Promi
   }
 }
 
+/** Plan questions for the index topics, where a changed keyword never changes the result. */
+const PLAN_SCENARIOS: { slug: string; title: string; setup: string; query: string; lesson: string }[] = [
+  ...indexScenarios.flatMap((sc) => [
+    { slug: sc.slug, title: sc.title, setup: sc.indexSql, query: sc.query, lesson: sc.lesson },
+    ...(sc.fix ? [{ slug: sc.slug + '-fix', title: sc.title + ', with a better index', setup: sc.fix.indexSql, query: sc.query, lesson: sc.fix.note }] : []),
+  ]),
+  {
+    slug: 'primary-key',
+    title: 'Looking up by the primary key',
+    setup: '',
+    query: 'select * from orders where id = 777',
+    lesson: 'Every primary key comes with a unique index, so a lookup by id never needs a new one.',
+  },
+  {
+    slug: 'no-index-city',
+    title: 'Filtering on a column without an index',
+    setup: '',
+    query: "select * from customers where city = 'Eilat'",
+    lesson: 'No index exists on city, so the only way is to read every customer and check.',
+  },
+  {
+    slug: 'partial-match',
+    title: 'A partial index that matches the query',
+    setup: "create index lab_orders_refunded on orders (created_at) where status = 'refunded'",
+    query: "select * from orders where status = 'refunded' and created_at >= '2026-06-01'",
+    lesson: 'The index holds only refunded orders, sorted by date. The query asks for exactly those rows, so it is small and fast.',
+  },
+  {
+    slug: 'partial-mismatch',
+    title: 'A partial index for other rows',
+    setup: "create index lab_orders_refunded on orders (created_at) where status = 'refunded'",
+    query: "select * from orders where status = 'cancelled' and created_at >= '2026-06-01'",
+    lesson: 'The index contains only refunded orders. Cancelled ones are not in it, so it cannot answer this query.',
+  },
+  {
+    slug: 'covering',
+    title: 'An index that holds every column the query needs',
+    setup: 'create index lab_orders_customer_total on orders (customer_id) include (total)',
+    query: 'select total from orders where customer_id = 4242',
+    lesson: 'INCLUDE stores total in the index, so PostgreSQL can answer from the index alone (an index-only scan) without touching the table.',
+  },
+  {
+    slug: 'order-limit',
+    title: 'The newest ten, with an index on the date',
+    setup: 'create index lab_orders_created on orders (created_at)',
+    query: 'select * from orders order by created_at desc limit 10',
+    lesson: 'The index is already sorted by date, so reading it backwards gives the newest rows first and stops after ten.',
+  },
+  {
+    slug: 'order-limit-none',
+    title: 'The ten biggest orders, without an index',
+    setup: '',
+    query: 'select * from orders order by total desc limit 10',
+    lesson: 'Without an index on total, PostgreSQL must look at every order to know which ten are the biggest.',
+  },
+]
+
+async function planTasks(db: PGlite): Promise<LessonTask[]> {
+  const tasks: LessonTask[] = []
+  for (const sc of PLAN_SCENARIOS) {
+    let lines: string[] = []
+    await db.transaction(async (tx) => {
+      if (sc.setup) await tx.exec(sc.setup)
+      await tx.exec('analyze orders; analyze customers')
+      const result = await tx.query<{ 'QUERY PLAN': string }>(`explain (costs off) ${sc.query}`)
+      lines = result.rows.map((r) => r['QUERY PLAN'])
+      await tx.rollback()
+    })
+    tasks.push({
+      kind: 'plan',
+      exerciseId: `delivery-plan-${sc.slug}`,
+      prompt: sc.title,
+      setup: sc.setup,
+      query: sc.query,
+      usesIndex: lines.some((l) => /Index (Only )?Scan|Bitmap Index Scan/.test(l)),
+      plan: lines.slice(0, 4).join('\n'),
+      explanation: sc.lesson,
+    })
+  }
+  return tasks
+}
+
+const PLAN_TOPICS = ['indexes', 'partial-covering-indexes', 'query-plans']
+
 async function main() {
   const dbs = new Map<DatasetId, PGlite>()
   async function db(id: DatasetId) {
@@ -384,6 +469,8 @@ async function main() {
     return d
   }
 
+  const plans = await planTasks(await db('delivery'))
+  console.log(`${plans.length} plan questions: ${plans.filter((p) => p.kind === 'plan' && p.usesIndex).length} use an index`)
   const course: Course = { units: [] }
   for (const level of LEVELS) {
     const skills: Course['units'][number]['skills'] = []
@@ -433,9 +520,13 @@ async function main() {
       }
       // Each lesson: gap, rows, a third kind (find the bug or put in order), gap, then the full query to write.
       // A bug task never comes from the same exercise and keyword as a gap in the same lesson (it would give it away).
-      const gaps = quick.filter((t) => t.kind === 'gap')
-      const counts = quick.filter((t) => t.kind === 'rows')
-      const extras = interleave(bugs, orders)
+      const gaps: LessonTask[] = quick.filter((t) => t.kind === 'gap')
+      const counts: LessonTask[] = quick.filter((t) => t.kind === 'rows')
+      // Index topics: plan questions first, since a changed keyword never changes their results.
+      const extras = PLAN_TOPICS.includes(topic.id)
+        ? [...plans.filter((_, i) => i % PLAN_TOPICS.length === PLAN_TOPICS.indexOf(topic.id)), ...interleave(bugs, orders)]
+        : interleave(bugs, orders)
+      if (PLAN_TOPICS.includes(topic.id)) gaps.unshift(...extras.splice(0, Math.min(3, extras.length)))
       const lessons: Lesson[] = []
       for (let i = 0; i < LESSONS_PER_SKILL; i++) {
         const tasks: LessonTask[] = []

@@ -117,6 +117,7 @@ Audit of 2026-10-15:
   knows (opens levels) and the daily goal. `MeetDatabase` introduces a dataset before its first task (`seenDatasets`).
   Generator: solutions with recursion or loops only vary keywords that cannot break termination (PGlite has no
   statement timeout; a broken stop condition hangs it).
-- Next: better lessons for index/plan topics (results do not change, so gaps fall back to generic keywords), a MySQL
+- Index topics use "plan" tasks (will PostgreSQL use an index?) answered by a real EXPLAIN on Delivery during the build.
+- Next: a MySQL
   mode for lessons, more Northwind exercises for level 2, reminders (needs a server), two replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

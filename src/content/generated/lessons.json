@@ -11254,17 +11254,14 @@
               "index": 1,
               "tasks": [
                 {
-                  "kind": "gap",
-                  "exerciseId": "sakila-009",
-                  "prompt": "Show every rental made on 24 May 2005: rental_id and rental_date, in time order, then by rental_id.",
-                  "code": "select rental_id, rental_date\nfrom rental\nwhere rental_date >= '2005-05-24'\n  and rental_date <  '2005-05-25'\n⟦?⟧ rental_date, rental_id;",
-                  "options": [
-                    "order by",
-                    "where",
-                    "sort by"
-                  ],
-                  "answer": 0,
-                  "explanation": "A half-open range [start of day, start of next day) catches every time on that day and leaves the column untouched."
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-exact-lookup",
+                  "prompt": "Looking up one value",
+                  "setup": "create index lab_orders_customer on orders (customer_id)",
+                  "query": "select * from orders where customer_id = 1234",
+                  "usesIndex": true,
+                  "plan": "Bitmap Heap Scan on orders\n  Recheck Cond: (customer_id = 1234)\n  ->  Bitmap Index Scan on lab_orders_customer\n        Index Cond: (customer_id = 1234)",
+                  "explanation": "Without an index Postgres reads all 200,000 orders to find about 40. With an index it jumps straight to them. This is the classic case: a selective filter on a column you search by often."
                 },
                 {
                   "kind": "rows",
@@ -11279,6 +11276,125 @@
                   ],
                   "answer": 1,
                   "explanation": "It returns 8 rows. A half-open range [start of day, start of next day) catches every time on that day and leaves the column untouched."
+                },
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-no-index-city",
+                  "prompt": "Filtering on a column without an index",
+                  "setup": "",
+                  "query": "select * from customers where city = 'Eilat'",
+                  "usesIndex": false,
+                  "plan": "Seq Scan on customers\n  Filter: (city = 'Eilat'::text)",
+                  "explanation": "No index exists on city, so the only way is to read every customer and check."
+                },
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-function-on-column",
+                  "prompt": "Wrapping the column in a function",
+                  "setup": "create index lab_customers_email on customers (email)",
+                  "query": "select * from customers where lower(email) = 'noa.levi12@mail.com'",
+                  "usesIndex": false,
+                  "plan": "Seq Scan on customers\n  Filter: (lower(email) = 'noa.levi12@mail.com'::text)",
+                  "explanation": "The index stores email, but the query asks about lower(email), which is a different value. Postgres cannot use the index and scans every row."
+                },
+                {
+                  "kind": "write",
+                  "exerciseId": "sakila-009"
+                }
+              ]
+            },
+            {
+              "id": "indexes-2",
+              "topic": "indexes",
+              "level": 5,
+              "index": 2,
+              "tasks": [
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-composite-order",
+                  "prompt": "Composite index in the wrong order",
+                  "setup": "create index lab_orders_customer_created on orders (customer_id, created_at)",
+                  "query": "select * from orders where created_at >= '2026-06-20'",
+                  "usesIndex": false,
+                  "plan": "Seq Scan on orders\n  Filter: (created_at >= '2026-06-20 00:00:00'::timestamp without time zone)",
+                  "explanation": "A (customer_id, created_at) index is sorted by customer first. A filter on created_at alone cannot use that order, so Postgres reads the table instead. Think of a phone book sorted by last name, then first name: it does not help you find everyone named Noa. Postgres 18 can sometimes “skip scan” such an index, but only when the first column has few distinct values. Here there are 50,000 customers."
+                },
+                {
+                  "kind": "rows",
+                  "exerciseId": "northwind-059",
+                  "prompt": "Count the orders of 1997. order_date has an index: compare a range condition with extract(year …).",
+                  "code": "select count(*) as orders\nfrom orders\nwhere order_date >= '1997-01-01' and order_date < '1998-01-01';",
+                  "options": [
+                    "1",
+                    "0",
+                    "3",
+                    "2"
+                  ],
+                  "answer": 0,
+                  "explanation": "It returns 1 row. The index on order_date can answer the range directly."
+                },
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-covering",
+                  "prompt": "An index that holds every column the query needs",
+                  "setup": "create index lab_orders_customer_total on orders (customer_id) include (total)",
+                  "query": "select total from orders where customer_id = 4242",
+                  "usesIndex": true,
+                  "plan": "Bitmap Heap Scan on orders\n  Recheck Cond: (customer_id = 4242)\n  ->  Bitmap Index Scan on lab_orders_customer_total\n        Index Cond: (customer_id = 4242)",
+                  "explanation": "INCLUDE stores total in the index, so PostgreSQL can answer from the index alone (an index-only scan) without touching the table."
+                },
+                {
+                  "kind": "gap",
+                  "exerciseId": "sakila-009",
+                  "prompt": "Show every rental made on 24 May 2005: rental_id and rental_date, in time order, then by rental_id.",
+                  "code": "select rental_id, rental_date\nfrom rental\nwhere rental_date >= '2005-05-24'\n  and rental_date <  '2005-05-25'\n⟦?⟧ rental_date, rental_id;",
+                  "options": [
+                    "order by",
+                    "where",
+                    "sort by"
+                  ],
+                  "answer": 0,
+                  "explanation": "A half-open range [start of day, start of next day) catches every time on that day and leaves the column untouched."
+                },
+                {
+                  "kind": "write",
+                  "exerciseId": "chinook-047"
+                }
+              ]
+            },
+            {
+              "id": "indexes-3",
+              "topic": "indexes",
+              "level": 5,
+              "index": 3,
+              "tasks": [
+                {
+                  "kind": "gap",
+                  "exerciseId": "sakila-009",
+                  "prompt": "Show every rental made on 24 May 2005: rental_id and rental_date, in time order, then by rental_id.",
+                  "code": "select rental_id, rental_date\nfrom rental\n⟦?⟧ rental_date >= '2005-05-24'\n  and rental_date <  '2005-05-25'\norder by rental_date, rental_id;",
+                  "options": [
+                    "when",
+                    "filter",
+                    "having",
+                    "where"
+                  ],
+                  "answer": 3,
+                  "explanation": "A half-open range [start of day, start of next day) catches every time on that day and leaves the column untouched."
+                },
+                {
+                  "kind": "rows",
+                  "exerciseId": "sakila-054",
+                  "prompt": "Count the rentals made on 31 July 2005. rental_date is indexed: write the query so that the index can be used.",
+                  "code": "select count(*) as rentals\nfrom rental\nwhere rental_date >= '2005-07-31' and rental_date < '2005-08-01';",
+                  "options": [
+                    "3",
+                    "0",
+                    "2",
+                    "1"
+                  ],
+                  "answer": 3,
+                  "explanation": "It returns 1 row. The condition compares the indexed column itself with two constants, so the planner can jump to 31 July in the index and read just that day (EXPLAIN: Index Only Scan or Bitmap Index Scan)."
                 },
                 {
                   "kind": "order",
@@ -11298,32 +11414,6 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "sakila-009",
-                  "prompt": "Show every rental made on 24 May 2005: rental_id and rental_date, in time order, then by rental_id.",
-                  "code": "select rental_id, rental_date\nfrom rental\n⟦?⟧ rental_date >= '2005-05-24'\n  and rental_date <  '2005-05-25'\norder by rental_date, rental_id;",
-                  "options": [
-                    "when",
-                    "filter",
-                    "having",
-                    "where"
-                  ],
-                  "answer": 3,
-                  "explanation": "A half-open range [start of day, start of next day) catches every time on that day and leaves the column untouched."
-                },
-                {
-                  "kind": "write",
-                  "exerciseId": "sakila-009"
-                }
-              ]
-            },
-            {
-              "id": "indexes-2",
-              "topic": "indexes",
-              "level": 5,
-              "index": 2,
-              "tasks": [
-                {
-                  "kind": "gap",
                   "exerciseId": "chinook-047",
                   "prompt": "Store sales per genre (genre_id, name, sales = unit_price × quantity summed) so it can be refreshed while dashboards keep reading it.",
                   "code": "create materialized view genre_sales as\nselect g.genre_id, g.name, sum(il.unit_price * il.quantity) as sales\nfrom invoice_line il\n⟦?⟧ track t on t.track_id = il.track_id\njoin genre g on g.genre_id = t.genre_id\ngroup by g.genre_id, g.name;\n\ncreate unique index genre_sales_genre_id on genre_sales (genre_id);\n\nrefresh materialized view concurrently genre_sales;",
@@ -11335,118 +11425,6 @@
                   ],
                   "answer": 0,
                   "explanation": "A plain REFRESH locks the view against reads until it finishes. REFRESH … CONCURRENTLY builds the new result on the side and applies only the differences, which requires a unique index to match rows."
-                },
-                {
-                  "kind": "rows",
-                  "exerciseId": "northwind-059",
-                  "prompt": "Count the orders of 1997. order_date has an index: compare a range condition with extract(year …).",
-                  "code": "select count(*) as orders\nfrom orders\nwhere order_date >= '1997-01-01' and order_date < '1998-01-01';",
-                  "options": [
-                    "1",
-                    "0",
-                    "3",
-                    "2"
-                  ],
-                  "answer": 0,
-                  "explanation": "It returns 1 row. The index on order_date can answer the range directly."
-                },
-                {
-                  "kind": "bug",
-                  "exerciseId": "sakila-009",
-                  "prompt": "Show every rental made on 24 May 2005: rental_id and rental_date, in time order, then by rental_id.",
-                  "lines": [
-                    "select rental_id, rental_date",
-                    "from rental",
-                    "where rental_date >= '2005-05-24'",
-                    "  and rental_date <  '2005-05-25'",
-                    "sort by rental_date, rental_id;"
-                  ],
-                  "answer": 4,
-                  "fixed": "order by rental_date, rental_id;",
-                  "explanation": "A half-open range [start of day, start of next day) catches every time on that day and leaves the column untouched."
-                },
-                {
-                  "kind": "gap",
-                  "exerciseId": "chinook-047",
-                  "prompt": "Store sales per genre (genre_id, name, sales = unit_price × quantity summed) so it can be refreshed while dashboards keep reading it.",
-                  "code": "create materialized view genre_sales as\nselect g.genre_id, g.name, sum(il.unit_price * il.quantity) as sales\nfrom invoice_line il\njoin track t on t.track_id = il.track_id\njoin genre g on g.genre_id = t.genre_id\n⟦?⟧ g.genre_id, g.name;\n\ncreate unique index genre_sales_genre_id on genre_sales (genre_id);\n\nrefresh materialized view concurrently genre_sales;",
-                  "options": [
-                    "partition by",
-                    "sort by",
-                    "group by",
-                    "order by"
-                  ],
-                  "answer": 2,
-                  "explanation": "A plain REFRESH locks the view against reads until it finishes. REFRESH … CONCURRENTLY builds the new result on the side and applies only the differences, which requires a unique index to match rows."
-                },
-                {
-                  "kind": "write",
-                  "exerciseId": "chinook-047"
-                }
-              ]
-            },
-            {
-              "id": "indexes-3",
-              "topic": "indexes",
-              "level": 5,
-              "index": 3,
-              "tasks": [
-                {
-                  "kind": "gap",
-                  "exerciseId": "delivery-036",
-                  "prompt": "Build a temporary table customer_totals (customer_id, orders, spent) from delivered orders, give it a primary key, and use it for the check that looks up single customers.",
-                  "code": "create temp table customer_totals as\nselect customer_id, count(*) as orders, sum(total) as spent\nfrom orders\nwhere status = 'delivered'\ngroup by customer_id;\n\nalter table customer_totals add ⟦?⟧ (customer_id);\nanalyze customer_totals;",
-                  "options": [
-                    "index",
-                    "key",
-                    "primary key"
-                  ],
-                  "answer": 2,
-                  "explanation": "A temporary table is a real table: it can have indexes and statistics. With ~49,000 rows, lookups by customer then use the key. In PostgreSQL autovacuum never analyzes temp tables, so run ANALYZE yourself before heavy queries."
-                },
-                {
-                  "kind": "rows",
-                  "exerciseId": "sakila-054",
-                  "prompt": "Count the rentals made on 31 July 2005. rental_date is indexed: write the query so that the index can be used.",
-                  "code": "select count(*) as rentals\nfrom rental\nwhere rental_date >= '2005-07-31' and rental_date < '2005-08-01';",
-                  "options": [
-                    "3",
-                    "0",
-                    "2",
-                    "1"
-                  ],
-                  "answer": 3,
-                  "explanation": "It returns 1 row. The condition compares the indexed column itself with two constants, so the planner can jump to 31 July in the index and read just that day (EXPLAIN: Index Only Scan or Bitmap Index Scan)."
-                },
-                {
-                  "kind": "order",
-                  "exerciseId": "sakila-054",
-                  "prompt": "Count the rentals made on 31 July 2005. rental_date is indexed: write the query so that the index can be used.",
-                  "lines": [
-                    "where rental_date >= '2005-07-31' and rental_date < '2005-08-01'",
-                    "select count(*) as rentals",
-                    "from rental"
-                  ],
-                  "answer": [
-                    1,
-                    2,
-                    0
-                  ],
-                  "explanation": "SQL clauses always come in this order: SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. The database runs them in a different order (FROM and WHERE first), which is why SELECT aliases are not visible in WHERE."
-                },
-                {
-                  "kind": "gap",
-                  "exerciseId": "delivery-036",
-                  "prompt": "Build a temporary table customer_totals (customer_id, orders, spent) from delivered orders, give it a primary key, and use it for the check that looks up single customers.",
-                  "code": "create temp table customer_totals as\nselect customer_id, count(*) as orders, sum(total) as spent\nfrom orders\nwhere status = 'delivered'\n⟦?⟧ customer_id;\n\nalter table customer_totals add primary key (customer_id);\nanalyze customer_totals;",
-                  "options": [
-                    "sort by",
-                    "group by",
-                    "order by",
-                    "partition by"
-                  ],
-                  "answer": 1,
-                  "explanation": "A temporary table is a real table: it can have indexes and statistics. With ~49,000 rows, lookups by customer then use the key. In PostgreSQL autovacuum never analyzes temp tables, so run ANALYZE yourself before heavy queries."
                 },
                 {
                   "kind": "write",
@@ -11466,6 +11444,58 @@
               "topic": "partial-covering-indexes",
               "level": 5,
               "index": 1,
+              "tasks": [
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-prefix-search",
+                  "prompt": "Text that starts with…",
+                  "setup": "create index lab_customers_email on customers (email)",
+                  "query": "select * from customers where email like 'noa.levi12%'",
+                  "usesIndex": true,
+                  "plan": "Index Scan using lab_customers_email on customers\n  Index Cond: ((email >= 'noa.levi12'::text) AND (email < 'noa.levi13'::text))\n  Filter: (email ~~ 'noa.levi12%'::text)",
+                  "explanation": "A B-tree index keeps values sorted, so “starts with noa.levi12” is a range in that order and the index can find it. In databases with a non-C collation you would need text_pattern_ops for this."
+                },
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-function-on-column-fix",
+                  "prompt": "Wrapping the column in a function, with a better index",
+                  "setup": "create index lab_customers_email_lower on customers (lower(email))",
+                  "query": "select * from customers where lower(email) = 'noa.levi12@mail.com'",
+                  "usesIndex": true,
+                  "plan": "Index Scan using lab_customers_email_lower on customers\n  Index Cond: (lower(email) = 'noa.levi12@mail.com'::text)",
+                  "explanation": "An expression index stores lower(email) itself, so the same query becomes an index lookup."
+                },
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-partial-match",
+                  "prompt": "A partial index that matches the query",
+                  "setup": "create index lab_orders_refunded on orders (created_at) where status = 'refunded'",
+                  "query": "select * from orders where status = 'refunded' and created_at >= '2026-06-01'",
+                  "usesIndex": true,
+                  "plan": "Bitmap Heap Scan on orders\n  Recheck Cond: ((created_at >= '2026-06-01 00:00:00'::timestamp without time zone) AND (status = 'refunded'::text))\n  ->  Bitmap Index Scan on lab_orders_refunded\n        Index Cond: (created_at >= '2026-06-01 00:00:00'::timestamp without time zone)",
+                  "explanation": "The index holds only refunded orders, sorted by date. The query asks for exactly those rows, so it is small and fast."
+                },
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-composite-order-fix",
+                  "prompt": "Composite index in the wrong order, with a better index",
+                  "setup": "create index lab_orders_created on orders (created_at)",
+                  "query": "select * from orders where created_at >= '2026-06-20'",
+                  "usesIndex": true,
+                  "plan": "Bitmap Heap Scan on orders\n  Recheck Cond: (created_at >= '2026-06-20 00:00:00'::timestamp without time zone)\n  ->  Bitmap Index Scan on lab_orders_created\n        Index Cond: (created_at >= '2026-06-20 00:00:00'::timestamp without time zone)",
+                  "explanation": "Put the column you filter on alone first, or give it its own index."
+                },
+                {
+                  "kind": "write",
+                  "exerciseId": "northwind-048"
+                }
+              ]
+            },
+            {
+              "id": "partial-covering-indexes-2",
+              "topic": "partial-covering-indexes",
+              "level": 5,
+              "index": 2,
               "tasks": [
                 {
                   "kind": "gap",
@@ -11496,18 +11526,14 @@
                   "explanation": "Casting a timestamp (without time zone) to date is immutable, so it is allowed in a generated column; subtracting two dates gives whole days. The partial index holds only the 37 late orders, not all 830."
                 },
                 {
-                  "kind": "bug",
-                  "exerciseId": "chinook-091",
-                  "prompt": "The video page lists the 1.99 tracks (videos) of an album, by name. Only 213 of 3,503 tracks cost 1.99. Create an index that holds only those tracks and serves this page.",
-                  "lines": [
-                    "create index track_video_album_idx on track (album_id, name)",
-                    "having unit_price = 1.99;",
-                    "",
-                    "-- used by: select name from track where unit_price = 1.99 and album_id = 229 order by name"
-                  ],
-                  "answer": 1,
-                  "fixed": "where unit_price = 1.99;",
-                  "explanation": "The index holds 213 entries instead of 3,503, already sorted by album and name, so the page needs neither a sort nor a table scan."
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-order-limit",
+                  "prompt": "The newest ten, with an index on the date",
+                  "setup": "create index lab_orders_created on orders (created_at)",
+                  "query": "select * from orders order by created_at desc limit 10",
+                  "usesIndex": true,
+                  "plan": "Limit\n  ->  Index Scan Backward using lab_orders_created on orders",
+                  "explanation": "The index is already sorted by date, so reading it backwards gives the newest rows first and stops after ten."
                 },
                 {
                   "kind": "gap",
@@ -11525,15 +11551,15 @@
                 },
                 {
                   "kind": "write",
-                  "exerciseId": "northwind-048"
+                  "exerciseId": "northwind-076"
                 }
               ]
             },
             {
-              "id": "partial-covering-indexes-2",
+              "id": "partial-covering-indexes-3",
               "topic": "partial-covering-indexes",
               "level": 5,
-              "index": 2,
+              "index": 3,
               "tasks": [
                 {
                   "kind": "gap",
@@ -11594,74 +11620,6 @@
                 },
                 {
                   "kind": "write",
-                  "exerciseId": "northwind-076"
-                }
-              ]
-            },
-            {
-              "id": "partial-covering-indexes-3",
-              "topic": "partial-covering-indexes",
-              "level": 5,
-              "index": 3,
-              "tasks": [
-                {
-                  "kind": "gap",
-                  "exerciseId": "chinook-117",
-                  "prompt": "Account managers list customers with a company (10 of 59) by country. Create an index that holds only customers with a company and serves that list.",
-                  "code": "create index customer_business_idx on customer (country) include (company)\n⟦?⟧ company is not null;",
-                  "options": [
-                    "having",
-                    "where",
-                    "filter",
-                    "when"
-                  ],
-                  "answer": 1,
-                  "explanation": "Private customers (company NULL) stay out of the index. With 59 rows this is about principle; with millions of consumers and a few thousand businesses, it saves real space."
-                },
-                {
-                  "kind": "gap",
-                  "exerciseId": "sakila-059",
-                  "prompt": "The counter staff look up the 183 rentals not yet returned (return_date is NULL) by customer. Create the smallest index that serves this.",
-                  "code": "create index rental_open_by_customer on rental (customer_id) ⟦?⟧ return_date is null;",
-                  "options": [
-                    "where",
-                    "filter",
-                    "when",
-                    "having"
-                  ],
-                  "answer": 0,
-                  "explanation": "183 of 16,044 rentals: the index is about 90 times smaller than a full one and only changes when a rental is created or returned."
-                },
-                {
-                  "kind": "bug",
-                  "exerciseId": "employees-095",
-                  "prompt": "A compliance report lists salary rows of 100,000 or more by emp_no. They are 1,836 of 57,362 rows. Create an index holding only those rows that answers the report without reading the table.",
-                  "lines": [
-                    "create index salaries_six_figures_idx on salaries (emp_no, from_date) include (salary)",
-                    "having salary >= 100000;",
-                    "",
-                    "-- used by: select emp_no, from_date, salary from salaries where salary >= 100000 order by emp_no, from_date"
-                  ],
-                  "answer": 1,
-                  "fixed": "where salary >= 100000;",
-                  "explanation": "About 3% of the rows, already in report order, with the salary included: an index-only scan with no sort."
-                },
-                {
-                  "kind": "gap",
-                  "exerciseId": "sakila-071",
-                  "prompt": "A win-back campaign repeatedly lists inactive customers (active = 0) by last name. Create an index that holds only them.",
-                  "code": "create index customer_inactive_idx on customer (last_name) ⟦?⟧ active = 0;",
-                  "options": [
-                    "where",
-                    "when",
-                    "having",
-                    "filter"
-                  ],
-                  "answer": 0,
-                  "explanation": "15 of 599 customers are inactive; the index holds just those, sorted by name."
-                },
-                {
-                  "kind": "write",
                   "exerciseId": "northwind-085"
                 }
               ]
@@ -11680,17 +11638,14 @@
               "index": 1,
               "tasks": [
                 {
-                  "kind": "gap",
-                  "exerciseId": "northwind-074",
-                  "prompt": "Using one CTE of revenue per customer, show the customers whose revenue is more than twice the average customer revenue: customer_id and revenue (rounded to 2 decimals).",
-                  "code": "with revenue as (\n  select o.customer_id, sum(od.unit_price * od.quantity * (1 - od.discount)) as total\n  from orders o ⟦?⟧ order_details od on od.order_id = o.order_id\n  group by o.customer_id\n)\nselect customer_id, round(total, 2) as revenue\nfrom revenue\nwhere total > 2 * (select avg(total) from revenue)\norder by total desc;",
-                  "options": [
-                    "cross join",
-                    "join",
-                    "natural join"
-                  ],
-                  "answer": 1,
-                  "explanation": "A CTE referenced more than once is computed once and reused (PostgreSQL \"materializes\" it). A CTE used once is inlined into the query like a subquery; WITH … AS MATERIALIZED / NOT MATERIALIZED overrides that choice."
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-leading-wildcard",
+                  "prompt": "Text that contains…",
+                  "setup": "create index lab_customers_email on customers (email)",
+                  "query": "select * from customers where email like '%levi123%'",
+                  "usesIndex": false,
+                  "plan": "Seq Scan on customers\n  Filter: (email ~~ '%levi123%'::text)",
+                  "explanation": "A % at the start means the match can be anywhere, so sorted order is useless and Postgres scans everything. For “contains” searches use a trigram index (pg_trgm) or full-text search."
                 },
                 {
                   "kind": "rows",
@@ -11705,6 +11660,125 @@
                   ],
                   "answer": 1,
                   "explanation": "It returns 9 rows. A CTE referenced more than once is computed once and reused (PostgreSQL \"materializes\" it). A CTE used once is inlined into the query like a subquery; WITH … AS MATERIALIZED / NOT MATERIALIZED overrides that choice."
+                },
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-partial-mismatch",
+                  "prompt": "A partial index for other rows",
+                  "setup": "create index lab_orders_refunded on orders (created_at) where status = 'refunded'",
+                  "query": "select * from orders where status = 'cancelled' and created_at >= '2026-06-01'",
+                  "usesIndex": false,
+                  "plan": "Seq Scan on orders\n  Filter: ((created_at >= '2026-06-01 00:00:00'::timestamp without time zone) AND (status = 'cancelled'::text))",
+                  "explanation": "The index contains only refunded orders. Cancelled ones are not in it, so it cannot answer this query."
+                },
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-low-selectivity",
+                  "prompt": "A value most rows have",
+                  "setup": "create index lab_orders_status on orders (status)",
+                  "query": "select * from orders where status = 'delivered'",
+                  "usesIndex": false,
+                  "plan": "Seq Scan on orders\n  Filter: (status = 'delivered'::text)",
+                  "explanation": "About 92% of orders are delivered. Reading almost the whole table through an index is slower than just reading the table, so the planner ignores the index. Indexes pay off when a filter keeps a small share of rows."
+                },
+                {
+                  "kind": "write",
+                  "exerciseId": "northwind-074"
+                }
+              ]
+            },
+            {
+              "id": "query-plans-2",
+              "topic": "query-plans",
+              "level": 5,
+              "index": 2,
+              "tasks": [
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-primary-key",
+                  "prompt": "Looking up by the primary key",
+                  "setup": "",
+                  "query": "select * from orders where id = 777",
+                  "usesIndex": true,
+                  "plan": "Index Scan using orders_pkey on orders\n  Index Cond: (id = 777)",
+                  "explanation": "Every primary key comes with a unique index, so a lookup by id never needs a new one."
+                },
+                {
+                  "kind": "rows",
+                  "exerciseId": "northwind-059",
+                  "prompt": "Count the orders of 1997. order_date has an index: compare a range condition with extract(year …).",
+                  "code": "select count(*) as orders\nfrom orders\nwhere order_date >= '1997-01-01' and order_date < '1998-01-01';",
+                  "options": [
+                    "1",
+                    "0",
+                    "3",
+                    "2"
+                  ],
+                  "answer": 0,
+                  "explanation": "It returns 1 row. The index on order_date can answer the range directly."
+                },
+                {
+                  "kind": "plan",
+                  "exerciseId": "delivery-plan-order-limit-none",
+                  "prompt": "The ten biggest orders, without an index",
+                  "setup": "",
+                  "query": "select * from orders order by total desc limit 10",
+                  "usesIndex": false,
+                  "plan": "Limit\n  ->  Sort\n        Sort Key: total DESC\n        ->  Seq Scan on orders",
+                  "explanation": "Without an index on total, PostgreSQL must look at every order to know which ten are the biggest."
+                },
+                {
+                  "kind": "gap",
+                  "exerciseId": "northwind-074",
+                  "prompt": "Using one CTE of revenue per customer, show the customers whose revenue is more than twice the average customer revenue: customer_id and revenue (rounded to 2 decimals).",
+                  "code": "with revenue as (\n  select o.customer_id, sum(od.unit_price * od.quantity * (1 - od.discount)) as total\n  from orders o ⟦?⟧ order_details od on od.order_id = o.order_id\n  group by o.customer_id\n)\nselect customer_id, round(total, 2) as revenue\nfrom revenue\nwhere total > 2 * (select avg(total) from revenue)\norder by total desc;",
+                  "options": [
+                    "cross join",
+                    "join",
+                    "natural join"
+                  ],
+                  "answer": 1,
+                  "explanation": "A CTE referenced more than once is computed once and reused (PostgreSQL \"materializes\" it). A CTE used once is inlined into the query like a subquery; WITH … AS MATERIALIZED / NOT MATERIALIZED overrides that choice."
+                },
+                {
+                  "kind": "write",
+                  "exerciseId": "northwind-059"
+                }
+              ]
+            },
+            {
+              "id": "query-plans-3",
+              "topic": "query-plans",
+              "level": 5,
+              "index": 3,
+              "tasks": [
+                {
+                  "kind": "gap",
+                  "exerciseId": "northwind-074",
+                  "prompt": "Using one CTE of revenue per customer, show the customers whose revenue is more than twice the average customer revenue: customer_id and revenue (rounded to 2 decimals).",
+                  "code": "with revenue as (\n  select o.customer_id, sum(od.unit_price * od.quantity * (1 - od.discount)) as total\n  from orders o join order_details od on od.order_id = o.order_id\n  ⟦?⟧ o.customer_id\n)\nselect customer_id, round(total, 2) as revenue\nfrom revenue\nwhere total > 2 * (select avg(total) from revenue)\norder by total desc;",
+                  "options": [
+                    "partition by",
+                    "sort by",
+                    "group by",
+                    "order by"
+                  ],
+                  "answer": 2,
+                  "explanation": "A CTE referenced more than once is computed once and reused (PostgreSQL \"materializes\" it). A CTE used once is inlined into the query like a subquery; WITH … AS MATERIALIZED / NOT MATERIALIZED overrides that choice."
+                },
+                {
+                  "kind": "rows",
+                  "exerciseId": "northwind-073",
+                  "prompt": "Which customers have never placed an order? Count them in two ways and compare.",
+                  "code": "select count(*) as no_orders\nfrom customers c\nwhere not exists (select 1 from orders o where o.customer_id = c.customer_id);",
+                  "options": [
+                    "3",
+                    "0",
+                    "1",
+                    "2"
+                  ],
+                  "answer": 2,
+                  "explanation": "It returns 1 row. Planned as an anti-join, and correct whatever NULLs orders.customer_id might contain."
                 },
                 {
                   "kind": "order",
@@ -11724,32 +11798,6 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "northwind-074",
-                  "prompt": "Using one CTE of revenue per customer, show the customers whose revenue is more than twice the average customer revenue: customer_id and revenue (rounded to 2 decimals).",
-                  "code": "with revenue as (\n  select o.customer_id, sum(od.unit_price * od.quantity * (1 - od.discount)) as total\n  from orders o join order_details od on od.order_id = o.order_id\n  ⟦?⟧ o.customer_id\n)\nselect customer_id, round(total, 2) as revenue\nfrom revenue\nwhere total > 2 * (select avg(total) from revenue)\norder by total desc;",
-                  "options": [
-                    "partition by",
-                    "sort by",
-                    "group by",
-                    "order by"
-                  ],
-                  "answer": 2,
-                  "explanation": "A CTE referenced more than once is computed once and reused (PostgreSQL \"materializes\" it). A CTE used once is inlined into the query like a subquery; WITH … AS MATERIALIZED / NOT MATERIALIZED overrides that choice."
-                },
-                {
-                  "kind": "write",
-                  "exerciseId": "northwind-074"
-                }
-              ]
-            },
-            {
-              "id": "query-plans-2",
-              "topic": "query-plans",
-              "level": 5,
-              "index": 2,
-              "tasks": [
-                {
-                  "kind": "gap",
                   "exerciseId": "northwind-059",
                   "prompt": "Count the orders of 1997. order_date has an index: compare a range condition with extract(year …).",
                   "code": "select ⟦?⟧(*) as orders\nfrom orders\nwhere order_date >= '1997-01-01' and order_date < '1998-01-01';",
@@ -11761,123 +11809,6 @@
                   ],
                   "answer": 0,
                   "explanation": "The index on order_date can answer the range directly."
-                },
-                {
-                  "kind": "rows",
-                  "exerciseId": "northwind-059",
-                  "prompt": "Count the orders of 1997. order_date has an index: compare a range condition with extract(year …).",
-                  "code": "select count(*) as orders\nfrom orders\nwhere order_date >= '1997-01-01' and order_date < '1998-01-01';",
-                  "options": [
-                    "1",
-                    "0",
-                    "3",
-                    "2"
-                  ],
-                  "answer": 0,
-                  "explanation": "It returns 1 row. The index on order_date can answer the range directly."
-                },
-                {
-                  "kind": "bug",
-                  "exerciseId": "northwind-074",
-                  "prompt": "Using one CTE of revenue per customer, show the customers whose revenue is more than twice the average customer revenue: customer_id and revenue (rounded to 2 decimals).",
-                  "lines": [
-                    "with revenue as (",
-                    "  select o.customer_id, sum(od.unit_price * od.quantity * (1 - od.discount)) as total",
-                    "  from orders o cross join order_details od on od.order_id = o.order_id",
-                    "  group by o.customer_id",
-                    ")",
-                    "select customer_id, round(total, 2) as revenue",
-                    "from revenue",
-                    "where total > 2 * (select avg(total) from revenue)",
-                    "order by total desc;"
-                  ],
-                  "answer": 2,
-                  "fixed": "from orders o join order_details od on od.order_id = o.order_id",
-                  "explanation": "A CTE referenced more than once is computed once and reused (PostgreSQL \"materializes\" it). A CTE used once is inlined into the query like a subquery; WITH … AS MATERIALIZED / NOT MATERIALIZED overrides that choice."
-                },
-                {
-                  "kind": "gap",
-                  "exerciseId": "northwind-059",
-                  "prompt": "Count the orders of 1997. order_date has an index: compare a range condition with extract(year …).",
-                  "code": "select count(*) as orders\nfrom orders\n⟦?⟧ order_date >= '1997-01-01' and order_date < '1998-01-01';",
-                  "options": [
-                    "where",
-                    "filter",
-                    "when",
-                    "having"
-                  ],
-                  "answer": 0,
-                  "explanation": "The index on order_date can answer the range directly."
-                },
-                {
-                  "kind": "write",
-                  "exerciseId": "northwind-059"
-                }
-              ]
-            },
-            {
-              "id": "query-plans-3",
-              "topic": "query-plans",
-              "level": 5,
-              "index": 3,
-              "tasks": [
-                {
-                  "kind": "gap",
-                  "exerciseId": "northwind-073",
-                  "prompt": "Which customers have never placed an order? Count them in two ways and compare.",
-                  "code": "select count(*) as no_orders\nfrom customers c\nwhere ⟦?⟧ (select 1 from orders o where o.customer_id = c.customer_id);",
-                  "options": [
-                    "not in",
-                    "exists",
-                    "not exists",
-                    "not"
-                  ],
-                  "answer": 2,
-                  "explanation": "Planned as an anti-join, and correct whatever NULLs orders.customer_id might contain."
-                },
-                {
-                  "kind": "rows",
-                  "exerciseId": "northwind-073",
-                  "prompt": "Which customers have never placed an order? Count them in two ways and compare.",
-                  "code": "select count(*) as no_orders\nfrom customers c\nwhere not exists (select 1 from orders o where o.customer_id = c.customer_id);",
-                  "options": [
-                    "3",
-                    "0",
-                    "1",
-                    "2"
-                  ],
-                  "answer": 2,
-                  "explanation": "It returns 1 row. Planned as an anti-join, and correct whatever NULLs orders.customer_id might contain."
-                },
-                {
-                  "kind": "order",
-                  "exerciseId": "northwind-073",
-                  "prompt": "Which customers have never placed an order? Count them in two ways and compare.",
-                  "lines": [
-                    "where not exists (select 1 from orders o where o.customer_id = c.customer_id)",
-                    "from customers c",
-                    "select count(*) as no_orders"
-                  ],
-                  "answer": [
-                    2,
-                    1,
-                    0
-                  ],
-                  "explanation": "SQL clauses always come in this order: SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. The database runs them in a different order (FROM and WHERE first), which is why SELECT aliases are not visible in WHERE."
-                },
-                {
-                  "kind": "gap",
-                  "exerciseId": "northwind-073",
-                  "prompt": "Which customers have never placed an order? Count them in two ways and compare.",
-                  "code": "select ⟦?⟧(*) as no_orders\nfrom customers c\nwhere not exists (select 1 from orders o where o.customer_id = c.customer_id);",
-                  "options": [
-                    "count",
-                    "avg",
-                    "max",
-                    "sum"
-                  ],
-                  "answer": 0,
-                  "explanation": "Planned as an anti-join, and correct whatever NULLs orders.customer_id might contain."
                 },
                 {
                   "kind": "write",

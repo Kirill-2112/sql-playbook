@@ -177,6 +177,20 @@ export type LessonTask =
       explanation: string
     }
   | {
+      /** Will PostgreSQL use an index for this query? The answer comes from a real EXPLAIN on the Delivery data. */
+      kind: 'plan'
+      /** "delivery-plan-…": the dataset prefix keeps the lesson player's dataset logic working. */
+      exerciseId: string
+      prompt: string
+      /** The index created before the query, if any. */
+      setup: string
+      query: string
+      usesIndex: boolean
+      /** The top lines of the plan, shown after answering. */
+      plan: string
+      explanation: string
+    }
+  | {
       /** Write the whole query: the exercise itself, checked like on its page. */
       kind: 'write'
       exerciseId: string

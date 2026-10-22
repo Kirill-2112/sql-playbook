@@ -9,6 +9,7 @@ import { ChoiceTask } from './ChoiceTask'
 import { LessonComplete } from './LessonComplete'
 import { MeetDatabase } from './MeetDatabase'
 import { OrderTask } from './OrderTask'
+import { PlanTask } from './PlanTask'
 import { WriteTask } from './WriteTask'
 
 export interface PlayerTask {
@@ -93,6 +94,8 @@ export function LessonPlayer({ title, tasks, onFinish }: Props) {
         <WriteTask key={key} exerciseId={task.exerciseId} onDone={done} />
       ) : task.kind === 'bug' ? (
         <BugTask key={key} task={task} onDone={done} />
+      ) : task.kind === 'plan' ? (
+        <PlanTask key={key} task={task} onDone={done} />
       ) : task.kind === 'order' ? (
         <OrderTask key={key} task={task} onDone={done} />
       ) : (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import styled, { css } from 'styled-components'
 import type { LessonTask } from '../content/types'
+import { useLessonKeys } from '../hooks/useLessonKeys'
 import { LessonFooter, type FooterState } from './LessonFooter'
 
 type Plan = Extract<LessonTask, { kind: 'plan' }>
@@ -14,6 +15,15 @@ const OPTIONS = [
 export function PlanTask({ task, onDone }: { task: Plan; onDone: (correct: boolean) => void }) {
   const [picked, setPicked] = useState<boolean | null>(null)
   const [state, setState] = useState<FooterState>('idle')
+  useLessonKeys(
+    OPTIONS.length,
+    (i) => state === 'idle' && setPicked(OPTIONS[i]!.value),
+    () => {
+      if (state === 'idle') {
+        if (picked !== null) setState(picked === task.usesIndex ? 'correct' : 'wrong')
+      } else onDone(state === 'correct')
+    },
+  )
 
   return (
     <>

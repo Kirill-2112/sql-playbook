@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import styled, { css } from 'styled-components'
 import type { LessonTask } from '../content/types'
+import { useLessonKeys } from '../hooks/useLessonKeys'
 import { LessonFooter, type FooterState } from './LessonFooter'
 
 type Choice = Extract<LessonTask, { kind: 'gap' | 'rows' }>
@@ -11,6 +12,15 @@ const BLANK = '⟦?⟧'
 export function ChoiceTask({ task, onDone }: { task: Choice; onDone: (correct: boolean) => void }) {
   const [picked, setPicked] = useState<number | null>(null)
   const [state, setState] = useState<FooterState>('idle')
+  useLessonKeys(
+    task.options.length,
+    (i) => state === 'idle' && setPicked(i),
+    () => {
+      if (state === 'idle') {
+        if (picked !== null) setState(picked === task.answer ? 'correct' : 'wrong')
+      } else onDone(state === 'correct')
+    },
+  )
   const [before = '', after = ''] = task.code.split(BLANK)
   const shown = state === 'idle' ? (picked === null ? null : task.options[picked]) : task.options[task.answer]
 

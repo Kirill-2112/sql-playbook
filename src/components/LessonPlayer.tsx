@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import type { LessonTask } from '../content/types'
-import { streak, useProgress } from '../progress/store'
+import { datasetOf } from '../content/exercises'
+import { markDatasetSeen, streak, useProgress } from '../progress/store'
 import { BugTask } from './BugTask'
 import { ChoiceTask } from './ChoiceTask'
 import { LessonComplete } from './LessonComplete'
+import { MeetDatabase } from './MeetDatabase'
 import { OrderTask } from './OrderTask'
 import { WriteTask } from './WriteTask'
 
@@ -36,6 +38,10 @@ export function LessonPlayer({ title, tasks, onFinish }: Props) {
   const [earned, setEarned] = useState<number | null>(null)
   const finishedOnce = useRef(false)
   const finished = step >= queue.length
+  // The current task's database, introduced once the first time it appears.
+  const current = queue[step] === undefined ? undefined : tasks[queue[step]!]
+  const dataset = current ? datasetOf(current.task.exerciseId) : undefined
+  const meet = dataset && !progress.seenDatasets.includes(dataset) ? dataset : null
 
   useEffect(() => {
     if (finished && !finishedOnce.current) {
@@ -81,7 +87,9 @@ export function LessonPlayer({ title, tasks, onFinish }: Props) {
         </Bar>
         <Count>{title}</Count>
       </Top>
-      {task.kind === 'write' ? (
+      {meet ? (
+        <MeetDatabase dataset={meet} onStart={() => markDatasetSeen(meet)} />
+      ) : task.kind === 'write' ? (
         <WriteTask key={key} exerciseId={task.exerciseId} onDone={done} />
       ) : task.kind === 'bug' ? (
         <BugTask key={key} task={task} onDone={done} />

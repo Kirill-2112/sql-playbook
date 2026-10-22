@@ -1,4 +1,4 @@
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
@@ -12,6 +12,8 @@ export function LearnPage() {
   const progress = useProgress()
   const units = course ? pathProgress(course, progress) : []
   const due = dueReviews(progress.review).length
+  // First visit: a few questions before the path.
+  if (!progress.onboarded) return <Navigate to="/welcome" replace />
 
   return (
     <Page>

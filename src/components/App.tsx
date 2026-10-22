@@ -16,6 +16,7 @@ import { KeywordPage } from './KeywordPage'
 import { PracticePage } from './PracticePage'
 import { ProgressPage } from './ProgressPage'
 import { ReviewPage } from './ReviewPage'
+import { WelcomePage } from './WelcomePage'
 import { ReferenceEntryPage } from './ReferenceEntryPage'
 import { ReferencePage } from './ReferencePage'
 import { SituationPage } from './SituationPage'
@@ -30,6 +31,7 @@ export function App() {
           {/* Lessons take the whole screen, without the sidebar or tabs. */}
           <Route path="learn/:lessonId" element={<LessonPage />} />
           <Route path="review" element={<ReviewPage />} />
+          <Route path="welcome" element={<WelcomePage />} />
           <Route path="practice/:id/drill" element={<DrillPage />} />
           <Route element={<Layout />}>
             <Route index element={<LearnPage />} />

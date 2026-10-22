@@ -26,6 +26,10 @@ export interface ProgressState {
    * right answer in a review moves it up a box and doubles the wait (2, 4, 8 days); after box 4 it is learned.
    */
   review: Record<string, { box: number; due: string }>
+  /** Set once the first-launch questions were answered (or skipped). */
+  onboarded: boolean
+  /** Datasets already introduced with the "meet the database" card. */
+  seenDatasets: string[]
 }
 
 const KEY = 'sql-playbook.progress.v1'
@@ -36,14 +40,14 @@ export const DAILY_GOALS = [
   { xp: 100, name: 'Intense', about: 'Five lessons a day.' },
 ] as const
 
-const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {} }
+const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [] }
 
 function load(): ProgressState {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as Partial<ProgressState>
-    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, version: 1 }
+    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
   } catch {
     return EMPTY
   }
@@ -136,6 +140,16 @@ export function setDailyGoal(xp: number) {
 
 export function unlockLevel(level: number) {
   if (!state.unlockedLevels.includes(level)) save({ ...state, unlockedLevels: [...state.unlockedLevels, level] })
+}
+
+/** First launch: the daily goal and the levels the learner says they already know. */
+export function finishOnboarding(dailyGoal: number, knownLevels: number) {
+  const unlocked = Array.from({ length: knownLevels }, (_, i) => i + 2)
+  save({ ...state, dailyGoal, onboarded: true, unlockedLevels: [...new Set([...state.unlockedLevels, ...unlocked])] })
+}
+
+export function markDatasetSeen(id: string) {
+  if (!state.seenDatasets.includes(id)) save({ ...state, seenDatasets: [...state.seenDatasets, id] })
 }
 
 export function resetProgress() {

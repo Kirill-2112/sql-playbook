@@ -8,7 +8,7 @@ Queries run on real PostgreSQL inside the browser; MySQL versions are verified a
 
 ## What is inside
 
-- **Exercises** — 1,080 exercises on eight datasets, levels 1–5, each with 1–4 solutions,
+- **Exercises** — 1,096 exercises on eight datasets, levels 1–5, each with 1–4 solutions,
   a MySQL 8.4 version (or an explanation of why it is impossible in MySQL) and links to the official docs.
 - **Situations** — problem-first guides ("top N per group", "rows with no match", …).
 - **Index Lab** — `EXPLAIN ANALYZE` before and after adding an index on 200,000 rows, including the cases where an index does not help.
@@ -115,5 +115,5 @@ is not on that list.
 
 ## Roadmap
 
-See the plan: 8 datasets, 1,080 exercises across 58 topics and 5 levels, a 188-entry reference, CI verification on GitHub Actions.
+See the plan: 8 datasets, 1,096 exercises across 58 topics and 5 levels, a 188-entry reference, CI verification on GitHub Actions.
 The site is published to GitHub Pages (https://kirill-2112.github.io/sql-playbook/) by the same workflow, only after every check passes.

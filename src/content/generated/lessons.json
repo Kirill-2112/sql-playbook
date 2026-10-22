@@ -2173,16 +2173,16 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-010",
-                  "prompt": "List every AC/DC track with its album title. Show album title and track name, ordered by album_id, then track_id.",
-                  "code": "select al.title as album, t.name as track\nfrom artist ar\n⟦?⟧ album al on al.artist_id = ar.artist_id\njoin track t  on t.album_id = al.album_id\nwhere ar.name = 'AC/DC'\norder by al.album_id, t.track_id;",
+                  "exerciseId": "northwind-179",
+                  "prompt": "For products that cost more than 40, show product_id, product_name and the category name, by product_id.",
+                  "code": "select p.product_id, p.product_name, c.category_name\nfrom products p\n⟦?⟧ categories c on c.category_id = p.category_id\nwhere p.unit_price > 40\norder by p.product_id;",
                   "options": [
-                    "cross join",
+                    "natural join",
                     "join",
-                    "natural join"
+                    "cross join"
                   ],
                   "answer": 1,
-                  "explanation": "Artist → album → track, following the foreign keys."
+                  "explanation": "The category name lives in categories; the join matches each product to its category through category_id."
                 },
                 {
                   "kind": "write",
@@ -2535,17 +2535,17 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-017",
-                  "prompt": "List every employee with their manager: employee first and last name, and the manager's first and last name (NULL for the top boss). Order by employee_id.",
-                  "code": "select e.first_name, e.last_name,\n       m.first_name as manager_first_name,\n       m.last_name  as manager_last_name\nfrom employee e\n⟦?⟧ employee m on m.employee_id = e.reports_to\norder by e.employee_id;",
+                  "exerciseId": "northwind-182",
+                  "prompt": "Show every employee's employee_id, last_name and their manager's last name (empty for the top boss), by employee_id.",
+                  "code": "select e.employee_id, e.last_name, m.last_name as manager\nfrom employees e\n⟦?⟧ employees m on m.employee_id = e.reports_to\norder by e.employee_id;",
                   "options": [
-                    "right join",
-                    "cross join",
+                    "join",
                     "left join",
-                    "join"
+                    "cross join",
+                    "right join"
                   ],
-                  "answer": 2,
-                  "explanation": "The same table plays two roles. LEFT JOIN keeps the general manager, who reports to nobody."
+                  "answer": 1,
+                  "explanation": "The same table appears twice: once as the employee, once as the manager. LEFT JOIN keeps the boss, who reports to nobody."
                 },
                 {
                   "kind": "write",
@@ -2561,67 +2561,67 @@
               "tasks": [
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-042",
-                  "prompt": "List pairs of different customers who live in the same city: city, and the two customer_ids with the smaller one first.",
-                  "code": "select a.city, a.customer_id as customer_1, b.customer_id as customer_2\nfrom customer a\n⟦?⟧ customer b on b.city = a.city and b.customer_id > a.customer_id\norder by a.city, customer_1, customer_2;",
+                  "exerciseId": "northwind-183",
+                  "prompt": "Logistics wants a planning grid: every shipper with every category. Show the shipper company_name and category_name.",
+                  "code": "select s.company_name, c.category_name\nfrom shippers s\ncross ⟦?⟧ categories c;",
                   "options": [
                     "cross join",
+                    "join",
                     "left join",
-                    "natural join",
-                    "join"
+                    "natural join"
                   ],
-                  "answer": 3,
-                  "explanation": "Joining the table to itself on city pairs every customer with every neighbour, including himself and each pair twice (A–B and B–A). Requiring b.customer_id > a.customer_id keeps each pair once."
+                  "answer": 1,
+                  "explanation": "A cross join pairs every row with every row: 3 shippers × 8 categories = 24 rows."
                 },
                 {
                   "kind": "rows",
-                  "exerciseId": "chinook-017",
-                  "prompt": "List every employee with their manager: employee first and last name, and the manager's first and last name (NULL for the top boss). Order by employee_id.",
-                  "code": "select e.first_name, e.last_name,\n       m.first_name as manager_first_name,\n       m.last_name  as manager_last_name\nfrom employee e\nleft join employee m on m.employee_id = e.reports_to\norder by e.employee_id;",
+                  "exerciseId": "northwind-182",
+                  "prompt": "Show every employee's employee_id, last_name and their manager's last name (empty for the top boss), by employee_id.",
+                  "code": "select e.employee_id, e.last_name, m.last_name as manager\nfrom employees e\nleft join employees m on m.employee_id = e.reports_to\norder by e.employee_id;",
                   "options": [
-                    "12",
-                    "9",
                     "8",
-                    "7"
+                    "15",
+                    "10",
+                    "9"
                   ],
-                  "answer": 2,
-                  "explanation": "It returns 8 rows. The same table plays two roles. LEFT JOIN keeps the general manager, who reports to nobody."
+                  "answer": 3,
+                  "explanation": "It returns 9 rows. The same table appears twice: once as the employee, once as the manager. LEFT JOIN keeps the boss, who reports to nobody."
                 },
                 {
                   "kind": "order",
-                  "exerciseId": "chinook-042",
-                  "prompt": "List pairs of different customers who live in the same city: city, and the two customer_ids with the smaller one first.",
+                  "exerciseId": "northwind-182",
+                  "prompt": "Show every employee's employee_id, last_name and their manager's last name (empty for the top boss), by employee_id.",
                   "lines": [
-                    "from customer a",
-                    "order by a.city, customer_1, customer_2",
-                    "select a.city, a.customer_id as customer_1, b.customer_id as customer_2",
-                    "join customer b on b.city = a.city and b.customer_id > a.customer_id"
+                    "order by e.employee_id",
+                    "left join employees m on m.employee_id = e.reports_to",
+                    "from employees e",
+                    "select e.employee_id, e.last_name, m.last_name as manager"
                   ],
                   "answer": [
-                    2,
-                    0,
                     3,
-                    1
+                    2,
+                    1,
+                    0
                   ],
                   "explanation": "SQL clauses always come in this order: SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. The database runs them in a different order (FROM and WHERE first), which is why SELECT aliases are not visible in WHERE."
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-042",
-                  "prompt": "List pairs of different customers who live in the same city: city, and the two customer_ids with the smaller one first.",
-                  "code": "select a.city, a.customer_id as customer_1, b.customer_id as customer_2\nfrom customer a\njoin customer b on b.city = a.city ⟦?⟧ b.customer_id > a.customer_id\norder by a.city, customer_1, customer_2;",
+                  "exerciseId": "chinook-017",
+                  "prompt": "List every employee with their manager: employee first and last name, and the manager's first and last name (NULL for the top boss). Order by employee_id.",
+                  "code": "select e.first_name, e.last_name,\n       m.first_name as manager_first_name,\n       m.last_name  as manager_last_name\nfrom employee e\n⟦?⟧ employee m on m.employee_id = e.reports_to\norder by e.employee_id;",
                   "options": [
-                    "and",
-                    "xor",
-                    ",",
-                    "or"
+                    "right join",
+                    "cross join",
+                    "left join",
+                    "join"
                   ],
-                  "answer": 0,
-                  "explanation": "Joining the table to itself on city pairs every customer with every neighbour, including himself and each pair twice (A–B and B–A). Requiring b.customer_id > a.customer_id keeps each pair once."
+                  "answer": 2,
+                  "explanation": "The same table plays two roles. LEFT JOIN keeps the general manager, who reports to nobody."
                 },
                 {
                   "kind": "write",
-                  "exerciseId": "chinook-017"
+                  "exerciseId": "northwind-182"
                 }
               ]
             }
@@ -3221,31 +3221,31 @@
               "tasks": [
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-016",
-                  "prompt": "For playlists with at most 3 tracks, show the playlist name and its track names in one string separated by \" | \", in track_id order. Order by playlist_id.",
-                  "code": "select p.name,\n       string_agg(t.name, ' | ' ⟦?⟧ t.track_id) as tracks\nfrom playlist p\njoin playlist_track pt on pt.playlist_id = p.playlist_id\njoin track t on t.track_id = pt.track_id\ngroup by p.playlist_id\nhaving count(*) <= 3\norder by p.playlist_id;",
+                  "exerciseId": "northwind-188",
+                  "prompt": "For suppliers 1 to 5, show supplier_id and their product names in one text, separated by \", \", in product_id order.",
+                  "code": "select supplier_id,\n       string_agg(product_name, ', ' ⟦?⟧ product_id) as products\nfrom products\nwhere supplier_id <= 5\ngroup by supplier_id\norder by supplier_id;",
                   "options": [
-                    "sort by",
-                    "where",
                     "group by",
-                    "order by"
+                    "order by",
+                    "where",
+                    "sort by"
                   ],
-                  "answer": 3,
-                  "explanation": "string_agg builds the list per group; HAVING keeps only small playlists."
+                  "answer": 1,
+                  "explanation": "STRING_AGG joins the values of a group into one string; ORDER BY inside it fixes the order of the names."
                 },
                 {
                   "kind": "rows",
-                  "exerciseId": "chinook-016",
-                  "prompt": "For playlists with at most 3 tracks, show the playlist name and its track names in one string separated by \" | \", in track_id order. Order by playlist_id.",
-                  "code": "select p.name,\n       string_agg(t.name, ' | ' order by t.track_id) as tracks\nfrom playlist p\njoin playlist_track pt on pt.playlist_id = p.playlist_id\njoin track t on t.track_id = pt.track_id\ngroup by p.playlist_id\nhaving count(*) <= 3\norder by p.playlist_id;",
+                  "exerciseId": "northwind-188",
+                  "prompt": "For suppliers 1 to 5, show supplier_id and their product names in one text, separated by \", \", in product_id order.",
+                  "code": "select supplier_id,\n       string_agg(product_name, ', ' order by product_id) as products\nfrom products\nwhere supplier_id <= 5\ngroup by supplier_id\norder by supplier_id;",
                   "options": [
-                    "12",
-                    "3",
-                    "0",
-                    "2"
+                    "4",
+                    "5",
+                    "1",
+                    "25"
                   ],
-                  "answer": 3,
-                  "explanation": "It returns 2 rows. string_agg builds the list per group; HAVING keeps only small playlists."
+                  "answer": 1,
+                  "explanation": "It returns 5 rows. STRING_AGG joins the values of a group into one string; ORDER BY inside it fixes the order of the names."
                 },
                 {
                   "kind": "bug",
@@ -3267,21 +3267,21 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-016",
-                  "prompt": "For playlists with at most 3 tracks, show the playlist name and its track names in one string separated by \" | \", in track_id order. Order by playlist_id.",
-                  "code": "select p.name,\n       string_agg(t.name, ' | ' order by t.track_id) as tracks\nfrom playlist p\njoin playlist_track pt on pt.playlist_id = p.playlist_id\njoin track t on t.track_id = pt.track_id\n⟦?⟧ p.playlist_id\nhaving count(*) <= 3\norder by p.playlist_id;",
+                  "exerciseId": "northwind-188",
+                  "prompt": "For suppliers 1 to 5, show supplier_id and their product names in one text, separated by \", \", in product_id order.",
+                  "code": "select supplier_id,\n       string_agg(product_name, ', ' order by product_id) as products\nfrom products\nwhere supplier_id <= 5\n⟦?⟧ supplier_id\norder by supplier_id;",
                   "options": [
                     "partition by",
-                    "order by",
+                    "sort by",
                     "group by",
-                    "sort by"
+                    "order by"
                   ],
                   "answer": 2,
-                  "explanation": "string_agg builds the list per group; HAVING keeps only small playlists."
+                  "explanation": "STRING_AGG joins the values of a group into one string; ORDER BY inside it fixes the order of the names."
                 },
                 {
                   "kind": "write",
-                  "exerciseId": "chinook-016"
+                  "exerciseId": "northwind-188"
                 }
               ]
             }
@@ -3343,17 +3343,17 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-018",
-                  "prompt": "For each genre: total tracks, tracks shorter than 3 minutes, and tracks with no composer. Show genre_id with the three counts; order does not matter.",
-                  "code": "select genre_id,\n       ⟦?⟧(*) as tracks,\n       count(*) filter (where milliseconds < 180000) as short_tracks,\n       count(*) filter (where composer is null) as no_composer\nfrom track\ngroup by genre_id;",
+                  "exerciseId": "northwind-189",
+                  "prompt": "For each shipper_id, count the shipped orders and how many of them were shipped after the required date.",
+                  "code": "select ship_via as shipper_id,\n       ⟦?⟧(*) as shipped,\n       count(*) filter (where shipped_date > required_date) as late\nfrom orders\nwhere shipped_date is not null\ngroup by ship_via\norder by ship_via;",
                   "options": [
+                    "count",
                     "max",
-                    "avg",
                     "sum",
-                    "count"
+                    "avg"
                   ],
-                  "answer": 3,
-                  "explanation": "Each aggregate gets its own row filter."
+                  "answer": 0,
+                  "explanation": "FILTER counts only the rows that match its condition, next to the plain count in the same query."
                 },
                 {
                   "kind": "write",
@@ -3414,17 +3414,17 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "sakila-015",
-                  "prompt": "For each rating, show the total number of films, how many are longer than 120 minutes, and how many rent for 4.99. One row per rating; order does not matter.",
-                  "code": "select rating,\n       ⟦?⟧(*) as films,\n       count(*) filter (where length > 120) as long_films,\n       count(*) filter (where rental_rate = 4.99) as premium\nfrom film\ngroup by rating;",
+                  "exerciseId": "chinook-018",
+                  "prompt": "For each genre: total tracks, tracks shorter than 3 minutes, and tracks with no composer. Show genre_id with the three counts; order does not matter.",
+                  "code": "select genre_id,\n       ⟦?⟧(*) as tracks,\n       count(*) filter (where milliseconds < 180000) as short_tracks,\n       count(*) filter (where composer is null) as no_composer\nfrom track\ngroup by genre_id;",
                   "options": [
-                    "count",
                     "max",
                     "avg",
-                    "sum"
+                    "sum",
+                    "count"
                   ],
-                  "answer": 0,
-                  "explanation": "FILTER restricts which rows a single aggregate sees, while the group stays the same."
+                  "answer": 3,
+                  "explanation": "Each aggregate gets its own row filter."
                 },
                 {
                   "kind": "write",
@@ -3440,6 +3440,50 @@
               "tasks": [
                 {
                   "kind": "gap",
+                  "exerciseId": "sakila-015",
+                  "prompt": "For each rating, show the total number of films, how many are longer than 120 minutes, and how many rent for 4.99. One row per rating; order does not matter.",
+                  "code": "select rating,\n       ⟦?⟧(*) as films,\n       count(*) filter (where length > 120) as long_films,\n       count(*) filter (where rental_rate = 4.99) as premium\nfrom film\ngroup by rating;",
+                  "options": [
+                    "count",
+                    "max",
+                    "avg",
+                    "sum"
+                  ],
+                  "answer": 0,
+                  "explanation": "FILTER restricts which rows a single aggregate sees, while the group stays the same."
+                },
+                {
+                  "kind": "rows",
+                  "exerciseId": "northwind-189",
+                  "prompt": "For each shipper_id, count the shipped orders and how many of them were shipped after the required date.",
+                  "code": "select ship_via as shipper_id,\n       count(*) as shipped,\n       count(*) filter (where shipped_date > required_date) as late\nfrom orders\nwhere shipped_date is not null\ngroup by ship_via\norder by ship_via;",
+                  "options": [
+                    "3",
+                    "4",
+                    "0",
+                    "5"
+                  ],
+                  "answer": 0,
+                  "explanation": "It returns 3 rows. FILTER counts only the rows that match its condition, next to the plain count in the same query."
+                },
+                {
+                  "kind": "bug",
+                  "exerciseId": "chinook-018",
+                  "prompt": "For each genre: total tracks, tracks shorter than 3 minutes, and tracks with no composer. Show genre_id with the three counts; order does not matter.",
+                  "lines": [
+                    "select genre_id,",
+                    "       sum(*) as tracks,",
+                    "       count(*) filter (where milliseconds < 180000) as short_tracks,",
+                    "       count(*) filter (where composer is null) as no_composer",
+                    "from track",
+                    "group by genre_id;"
+                  ],
+                  "answer": 1,
+                  "fixed": "count(*) as tracks,",
+                  "explanation": "Each aggregate gets its own row filter."
+                },
+                {
+                  "kind": "gap",
                   "exerciseId": "sakila-045",
                   "prompt": "Count the films stocked in both stores, only in store 1, only in store 2, and in neither, in one row.",
                   "code": "with s1 as (select distinct film_id from inventory where store_id = 1),\n     s2 as (select distinct film_id from inventory where store_id = 2)\nselect ⟦?⟧(*) filter (where s1.film_id is not null and s2.film_id is not null) as both_stores,\n       count(*) filter (where s2.film_id is null)                                as only_store_1,\n       count(*) filter (where s1.film_id is null)                                as only_store_2,\n       (select count(*) from film) - count(*)                                    as neither\nfrom s1\nfull join s2 on s2.film_id = s1.film_id;",
@@ -3453,52 +3497,8 @@
                   "explanation": "FULL JOIN keeps films from either side, with NULL on the side that lacks them. Films in neither store are not in either list at all, so they are the total minus everything the join returned."
                 },
                 {
-                  "kind": "rows",
-                  "exerciseId": "chinook-018",
-                  "prompt": "For each genre: total tracks, tracks shorter than 3 minutes, and tracks with no composer. Show genre_id with the three counts; order does not matter.",
-                  "code": "select genre_id,\n       count(*) as tracks,\n       count(*) filter (where milliseconds < 180000) as short_tracks,\n       count(*) filter (where composer is null) as no_composer\nfrom track\ngroup by genre_id;",
-                  "options": [
-                    "26",
-                    "24",
-                    "25",
-                    "27"
-                  ],
-                  "answer": 2,
-                  "explanation": "It returns 25 rows. Each aggregate gets its own row filter."
-                },
-                {
-                  "kind": "bug",
-                  "exerciseId": "sakila-015",
-                  "prompt": "For each rating, show the total number of films, how many are longer than 120 minutes, and how many rent for 4.99. One row per rating; order does not matter.",
-                  "lines": [
-                    "select rating,",
-                    "       sum(*) as films,",
-                    "       count(*) filter (where length > 120) as long_films,",
-                    "       count(*) filter (where rental_rate = 4.99) as premium",
-                    "from film",
-                    "group by rating;"
-                  ],
-                  "answer": 1,
-                  "fixed": "count(*) as films,",
-                  "explanation": "FILTER restricts which rows a single aggregate sees, while the group stays the same."
-                },
-                {
-                  "kind": "gap",
-                  "exerciseId": "sakila-045",
-                  "prompt": "Count the films stocked in both stores, only in store 1, only in store 2, and in neither, in one row.",
-                  "code": "with s1 as (select distinct film_id from inventory where store_id = 1),\n     s2 as (select distinct film_id from inventory where store_id = 2)\nselect count(*) filter (where s1.film_id is not null ⟦?⟧ s2.film_id is not null) as both_stores,\n       count(*) filter (where s2.film_id is null)                                as only_store_1,\n       count(*) filter (where s1.film_id is null)                                as only_store_2,\n       (select count(*) from film) - count(*)                                    as neither\nfrom s1\nfull join s2 on s2.film_id = s1.film_id;",
-                  "options": [
-                    ",",
-                    "and",
-                    "or",
-                    "xor"
-                  ],
-                  "answer": 1,
-                  "explanation": "FULL JOIN keeps films from either side, with NULL on the side that lacks them. Films in neither store are not in either list at all, so they are the total minus everything the join returned."
-                },
-                {
                   "kind": "write",
-                  "exerciseId": "chinook-018"
+                  "exerciseId": "northwind-189"
                 }
               ]
             }
@@ -3783,9 +3783,9 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-011",
-                  "prompt": "How many artists have no albums in the store?",
-                  "code": "select count(*) as artists\nfrom artist a\nwhere ⟦?⟧ (select 1 from album b where b.artist_id = a.artist_id);",
+                  "exerciseId": "northwind-192",
+                  "prompt": "Which products were never ordered in 1998? Show product_id and product_name, by product_id.",
+                  "code": "select p.product_id, p.product_name\nfrom products p\nwhere ⟦?⟧ (\n  select 1\n  from order_details d\n  join orders o on o.order_id = d.order_id\n  where d.product_id = p.product_id\n    and o.order_date >= date '1998-01-01'\n)\norder by p.product_id;",
                   "options": [
                     "not exists",
                     "not in",
@@ -3793,7 +3793,7 @@
                     "exists"
                   ],
                   "answer": 0,
-                  "explanation": "Count artists for whom no album row exists."
+                  "explanation": "NOT EXISTS keeps a product when the subquery finds no 1998 order line for it."
                 },
                 {
                   "kind": "write",
@@ -3809,9 +3809,9 @@
               "tasks": [
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-020",
-                  "prompt": "How many tracks have never been sold?",
-                  "code": "select count(*) as never_sold\nfrom track t\nwhere ⟦?⟧ (select 1 from invoice_line l where l.track_id = t.track_id);",
+                  "exerciseId": "chinook-011",
+                  "prompt": "How many artists have no albums in the store?",
+                  "code": "select count(*) as artists\nfrom artist a\nwhere ⟦?⟧ (select 1 from album b where b.artist_id = a.artist_id);",
                   "options": [
                     "not exists",
                     "not in",
@@ -3819,7 +3819,7 @@
                     "exists"
                   ],
                   "answer": 0,
-                  "explanation": "Count tracks with no invoice line."
+                  "explanation": "Count artists for whom no album row exists."
                 },
                 {
                   "kind": "rows",
@@ -3837,33 +3837,35 @@
                 },
                 {
                   "kind": "order",
-                  "exerciseId": "chinook-011",
-                  "prompt": "How many artists have no albums in the store?",
+                  "exerciseId": "northwind-191",
+                  "prompt": "List the products that cost more than the average product price: product_id, product_name and unit_price, most expensive first, ties by product_id.",
                   "lines": [
-                    "select count(*) as artists",
-                    "where not exists (select 1 from album b where b.artist_id = a.artist_id)",
-                    "from artist a"
+                    "where unit_price > (select avg(unit_price) from products)",
+                    "from products",
+                    "select product_id, product_name, unit_price",
+                    "order by unit_price desc, product_id"
                   ],
                   "answer": [
-                    0,
                     2,
-                    1
+                    1,
+                    0,
+                    3
                   ],
                   "explanation": "SQL clauses always come in this order: SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. The database runs them in a different order (FROM and WHERE first), which is why SELECT aliases are not visible in WHERE."
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "sakila-011",
-                  "prompt": "Which films have no copies in any store (no rows in inventory)? Show film_id and title, ordered by film_id.",
-                  "code": "select f.film_id, f.title\nfrom film f\nwhere ⟦?⟧ (\n  select 1 from inventory i where i.film_id = f.film_id\n)\norder by f.film_id;",
+                  "exerciseId": "chinook-020",
+                  "prompt": "How many tracks have never been sold?",
+                  "code": "select count(*) as never_sold\nfrom track t\nwhere ⟦?⟧ (select 1 from invoice_line l where l.track_id = t.track_id);",
                   "options": [
                     "not exists",
                     "not in",
-                    "exists",
-                    "not"
+                    "not",
+                    "exists"
                   ],
                   "answer": 0,
-                  "explanation": "For each film, NOT EXISTS checks whether at least one inventory row exists, and stops at the first one it finds."
+                  "explanation": "Count tracks with no invoice line."
                 },
                 {
                   "kind": "write",
@@ -3879,17 +3881,17 @@
               "tasks": [
                 {
                   "kind": "gap",
-                  "exerciseId": "sakila-019",
-                  "prompt": "For customers 1 to 5, show every payment that equals that customer's largest payment: customer_id, payment_id and amount. Order by customer_id, then payment_id.",
-                  "code": "select p.customer_id, p.payment_id, p.amount\nfrom payment p\nwhere p.customer_id between 1 and 5\n  and p.amount = (\n    select ⟦?⟧(p2.amount) from payment p2 where p2.customer_id = p.customer_id\n  )\norder by p.customer_id, p.payment_id;",
+                  "exerciseId": "sakila-011",
+                  "prompt": "Which films have no copies in any store (no rows in inventory)? Show film_id and title, ordered by film_id.",
+                  "code": "select f.film_id, f.title\nfrom film f\nwhere ⟦?⟧ (\n  select 1 from inventory i where i.film_id = f.film_id\n)\norder by f.film_id;",
                   "options": [
-                    "min",
-                    "max",
-                    "last",
-                    "sum"
+                    "not exists",
+                    "not in",
+                    "exists",
+                    "not"
                   ],
-                  "answer": 1,
-                  "explanation": "The subquery refers to the outer row (p.customer_id), so it is evaluated per customer."
+                  "answer": 0,
+                  "explanation": "For each film, NOT EXISTS checks whether at least one inventory row exists, and stops at the first one it finds."
                 },
                 {
                   "kind": "rows",
@@ -3921,17 +3923,17 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "employees-009",
-                  "prompt": "How many employees no longer work at the company (they have no current salary)?",
-                  "code": "select count(*) as left_company\nfrom employees e\nwhere ⟦?⟧ (\n  select 1 from salaries s where s.emp_no = e.emp_no and s.to_date = '9999-01-01'\n);",
+                  "exerciseId": "sakila-019",
+                  "prompt": "For customers 1 to 5, show every payment that equals that customer's largest payment: customer_id, payment_id and amount. Order by customer_id, then payment_id.",
+                  "code": "select p.customer_id, p.payment_id, p.amount\nfrom payment p\nwhere p.customer_id between 1 and 5\n  and p.amount = (\n    select ⟦?⟧(p2.amount) from payment p2 where p2.customer_id = p.customer_id\n  )\norder by p.customer_id, p.payment_id;",
                   "options": [
-                    "not in",
-                    "not",
-                    "exists",
-                    "not exists"
+                    "min",
+                    "max",
+                    "last",
+                    "sum"
                   ],
-                  "answer": 3,
-                  "explanation": "Count employees for whom no current salary exists."
+                  "answer": 1,
+                  "explanation": "The subquery refers to the outer row (p.customer_id), so it is evaluated per customer."
                 },
                 {
                   "kind": "write",

@@ -74,6 +74,8 @@ const ALTERNATIVES: [string, string[]][] = [
   ['plainto_tsquery', ['to_tsquery', 'to_tsvector', 'phraseto_tsquery']],
   ['@@', ['@>', '~~', '=']],
   ['nowait', ['skip locked', 'wait', 'now']],
+  ['header', ['heading', 'titles', 'skip']],
+  ['csv', ['text', 'json', 'binary']],
   ['is not null', ['is null', '<> null', '!= null']],
   ['is null', ['= null', 'is not null', '== null']],
   ['left join', ['join', 'right join', 'cross join']],
@@ -163,7 +165,7 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
   'generated-columns': ['round', 'coalesce'],
   introspection: ['where', 'and', 'group by'],
   privileges: ['grant', 'revoke'],
-  'data-loading': ['where', 'and'],
+  'data-loading': ['csv', 'header', 'join'],
   functions: ['coalesce', 'round', 'where'],
   procedures: ['where', 'and'],
   'control-flow': ['coalesce', 'and', 'or'],
@@ -483,7 +485,7 @@ async function main() {
             DATASET_ORDER.indexOf(a.dataset) - DATASET_ORDER.indexOf(b.dataset) ||
             a.id.localeCompare(b.id, 'en', { numeric: true }),
         )
-      const writable = pool.filter((e) => e.level <= level && !e.files)
+      const writable = pool.filter((e) => e.level <= level)
       // First pass: blanks on the skill's own keywords. Only if that is not enough, any keyword.
       const quick: LessonTask[] = []
       const used = new Set<string>()
@@ -544,7 +546,8 @@ async function main() {
         }
         const write = writable[i]
         if (write) tasks.push({ kind: 'write', exerciseId: write.id })
-        if (tasks.length < 3) break
+        // A lesson ends with a query to write; without one left, the skill has enough lessons.
+        if (tasks.length < 3 || (!write && i > 0)) break
         lessons.push({ id: `${topic.id}-${i + 1}`, topic: topic.id, level, index: i + 1, tasks })
       }
       if (lessons.length) skills.push({ topic: topic.id, name: topic.name, terms: topic.terms, lessons })

@@ -63,6 +63,21 @@ export function WriteTask({ exerciseId, onDone }: { exerciseId: string; onDone: 
         <Kind>Write the query · {DATASETS[exercise.dataset].name}</Kind>
         <Question>{exercise.prompt}</Question>
         {exercise.hint && <Hint>{exercise.hint}</Hint>}
+        {exercise.setupSql && (
+          <Extra open>
+            <summary>Set up for you first</summary>
+            <CodeBlock sql={exercise.setupSql} />
+          </Extra>
+        )}
+        {exercise.files?.map((file) => (
+          <Extra key={file.name} open>
+            <summary>File {file.name}</summary>
+            <Hint>
+              Load it with <code>copy … from '{file.name}' with (format csv, header)</code>.
+            </Hint>
+            <CodeBlock sql={file.content} />
+          </Extra>
+        ))}
         <SqlEditor id={id} label="Your query" value={sql} onChange={setSql} onRun={() => void check()} />
         {error && <SqlErrorMessage error={error} />}
         {result && !error && <ResultTable result={result} />}
@@ -151,4 +166,18 @@ const Secondary = styled.button`
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+`
+
+const Extra = styled.details`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space.sm};
+
+  summary {
+    cursor: pointer;
+    font-size: ${({ theme }) => theme.size.sm};
+    font-weight: 600;
+    color: ${({ theme }) => theme.color.accent};
+    margin-bottom: ${({ theme }) => theme.space.xs};
+  }
 `

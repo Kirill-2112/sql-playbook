@@ -8378,6 +8378,163 @@
           ]
         },
         {
+          "topic": "data-loading",
+          "name": "Loading files",
+          "terms": "copy · load data · staging tables",
+          "lessons": [
+            {
+              "id": "data-loading-1",
+              "topic": "data-loading",
+              "level": 4,
+              "index": 1,
+              "tasks": [
+                {
+                  "kind": "gap",
+                  "exerciseId": "northwind-159",
+                  "prompt": "Sales sent new_customers.csv (it comes with this exercise). Create a table customer_import (customer_id varchar(5), company_name varchar(40), country varchar(15)) and load the file into it. Note that one company name contains a comma.",
+                  "code": "create table customer_import (\n  customer_id varchar(5),\n  company_name varchar(40),\n  country varchar(15)\n);\n\ncopy customer_import from 'new_customers.csv' with (format ⟦?⟧, header);",
+                  "options": [
+                    "json",
+                    "text",
+                    "csv",
+                    "binary"
+                  ],
+                  "answer": 2,
+                  "explanation": "Bulk loading is how real data arrives: one statement reads the whole file, much faster than row-by-row INSERTs. format csv understands the quoted \"Smith, Jones & Co\"; header skips the first line. On a server, COPY reads the server's disk; from your laptop use psql's \\copy, which sends a local file."
+                },
+                {
+                  "kind": "gap",
+                  "exerciseId": "northwind-159",
+                  "prompt": "Sales sent new_customers.csv (it comes with this exercise). Create a table customer_import (customer_id varchar(5), company_name varchar(40), country varchar(15)) and load the file into it. Note that one company name contains a comma.",
+                  "code": "create table customer_import (\n  customer_id varchar(5),\n  company_name varchar(40),\n  country varchar(15)\n);\n\ncopy customer_import from 'new_customers.csv' with (format csv, ⟦?⟧);",
+                  "options": [
+                    "heading",
+                    "skip",
+                    "titles",
+                    "header"
+                  ],
+                  "answer": 3,
+                  "explanation": "Bulk loading is how real data arrives: one statement reads the whole file, much faster than row-by-row INSERTs. format csv understands the quoted \"Smith, Jones & Co\"; header skips the first line. On a server, COPY reads the server's disk; from your laptop use psql's \\copy, which sends a local file."
+                },
+                {
+                  "kind": "bug",
+                  "exerciseId": "northwind-160",
+                  "prompt": "Purchasing sent price_update.csv (it comes with this exercise) with new prices for some products. Load it into a temporary table and update products from it in one statement.",
+                  "lines": [
+                    "create temporary table price_update (product_id int, unit_price numeric(10, 2));",
+                    "",
+                    "copy price_update from 'price_update.csv' with (format text, header);",
+                    "",
+                    "update products p",
+                    "set unit_price = u.unit_price",
+                    "from price_update u",
+                    "where u.product_id = p.product_id;"
+                  ],
+                  "answer": 2,
+                  "fixed": "copy price_update from 'price_update.csv' with (format csv, header);",
+                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price."
+                },
+                {
+                  "kind": "bug",
+                  "exerciseId": "northwind-160",
+                  "prompt": "Purchasing sent price_update.csv (it comes with this exercise) with new prices for some products. Load it into a temporary table and update products from it in one statement.",
+                  "lines": [
+                    "create temporary table price_update (product_id int, unit_price numeric(10, 2));",
+                    "",
+                    "copy price_update from 'price_update.csv' with (format csv, heading);",
+                    "",
+                    "update products p",
+                    "set unit_price = u.unit_price",
+                    "from price_update u",
+                    "where u.product_id = p.product_id;"
+                  ],
+                  "answer": 2,
+                  "fixed": "copy price_update from 'price_update.csv' with (format csv, header);",
+                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price."
+                },
+                {
+                  "kind": "write",
+                  "exerciseId": "northwind-159"
+                }
+              ]
+            },
+            {
+              "id": "data-loading-2",
+              "topic": "data-loading",
+              "level": 4,
+              "index": 2,
+              "tasks": [
+                {
+                  "kind": "gap",
+                  "exerciseId": "northwind-160",
+                  "prompt": "Purchasing sent price_update.csv (it comes with this exercise) with new prices for some products. Load it into a temporary table and update products from it in one statement.",
+                  "code": "create temporary table price_update (product_id int, unit_price numeric(10, 2));\n\ncopy price_update from 'price_update.csv' with (format ⟦?⟧, header);\n\nupdate products p\nset unit_price = u.unit_price\nfrom price_update u\nwhere u.product_id = p.product_id;",
+                  "options": [
+                    "json",
+                    "text",
+                    "csv",
+                    "binary"
+                  ],
+                  "answer": 2,
+                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price."
+                },
+                {
+                  "kind": "gap",
+                  "exerciseId": "northwind-160",
+                  "prompt": "Purchasing sent price_update.csv (it comes with this exercise) with new prices for some products. Load it into a temporary table and update products from it in one statement.",
+                  "code": "create temporary table price_update (product_id int, unit_price numeric(10, 2));\n\ncopy price_update from 'price_update.csv' with (format csv, ⟦?⟧);\n\nupdate products p\nset unit_price = u.unit_price\nfrom price_update u\nwhere u.product_id = p.product_id;",
+                  "options": [
+                    "heading",
+                    "skip",
+                    "titles",
+                    "header"
+                  ],
+                  "answer": 3,
+                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price."
+                },
+                {
+                  "kind": "bug",
+                  "exerciseId": "northwind-159",
+                  "prompt": "Sales sent new_customers.csv (it comes with this exercise). Create a table customer_import (customer_id varchar(5), company_name varchar(40), country varchar(15)) and load the file into it. Note that one company name contains a comma.",
+                  "lines": [
+                    "create table customer_import (",
+                    "  customer_id varchar(5),",
+                    "  company_name varchar(40),",
+                    "  country varchar(15)",
+                    ");",
+                    "",
+                    "copy customer_import from 'new_customers.csv' with (format text, header);"
+                  ],
+                  "answer": 6,
+                  "fixed": "copy customer_import from 'new_customers.csv' with (format csv, header);",
+                  "explanation": "Bulk loading is how real data arrives: one statement reads the whole file, much faster than row-by-row INSERTs. format csv understands the quoted \"Smith, Jones & Co\"; header skips the first line. On a server, COPY reads the server's disk; from your laptop use psql's \\copy, which sends a local file."
+                },
+                {
+                  "kind": "bug",
+                  "exerciseId": "northwind-159",
+                  "prompt": "Sales sent new_customers.csv (it comes with this exercise). Create a table customer_import (customer_id varchar(5), company_name varchar(40), country varchar(15)) and load the file into it. Note that one company name contains a comma.",
+                  "lines": [
+                    "create table customer_import (",
+                    "  customer_id varchar(5),",
+                    "  company_name varchar(40),",
+                    "  country varchar(15)",
+                    ");",
+                    "",
+                    "copy customer_import from 'new_customers.csv' with (format csv, heading);"
+                  ],
+                  "answer": 6,
+                  "fixed": "copy customer_import from 'new_customers.csv' with (format csv, header);",
+                  "explanation": "Bulk loading is how real data arrives: one statement reads the whole file, much faster than row-by-row INSERTs. format csv understands the quoted \"Smith, Jones & Co\"; header skips the first line. On a server, COPY reads the server's disk; from your laptop use psql's \\copy, which sends a local file."
+                },
+                {
+                  "kind": "write",
+                  "exerciseId": "northwind-160"
+                }
+              ]
+            }
+          ]
+        },
+        {
           "topic": "temp-tables",
           "name": "Temporary tables",
           "terms": "create temp table",

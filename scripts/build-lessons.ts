@@ -25,6 +25,8 @@ import { attachFiles } from '../src/utils/exerciseFiles'
 import { exerciseScript } from '../src/utils/exerciseScript'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
+// Filled by gapTasks as a by-product: every verified wrong variant is also a "find the bug" task.
+let bugs: LessonTask[] = []
 const OUT = join(ROOT, 'src/content/generated/lessons.json')
 const LEVELS = [1, 2] as const
 /** Marks the blank in a gap task; chosen so it can never be part of real SQL (LIKE patterns use underscores). */
@@ -98,6 +100,15 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
   casting: ['round', 'where', 'order by'],
   'data-cleaning': ['lower', 'upper', 'nullif', 'coalesce', 'having'],
   pagination: ['limit', 'offset', 'desc'],
+}
+
+function interleave<T>(a: T[], b: T[]): T[] {
+  const out: T[] = []
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    if (i < b.length) out.push(b[i]!)
+    if (i < a.length) out.push(a[i]!)
+  }
+  return out
 }
 
 function hash(text: string): number {
@@ -180,6 +191,8 @@ async function gapTasks(
       if (rows === null || !compareRowSets(rows, reference, ex.orderMatters).equal) wrong.push(alt)
     }
     if (wrong.length < 2) continue
+    const bug = bugTask(ex, sql, at, keyword.length, wrong[0]!)
+    if (bug) bugs.push(bug)
     const options = shuffle([original.toLowerCase(), ...wrong.slice(0, 3)], ex.id + keyword)
     tasks.push({
       kind: 'gap',
@@ -192,6 +205,46 @@ async function gapTasks(
     })
   }
   return tasks
+}
+
+/** "Find the bug": the same verified wrong variant, shown as a full query; the changed line is the answer. */
+function bugTask(ex: Exercise, sql: string, at: number, length: number, wrong: string): LessonTask | null {
+  const broken = sql.slice(0, at) + wrong + sql.slice(at + length)
+  const lines = broken.replace(/;\s*$/, ';').split('\n')
+  const original = sql.split('\n')
+  if (lines.length !== original.length || lines.length < 3 || lines.length > 12) return null
+  const changed = lines.findIndex((line, i) => line !== original[i])
+  if (changed < 0 || lines.filter((l) => l === lines[changed]).length > 1) return null
+  return {
+    kind: 'bug',
+    exerciseId: ex.id,
+    prompt: ex.prompt,
+    lines,
+    answer: changed,
+    fixed: original[changed]!.trim(),
+    explanation: ex.solutions[0].explanation,
+  }
+}
+
+/** "Put the lines in order": a short solution, one clause per line, shuffled. */
+function orderTask(ex: Exercise): LessonTask | null {
+  if (ex.checkSql || ex.setupSql) return null
+  // Without the final semicolon, which would give away the last line.
+  const lines = ex.solutions[0].postgres.trim().replace(/;$/, '').split('\n').map((l) => l.trim()).filter(Boolean)
+  // Only clause-per-line queries: every line must start with a clause keyword, so the order is unambiguous.
+  const CLAUSE = /^(select|from|join|left join|where|group by|having|order by|limit|offset)\b/i
+  if (lines.length < 3 || lines.length > 6 || !lines.every((l) => CLAUSE.test(l))) return null
+  if (new Set(lines).size !== lines.length) return null
+  const order = shuffle(lines.map((_, i) => i), ex.id + 'order')
+  if (order.every((v, i) => v === i)) order.reverse()
+  return {
+    kind: 'order',
+    exerciseId: ex.id,
+    prompt: ex.prompt,
+    lines: order.map((i) => lines[i]!),
+    answer: lines.map((_, i) => order.indexOf(i)),
+    explanation: 'SQL clauses always come in this order: SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. The database runs them in a different order (FROM and WHERE first), which is why SELECT aliases are not visible in WHERE.',
+  }
 }
 
 async function rowsTask(db: PGlite, ex: Exercise, reference: unknown[][]): Promise<LessonTask | null> {
@@ -253,6 +306,8 @@ async function main() {
       // First pass: blanks on the skill's own keywords. Only if that is not enough, any keyword.
       const quick: LessonTask[] = []
       const used = new Set<string>()
+      bugs = []
+      const orders: LessonTask[] = []
       for (const onlyTopicKeywords of [true, false]) {
         for (const ex of pool) {
           const haveGaps = quick.filter((t) => t.kind === 'gap').length
@@ -268,6 +323,11 @@ async function main() {
               quick.push(task)
             }
           }
+          const order = onlyTopicKeywords && !used.has('order:' + ex.id) ? orderTask(ex) : null
+          if (order) {
+            used.add('order:' + ex.id)
+            orders.push(order)
+          }
           if (onlyTopicKeywords && !used.has('rows:' + ex.id) && quick.filter((t) => t.kind === 'rows').length < LESSONS_PER_SKILL * 2) {
             const rows = await rowsTask(d, ex, reference)
             if (rows) {
@@ -277,14 +337,24 @@ async function main() {
           }
         }
       }
-      // Each lesson: gap, rows, gap, then whichever kind is left, then the full query to write.
+      // Each lesson: gap, rows, a third kind (find the bug or put in order), gap, then the full query to write.
+      // A bug task never comes from the same exercise and keyword as a gap in the same lesson (it would give it away).
       const gaps = quick.filter((t) => t.kind === 'gap')
       const counts = quick.filter((t) => t.kind === 'rows')
+      const extras = interleave(bugs, orders)
       const lessons: Lesson[] = []
       for (let i = 0; i < LESSONS_PER_SKILL; i++) {
         const tasks: LessonTask[] = []
-        for (const kind of ['gap', 'rows', 'gap', 'gap'] as const) {
-          const next = (kind === 'gap' ? gaps : counts).shift() ?? (kind === 'gap' ? counts : gaps).shift()
+        for (const kind of ['gap', 'rows', 'extra', 'gap'] as const) {
+          const pools = kind === 'gap' ? [gaps, extras, counts] : kind === 'rows' ? [counts, gaps, extras] : [extras, gaps, counts]
+          let next: LessonTask | undefined
+          for (const pool of pools) {
+            const at = pool.findIndex((t) => !tasks.some((x) => x.exerciseId === t.exerciseId && x.kind !== t.kind && (x.kind === 'bug' || t.kind === 'bug')))
+            if (at >= 0) {
+              next = pool.splice(at, 1)[0]
+              break
+            }
+          }
           if (next) tasks.push(next)
         }
         const write = writable[i]
@@ -304,7 +374,7 @@ async function main() {
     for (const skill of unit.skills)
       for (const lesson of skill.lessons)
         for (const task of lesson.tasks)
-          if (task.kind !== 'write' && splitStatements(task.code).length === 0) throw new Error(`${lesson.id}: empty code`)
+          if ((task.kind === 'gap' || task.kind === 'rows') && splitStatements(task.code).length === 0) throw new Error(`${lesson.id}: empty code`)
 
   writeFileSync(OUT, `${JSON.stringify(course, null, 2)}\n`)
   const lessons = course.units.flatMap((u) => u.skills.flatMap((s) => s.lessons))

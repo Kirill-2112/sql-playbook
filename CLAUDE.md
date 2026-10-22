@@ -55,8 +55,8 @@ Audit of 2026-10-15:
   MySQL `->`/`->>` work only on columns; use json_extract/json_unquote on expressions. Run `-- --links` after adding docs.
 - The learning app: `/` is the path (`LearnPage`), `/learn/:lessonId` a full-screen lesson, `/progress` stats; the old
   home is `/overview`. `npm run build:lessons` (scripts/build-lessons.ts) builds `generated/lessons.json` from the
-  exercises: levels 1–2, one skill per topic, 3 lessons per skill (3 "fill the gap" + 1 "how many rows" + 1 "write the
-  query"). Every wrong gap option is run on PGlite and kept only if it changes the result or fails. Deterministic;
+  exercises: levels 1–2, one skill per topic, 3 lessons per skill (gap, rows, "find the bug" or "put the lines in order",
+  gap, then "write the query"). "Find the bug" reuses a verified wrong gap variant; "order" uses clause-per-line solutions. Every wrong gap option is run on PGlite and kept only if it changes the result or fails. Deterministic;
   CI checks it is current, so rerun it after changing exercises. Progress lives in localStorage (`src/progress/store.ts`).
 - `src/content/topics.ts` — the 58-topic curriculum (5 levels). `src/content/datasets.ts` — dataset metadata and attribution.
 - UI: React + TypeScript strict + styled-components; one component per file in `src/components/`; colours/spacing only from
@@ -109,6 +109,7 @@ Audit of 2026-10-15:
 - Deployed: GitHub Pages via the deploy job in verify.yml (vite base from BASE_PATH=/sql-playbook/). Free hosting tiers
   (Pages, Vercel Hobby) forbid commercial use: move to a paid plan before the subscription. Vercel later for previews/functions.
 - Learning app v1 (2026-10-22): path for levels 1–2 (62 lessons), XP, streak, daily goal, bottom tabs on phones.
-- Next: installable PWA, more task types (tiles, find the bug), reviews of missed tasks, practice by keyword, levels 3–5,
+- PWA: public/manifest.webmanifest, public/icons/, public/sw.js (cache-first for hashed assets, network-first otherwise).
+- Next: reviews of missed tasks, practice by keyword, levels 3–5,
   more home-dataset (Northwind) exercises, reminders (needs a server), two replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

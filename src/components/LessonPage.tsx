@@ -4,8 +4,10 @@ import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
 import { findLesson } from '../progress/path'
 import { recordLesson, streak, useProgress } from '../progress/store'
+import { BugTask } from './BugTask'
 import { ChoiceTask } from './ChoiceTask'
 import { LessonComplete } from './LessonComplete'
+import { OrderTask } from './OrderTask'
 import { WriteTask } from './WriteTask'
 
 /**
@@ -92,6 +94,10 @@ export function LessonPage() {
       </Top>
       {task.kind === 'write' ? (
         <WriteTask key={`${step}-${task.exerciseId}`} exerciseId={task.exerciseId} onDone={done} />
+      ) : task.kind === 'bug' ? (
+        <BugTask key={`${step}-${index}`} task={task} onDone={done} />
+      ) : task.kind === 'order' ? (
+        <OrderTask key={`${step}-${index}`} task={task} onDone={done} />
       ) : (
         <ChoiceTask key={`${step}-${index}`} task={task} onDone={done} />
       )}

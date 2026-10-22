@@ -156,6 +156,27 @@ export type LessonTask =
       explanation: string
     }
   | {
+      /** One line was changed so the query gives a wrong result or fails; tap it. */
+      kind: 'bug'
+      exerciseId: string
+      prompt: string
+      lines: string[]
+      answer: number
+      /** The line as it should be. */
+      fixed: string
+      explanation: string
+    }
+  | {
+      /** The lines of a verified solution, shuffled: put them back in order. */
+      kind: 'order'
+      exerciseId: string
+      prompt: string
+      lines: string[]
+      /** Indexes into lines, in the right order. */
+      answer: number[]
+      explanation: string
+    }
+  | {
       /** Write the whole query: the exercise itself, checked like on its page. */
       kind: 'write'
       exerciseId: string

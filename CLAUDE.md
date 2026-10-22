@@ -99,7 +99,7 @@ Audit of 2026-10-15:
   AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
   every 200th booking), Lahman (SABR CSVs, CC BY-SA, major leagues only, player data from 2010), Delivery (own,
   generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
-  1,062 exercises, all 58 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
+  1,080 exercises, all 58 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
 - Done 2026-10-21: Licenses & credits page; functions & keywords reference (188 entries in 18 groups, `#/reference`);
   practice batches (`*Practice.ts`, `morePractice.ts`): report dates, cleaning, pagination, information_schema,
@@ -113,6 +113,10 @@ Audit of 2026-10-15:
 - Reviews: missed tasks go into Leitner boxes (`review` in the store), due 1, 2, 4, 8 days later; `/review`.
 - Practice by keyword: `/practice` (most used + all reference groups), `/practice/:id`, `/practice/:id/drill`
   (the entry's easiest exercises as write tasks). `LessonPlayer` plays lessons, reviews and drills alike.
-- Next: levels 3–5,
-  more home-dataset (Northwind) exercises, reminders (needs a server), two replacement datasets, labs.
+- Levels 1–5 in the path (170 lessons). First launch (`/welcome`, `onboarded` in the store) asks why, what the learner
+  knows (opens levels) and the daily goal. `MeetDatabase` introduces a dataset before its first task (`seenDatasets`).
+  Generator: solutions with recursion or loops only vary keywords that cannot break termination (PGlite has no
+  statement timeout; a broken stop condition hangs it).
+- Next: better lessons for index/plan topics (results do not change, so gaps fall back to generic keywords), a MySQL
+  mode for lessons, more Northwind exercises for level 2, reminders (needs a server), two replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

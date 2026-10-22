@@ -28,7 +28,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 // Filled by gapTasks as a by-product: every verified wrong variant is also a "find the bug" task.
 let bugs: LessonTask[] = []
 const OUT = join(ROOT, 'src/content/generated/lessons.json')
-const LEVELS = [1, 2] as const
+const LEVELS = [1, 2, 3, 4, 5] as const
 /** Marks the blank in a gap task; chosen so it can never be part of real SQL (LIKE patterns use underscores). */
 const BLANK = '⟦?⟧'
 const LESSONS_PER_SKILL = 3
@@ -37,6 +37,42 @@ const DATASET_ORDER: DatasetId[] = ['northwind', 'chinook', 'sakila', 'employees
 
 /** Keywords that can be blanked out, each with plausible wrong alternatives. Longest first, so "left join" wins over "join". */
 const ALTERNATIVES: [string, string[]][] = [
+  ['with recursive', ['with', 'recursive', 'with loop']],
+  ['rows between', ['range between', 'groups between', 'between']],
+  ['partition by', ['group by', 'order by', 'split by']],
+  ['grouping sets', ['rollup', 'cube', 'group by']],
+  ['on conflict', ['on duplicate', 'if exists', 'on error']],
+  ['do nothing', ['do update', 'skip', 'ignore']],
+  ['skip locked', ['nowait', 'for share', 'skip']],
+  ['for update', ['for share', 'for read', 'with lock']],
+  ['primary key', ['unique', 'index', 'key']],
+  ['row_number', ['rank', 'dense_rank', 'ntile']],
+  ['dense_rank', ['rank', 'row_number', 'percent_rank']],
+  ['rank', ['row_number', 'dense_rank', 'percent_rank']],
+  ['lag', ['lead', 'first_value', 'last_value']],
+  ['lead', ['lag', 'first_value', 'last_value']],
+  ['first_value', ['last_value', 'lag', 'min']],
+  ['preceding', ['following', 'before', 'after']],
+  ['rollup', ['cube', 'grouping', 'sets']],
+  ['lateral', ['natural', 'cross', 'inner']],
+  ['returning', ['output', 'return', 'select']],
+  ['excluded', ['new', 'inserted', 'old']],
+  ['references', ['foreign', 'check', 'unique']],
+  ['savepoint', ['checkpoint', 'mark', 'release']],
+  ['rollback', ['commit', 'end', 'release']],
+  ['commit', ['rollback', 'end', 'abort']],
+  ['before', ['after', 'instead of', 'for']],
+  ['after', ['before', 'instead of', 'for']],
+  ['old', ['new', 'prev', 'last']],
+  ['new', ['old', 'next', 'current']],
+  ['->>', ['->', '#>>', '#>']],
+  ['@>', ['<@', '&&', '=']],
+  ['unnest', ['array_agg', 'string_to_array', 'cardinality']],
+  ['grant', ['revoke', 'give', 'allow']],
+  ['revoke', ['grant', 'deny', 'remove']],
+  ['plainto_tsquery', ['to_tsquery', 'to_tsvector', 'phraseto_tsquery']],
+  ['@@', ['@>', '~~', '=']],
+  ['nowait', ['skip locked', 'wait', 'now']],
   ['is not null', ['is null', '<> null', '!= null']],
   ['is null', ['= null', 'is not null', '== null']],
   ['left join', ['join', 'right join', 'cross join']],
@@ -100,6 +136,39 @@ const TOPIC_KEYWORDS: Record<string, string[]> = {
   casting: ['round', 'where', 'order by'],
   'data-cleaning': ['lower', 'upper', 'nullif', 'coalesce', 'having'],
   pagination: ['limit', 'offset', 'desc'],
+  cte: ['with', 'union all', 'join'],
+  ranking: ['row_number', 'dense_rank', 'rank', 'partition by'],
+  'lag-lead': ['lag', 'lead', 'first_value', 'partition by'],
+  'window-frames': ['rows between', 'preceding', 'partition by', 'sum'],
+  subtotals: ['rollup', 'grouping sets', 'group by'],
+  lateral: ['lateral', 'left join', 'limit'],
+  'date-series': ['date_trunc', 'left join', 'coalesce'],
+  pivot: ['sum', 'count', 'group by'],
+  recursive: ['with recursive', 'union all'],
+  'gaps-islands': ['row_number', 'lag', 'partition by'],
+  'dates-advanced': ['date_trunc', 'extract', 'lag'],
+  ddl: ['primary key', 'references'],
+  constraints: ['primary key', 'references'],
+  dml: ['returning', 'where', 'and'],
+  upsert: ['on conflict', 'do nothing', 'excluded'],
+  merge: ['and', 'where'],
+  transactions: ['commit', 'rollback', 'savepoint'],
+  'temp-tables': ['where', 'group by'],
+  views: ['where', 'group by', 'join'],
+  'materialized-views': ['group by', 'sum'],
+  normalization: ['join', 'distinct'],
+  json: ['->>', '@>', 'coalesce'],
+  arrays: ['unnest', 'distinct'],
+  'generated-columns': ['round', 'coalesce'],
+  introspection: ['where', 'and', 'group by'],
+  privileges: ['grant', 'revoke'],
+  'data-loading': ['where', 'and'],
+  functions: ['coalesce', 'round', 'where'],
+  procedures: ['where', 'and'],
+  'control-flow': ['coalesce', 'and', 'or'],
+  triggers: ['before', 'after', 'new', 'old'],
+  'full-text': ['@@', 'plainto_tsquery'],
+  'locks-isolation': ['skip locked', 'nowait', 'for update', 'commit'],
 }
 
 function interleave<T>(a: T[], b: T[]): T[] {
@@ -129,6 +198,17 @@ function shuffle<T>(items: T[], seed: string): T[] {
   return out
 }
 
+/**
+ * Recursive CTEs and PL/pgSQL loops can run forever when a wrong variant breaks their stop condition, and PGlite has
+ * no statement timeout. In such solutions only keywords that cannot affect termination are varied.
+ */
+const LOOPS = /\b(recursive|loop|while)\b/i
+const SAFE_IN_LOOPS = new Set(['with recursive', 'distinct', 'desc', 'count', 'sum', 'avg', 'min', 'max', 'round', 'upper', 'lower', 'coalesce', 'nullif', 'returning', 'grant', 'revoke'])
+
+function mayVary(sql: string, keyword: string): boolean {
+  return !LOOPS.test(sql) || SAFE_IN_LOOPS.has(keyword)
+}
+
 /** First occurrence of the keyword outside quotes and comments, as whole words. */
 function findKeyword(sql: string, keyword: string): number {
   const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -151,7 +231,18 @@ function findKeyword(sql: string, keyword: string): number {
   return -1
 }
 
+// The same variant is often tried twice (for a gap and for the row-count distractors): run it once.
+const results = new Map<string, unknown[][] | null>()
+
 async function rowsOf(db: PGlite, ex: Exercise, sql: string): Promise<unknown[][] | null> {
+  const memo = ex.dataset + '\u0000' + ex.id + '\u0000' + sql
+  if (results.has(memo)) return results.get(memo)!
+  const rows = await runOnce(db, ex, sql)
+  results.set(memo, rows)
+  return rows
+}
+
+async function runOnce(db: PGlite, ex: Exercise, sql: string): Promise<unknown[][] | null> {
   const { sql: script, blob } = attachFiles(exerciseScript(ex, sql), ex.files)
   try {
     let shown: unknown[][] = []
@@ -181,6 +272,7 @@ async function gapTasks(
   const tasks: LessonTask[] = []
   for (const [keyword, alternatives] of keywords) {
     if (tasks.length >= 2) break
+    if (!mayVary(sql, keyword)) continue
     const at = findKeyword(sql, keyword)
     if (at < 0) continue
     const original = sql.slice(at, at + keyword.length)
@@ -255,6 +347,7 @@ async function rowsTask(db: PGlite, ex: Exercise, reference: unknown[][]): Promi
   const sql = ex.solutions[0].postgres
   for (const [keyword, alternatives] of ALTERNATIVES) {
     if (seen.size >= 4) break
+    if (!mayVary(sql, keyword)) continue
     const at = findKeyword(sql, keyword)
     if (at < 0) continue
     for (const alt of alternatives) {
@@ -295,6 +388,7 @@ async function main() {
   for (const level of LEVELS) {
     const skills: Course['units'][number]['skills'] = []
     for (const topic of TOPICS.filter((t) => t.level === level)) {
+      const started = Date.now()
       const pool = ALL_EXERCISES.filter((e) => e.topics.includes(topic.id) && e.level <= level + 1)
         .sort(
           (a, b) =>
@@ -363,7 +457,7 @@ async function main() {
         lessons.push({ id: `${topic.id}-${i + 1}`, topic: topic.id, level, index: i + 1, tasks })
       }
       if (lessons.length) skills.push({ topic: topic.id, name: topic.name, terms: topic.terms, lessons })
-      console.log(`L${level} ${topic.id}: ${lessons.length} lessons, ${lessons.reduce((n, l) => n + l.tasks.length, 0)} tasks`)
+      console.log(`L${level} ${topic.id}: ${lessons.length} lessons, ${lessons.reduce((n, l) => n + l.tasks.length, 0)} tasks (${Math.round((Date.now() - started) / 1000)}s)`)
     }
     course.units.push({ level, name: LEVEL_NAMES[level], skills })
   }

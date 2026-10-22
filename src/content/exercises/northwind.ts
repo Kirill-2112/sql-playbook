@@ -1,5 +1,6 @@
 import type { Exercise } from '../types'
 import { northwindAdvanced } from './northwindAdvanced'
+import { northwindLevel1 } from './northwindLevel1'
 import { northwindPractice } from './northwindPractice'
 
 const PG = 'https://www.postgresql.org/docs/current/'
@@ -1250,4 +1251,4 @@ order by customer_id, order_date desc, order_id desc;`,
   },
 ]
 
-export const northwindExercises: Exercise[] = [...basics, ...northwindAdvanced, ...northwindPractice]
+export const northwindExercises: Exercise[] = [...basics, ...northwindAdvanced, ...northwindPractice, ...northwindLevel1]

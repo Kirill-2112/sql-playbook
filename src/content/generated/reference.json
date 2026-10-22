@@ -18,7 +18,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 892,
+    "exerciseCount": 910,
     "exercises": [
       {
         "id": "sakila-001",
@@ -75,7 +75,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 722,
+    "exerciseCount": 735,
     "exercises": [
       {
         "id": "sakila-001",
@@ -132,7 +132,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 54,
+    "exerciseCount": 55,
     "exercises": [
       {
         "id": "sakila-003",
@@ -160,6 +160,11 @@
         "level": 1
       },
       {
+        "id": "northwind-165",
+        "title": "Countries we ship to",
+        "level": 1
+      },
+      {
         "id": "employees-054",
         "title": "Titles managers have held",
         "level": 1
@@ -168,11 +173,6 @@
         "id": "adventureworks-076",
         "title": "Colour and size combinations",
         "level": 1
-      },
-      {
-        "id": "sakila-021",
-        "title": "First names shared by actors and customers",
-        "level": 2
       }
     ]
   },
@@ -239,7 +239,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 564,
+    "exerciseCount": 580,
     "exercises": [
       {
         "id": "sakila-001",
@@ -296,7 +296,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 119,
+    "exerciseCount": 121,
     "exercises": [
       {
         "id": "sakila-002",
@@ -1644,7 +1644,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 70,
+    "exerciseCount": 71,
     "exercises": [
       {
         "id": "sakila-006",
@@ -1708,11 +1708,16 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 52,
+    "exerciseCount": 53,
     "exercises": [
       {
         "id": "sakila-084",
         "title": "Empty or unknown second lines",
+        "level": 1
+      },
+      {
+        "id": "northwind-168",
+        "title": "A region or a dash",
         "level": 1
       },
       {
@@ -1743,11 +1748,6 @@
       {
         "id": "lahman-013",
         "title": "Best record, no title",
-        "level": 2
-      },
-      {
-        "id": "delivery-044",
-        "title": "Sign-ups and first orders by month",
         "level": 2
       }
     ]
@@ -1882,7 +1882,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 106,
+    "exerciseCount": 107,
     "exercises": [
       {
         "id": "sakila-004",
@@ -2049,8 +2049,13 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 49,
+    "exerciseCount": 51,
     "exercises": [
+      {
+        "id": "northwind-168",
+        "title": "A region or a dash",
+        "level": 1
+      },
       {
         "id": "employees-073",
         "title": "Open-ended periods as NULL",
@@ -2059,6 +2064,11 @@
       {
         "id": "lahman-074",
         "title": "Young lefty hitters from the Caribbean",
+        "level": 1
+      },
+      {
+        "id": "northwind-172",
+        "title": "Two of the three shippers",
         "level": 1
       },
       {
@@ -2080,16 +2090,6 @@
         "id": "delivery-066",
         "title": "Sushi and pizza people",
         "level": 2
-      },
-      {
-        "id": "airlines-049",
-        "title": "Which connections changed in January",
-        "level": 2
-      },
-      {
-        "id": "northwind-121",
-        "title": "A shipping sentence",
-        "level": 2
       }
     ]
   },
@@ -2106,7 +2106,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 40,
+    "exerciseCount": 42,
     "exercises": [
       {
         "id": "sakila-005",
@@ -2204,7 +2204,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 353,
+    "exerciseCount": 355,
     "exercises": [
       {
         "id": "sakila-084",
@@ -3434,7 +3434,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 12,
+    "exerciseCount": 13,
     "exercises": [
       {
         "id": "sakila-005",
@@ -3444,6 +3444,11 @@
       {
         "id": "chinook-003",
         "title": "Countries, alphabetically — but whose alphabet?",
+        "level": 1
+      },
+      {
+        "id": "northwind-173",
+        "title": "Contacts in capitals",
         "level": 1
       },
       {
@@ -3469,11 +3474,6 @@
       {
         "id": "northwind-137",
         "title": "Clean a messy import",
-        "level": 2
-      },
-      {
-        "id": "northwind-138",
-        "title": "Duplicate sign-ups",
         "level": 2
       }
     ]
@@ -3722,11 +3722,16 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 15,
+    "exerciseCount": 16,
     "exercises": [
       {
         "id": "chinook-007",
         "title": "Email domains",
+        "level": 1
+      },
+      {
+        "id": "northwind-174",
+        "title": "First names only",
         "level": 1
       },
       {
@@ -3758,11 +3763,6 @@
         "id": "sakila-096",
         "title": "Split a list with recursion",
         "level": 3
-      },
-      {
-        "id": "sakila-105",
-        "title": "Each customer's third film",
-        "level": 4
       }
     ]
   },
@@ -3999,7 +3999,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 131,
+    "exerciseCount": 133,
     "exercises": [
       {
         "id": "chinook-008",
@@ -4037,9 +4037,9 @@
         "level": 1
       },
       {
-        "id": "chinook-014",
-        "title": "Sales by billing country",
-        "level": 2
+        "id": "northwind-175",
+        "title": "Prices with VAT",
+        "level": 1
       }
     ]
   },
@@ -4435,7 +4435,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 77,
+    "exerciseCount": 78,
     "exercises": [
       {
         "id": "chinook-009",
@@ -4468,13 +4468,13 @@
         "level": 1
       },
       {
-        "id": "chinook-061",
-        "title": "Quarter labels",
-        "level": 2
+        "id": "northwind-178",
+        "title": "Hired in which year?",
+        "level": 1
       },
       {
-        "id": "northwind-104",
-        "title": "1997 against 1998, month by month",
+        "id": "chinook-061",
+        "title": "Quarter labels",
         "level": 2
       }
     ]

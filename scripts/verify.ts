@@ -9,11 +9,10 @@
  * Usage: npm run verify [-- sakila-001 chinook]
  */
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs'
-import { Readable } from 'node:stream'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { PGlite } from '@electric-sql/pglite'
-import { connectMysql, mysqlRows } from './lib/mysql'
+import { connectMysql, mysqlRows, mysqlRowsOnCopy } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
 import { emulateTransactions, splitStatements } from '../src/utils/emulateTransactions'
@@ -47,42 +46,6 @@ async function pgRows(db: PGlite, sql: string, files?: ExerciseFile[]) {
     await tx.rollback()
   })
   return (shown?.rows ?? []) as unknown[][]
-}
-
-/**
- * MySQL cannot roll back CREATE/ALTER/DROP, so exercises that change the database run on a fresh copy
- * (pb_scratch) that is dropped afterwards.
- */
-async function mysqlRowsOnCopy(dataset: DatasetId, sql: string, files?: ExerciseFile[]) {
-  // A fresh connection per run: temporary tables and session settings must not leak between solutions.
-  // LOAD DATA LOCAL INFILE 'name.csv' is served the exercise's file of that name.
-  const conn = await connectMysql(`pb_${dataset}`, files?.length ? (path) => {
-    const file = files.find((f) => f.name === path || path.endsWith('/' + f.name))
-    if (!file) throw new Error(`No file ${path} in this exercise`)
-    return Readable.from([Buffer.from(file.content)])
-  } : undefined)
-  if (files?.length) await conn.query('set global local_infile = 1')
-  const source = `pb_${dataset}`
-  const [tables] = (await conn.query(
-    `select table_name as t from information_schema.tables where table_schema = ? and table_type = 'BASE TABLE'`,
-    [source],
-  )) as [{ t: string }[], unknown]
-  await conn.query('drop database if exists pb_scratch; create database pb_scratch')
-  for (const { t } of tables) {
-    await conn.query(`create table pb_scratch.\`${t}\` like ${source}.\`${t}\`; insert into pb_scratch.\`${t}\` select * from ${source}.\`${t}\``)
-  }
-  await conn.query('use pb_scratch')
-  // Users and roles are server-wide in MySQL, so the ones an exercise creates are dropped afterwards.
-  const accounts = async () =>
-    ((await conn.query(`select concat(quote(user), '@', quote(host)) as a from mysql.user`)) as [{ a: string }[], unknown])[0].map((r) => r.a)
-  const before = new Set(await accounts())
-  try {
-    return await mysqlRows(conn, sql)
-  } finally {
-    for (const account of (await accounts()).filter((a) => !before.has(a))) await conn.query(`drop user ${account}`)
-    await conn.query(`use ${source}; drop database if exists pb_scratch`)
-    await conn.end()
-  }
 }
 
 const EXECUTION = /Execution Time: ([\d.]+) ms/

@@ -7,8 +7,9 @@
  *   rows  — "how many rows does this query return?", with distractors taken from what the wrong variants return.
  *   write — the exercise itself, checked in the browser like on the exercise page.
  *
- * MySQL mode: gap, rows, bug and order tasks also get a version built from the exercise's MySQL solution (when it is
- * a plain query verified on MySQL). Its wrong options are run on the local MySQL 8.4, the same way as on PGlite.
+ * MySQL mode: gap, rows, bug and order tasks also get a version built from the exercise's MySQL solution (when it was
+ * verified on MySQL). Its wrong options are run on the local MySQL 8.4, the same way as on PGlite; exercises that
+ * change the database run each variant on a fresh copy of the tables they mention.
  * Needs the MySQL from the README running with the datasets loaded (npm run build:datasets).
  *
  * Writes src/content/generated/lessons.json. Deterministic: the same exercises always give the same lessons.
@@ -18,7 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { PGlite } from '@electric-sql/pglite'
-import { connectMysql, mysqlRows, type MysqlConnection } from './lib/mysql'
+import { connectMysql, mysqlRows, mysqlRowsOnCopy, type MysqlConnection } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
 import { SEED_SQL } from '../src/db/seed'
@@ -27,7 +28,7 @@ import { LEVEL_NAMES, TOPICS } from '../src/content/topics'
 import type { Course, DatasetId, Exercise, Lesson, LessonTask } from '../src/content/types'
 import { emulateTransactions, splitStatements } from '../src/utils/emulateTransactions'
 import { attachFiles } from '../src/utils/exerciseFiles'
-import { exerciseScript } from '../src/utils/exerciseScript'
+import { changesDatabase, exerciseScript } from '../src/utils/exerciseScript'
 import { indexScenarios } from '../src/content/indexScenarios'
 import type { VerificationReport } from '../src/content/verification'
 
@@ -267,11 +268,10 @@ async function runOnce(db: PGlite, ex: Exercise, sql: string): Promise<unknown[]
   }
 }
 
-/** The MySQL text of the first solution, if it is a plain query that was verified on MySQL. */
+/** The MySQL text of the first solution, if it was verified on MySQL. */
 function mysqlSolution(ex: Exercise): string | null {
   const sql = ex.solutions[0].mysql
-  if (!sql || ex.checkSql || ex.setupSql || ex.files) return null
-  return VERIFICATION.exercises[ex.id]?.solutions[0]?.mysql === 'verified' ? sql : null
+  return sql && VERIFICATION.exercises[ex.id]?.solutions[0]?.mysql === 'verified' ? sql : null
 }
 
 const mysqlConnections = new Map<DatasetId, MysqlConnection>()
@@ -279,6 +279,16 @@ const mysqlConnections = new Map<DatasetId, MysqlConnection>()
 async function mysqlRowsOf(ex: Exercise, sql: string): Promise<unknown[][] | null> {
   const memo = 'mysql\u0000' + ex.id + '\u0000' + sql
   if (results.has(memo)) return results.get(memo)!
+  if (changesDatabase(ex)) {
+    let rows: unknown[][] | null
+    try {
+      rows = await mysqlRowsOnCopy(ex.dataset, exerciseScript(ex, sql, 'mysql'), ex.files, { scratch: 'pb_lessons', onlyTables: true })
+    } catch {
+      rows = null
+    }
+    results.set(memo, rows)
+    return rows
+  }
   let conn = mysqlConnections.get(ex.dataset)
   if (!conn) {
     conn = await connectMysql(`pb_${ex.dataset}`)
@@ -302,7 +312,7 @@ type GapVariant = { code: string; options: string[]; answer: number; note?: stri
 /** The same blank in the MySQL solution, with alternatives checked on MySQL. */
 async function mysqlGap(ex: Exercise, keyword: string, alternatives: string[]): Promise<GapVariant | null> {
   const sql = mysqlSolution(ex)
-  if (!sql) return null
+  if (!sql || !mayVary(sql, keyword)) return null
   const at = findKeyword(sql, keyword)
   if (at < 0) return null
   const reference = await mysqlRowsOf(ex, sql)

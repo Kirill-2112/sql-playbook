@@ -131,7 +131,8 @@ Audit of 2026-10-15:
   for plain-query exercises whose first solution is verified on MySQL, gap/rows/bug/order tasks get a `mysql` version
   whose wrong options are run on MySQL (`pb_<dataset>`, max_execution_time 10 s). `src/progress/dialect.ts` swaps it
   in; tasks without one stay in PostgreSQL with a notice. Write tasks still run on PGlite (they show the MySQL answer).
-  Script exercises (checkSql/setupSql/files) have no MySQL version yet: most of levels 4–5.
-- Next: MySQL versions for script exercises (scratch copy per variant), more Northwind exercises for level 2, two
-  replacement datasets, labs.
+  Script exercises (checkSql/setupSql) run each MySQL variant on a fresh copy (`pb_lessons`) of only the tables the
+  script mentions (`mysqlRowsOnCopy` in scripts/lib/mysql.ts, shared with verify). 524 of 671 tap tasks have a MySQL
+  version. build:lessons takes ~15 min; the CI timeout is 75 min.
+- Next: more Northwind exercises for level 2, two replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

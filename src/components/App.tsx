@@ -15,6 +15,7 @@ import { DrillPage } from './DrillPage'
 import { KeywordPage } from './KeywordPage'
 import { PracticePage } from './PracticePage'
 import { ProgressPage } from './ProgressPage'
+import { ReminderSync } from './ReminderSync'
 import { ReviewPage } from './ReviewPage'
 import { WelcomePage } from './WelcomePage'
 import { ReferenceEntryPage } from './ReferenceEntryPage'
@@ -26,6 +27,7 @@ export function App() {
   return (
     <ThemeProvider theme={tokens}>
       <GlobalStyle />
+      <ReminderSync />
       <HashRouter>
         <Routes>
           {/* Lessons take the whole screen, without the sidebar or tabs. */}

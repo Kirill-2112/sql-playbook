@@ -1,0 +1,20 @@
+# Every 15 minutes, asks the reminder server on Vercel to send the reminders that are due (api/push/send.ts).
+# Vercel's free plan runs its own scheduled jobs only once a day, which is too coarse for "remind me at 19:30".
+# GitHub may start a scheduled run a few minutes late; the server sends any reminder up to three hours after its time.
+# CRON_SECRET is the same value in the repository secrets and in the Vercel project's environment variables.
+name: Reminders
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Send due reminders
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: curl --fail-with-body --silent --show-error --max-time 60 -X POST -H "Authorization: Bearer $CRON_SECRET" https://sql-playbook.vercel.app/api/push/send

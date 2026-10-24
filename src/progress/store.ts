@@ -168,6 +168,12 @@ export function streak(days: Record<string, number>, today = new Date()): number
   return count
 }
 
+/** The last day with any XP and the streak on that day, for the reminder server. */
+export function lastActivity(days: Record<string, number>): { practisedOn: string | null; streak: number } {
+  const practisedOn = Object.keys(days).filter((d) => days[d]).sort().at(-1) ?? null
+  return { practisedOn, streak: practisedOn ? streak(days, new Date(`${practisedOn}T12:00:00`)) : 0 }
+}
+
 function subscribe(listener: () => void) {
   listeners.add(listener)
   return () => listeners.delete(listener)

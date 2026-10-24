@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
 import { DAILY_GOALS, localDate, resetProgress, setDailyGoal, streak, useProgress } from '../progress/store'
+import { RemindersCard } from './RemindersCard'
 
 const WEEKDAY = new Intl.DateTimeFormat('en', { weekday: 'short' })
 
@@ -80,6 +81,8 @@ export function ProgressPage() {
         </Goals>
         <Muted>{DAILY_GOALS.find((g) => g.xp === progress.dailyGoal)?.about ?? ''} A lesson gives 10 XP plus 2 for each task right the first time.</Muted>
       </Card>
+
+      <RemindersCard />
 
       <Muted>
         Progress is saved on this device only. Accounts that keep it on every device come later.{' '}

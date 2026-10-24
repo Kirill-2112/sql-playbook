@@ -1,6 +1,7 @@
 // Service worker: makes SQL Playbook installable and fast on repeat visits, and lets lessons run offline once the
 // needed files have been loaded. Files with a hash in their name never change, so they are served from the cache;
 // everything else (the page, datasets, the manifest) comes from the network when possible, the cache otherwise.
+// It also shows the daily reminders the server sends (api/push) and opens the app when one is tapped.
 const CACHE = 'sql-playbook-v1'
 
 self.addEventListener('install', () => self.skipWaiting())
@@ -40,3 +41,33 @@ async function networkFirst(request) {
     throw error
   }
 }
+
+self.addEventListener('push', (event) => {
+  let data = { title: 'Time for SQL', body: 'Your next lesson is ready.' }
+  try {
+    data = { ...data, ...event.data.json() }
+  } catch {
+    // No payload or not JSON: show the default text.
+  }
+  const scope = self.registration.scope
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: `${scope}icons/icon-192.png`,
+      badge: `${scope}icons/icon-192.png`,
+      tag: 'daily-reminder',
+      data: { url: scope },
+    }),
+  )
+})
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = event.notification.data?.url ?? self.registration.scope
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      const open = windows.find((w) => w.url.startsWith(url))
+      return open ? open.focus() : self.clients.openWindow(url)
+    }),
+  )
+})

@@ -91,6 +91,11 @@ one full query. `npm run build:lessons` generates them from the verified exercis
 if it really changes the result; "how many rows" tasks take their distractors from what those near-miss queries return.
 XP, streak and daily goal are stored on the device.
 
+Daily reminders use Web Push. The app at https://sql-playbook.vercel.app has a small API (`api/push`, Vercel Functions)
+that stores push subscriptions in Supabase and sends each reminder at the learner's chosen time, skipped on days they
+already practised, plus an optional 21:00 streak saver. A GitHub Actions schedule (`reminders.yml`) calls it every
+15 minutes. Encryption and VAPID signing use Node's built-in crypto. On iPhone, reminders need the app on the Home Screen.
+
 ## Functions & keywords reference
 
 `src/content/reference/` holds 188 entries in 18 groups: PostgreSQL syntax, the MySQL 8.4 equivalent (or why there is

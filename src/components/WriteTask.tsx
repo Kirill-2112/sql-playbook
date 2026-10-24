@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { DATASETS } from '../content/datasets'
 import { datasetOf, loadExercises } from '../content/exercises'
 import type { Exercise } from '../content/types'
+import type { Dialect } from '../progress/store'
 import { runSandboxed, SqlError, type QueryResult } from '../db/database'
 import { explainMismatch } from '../utils/compareRows'
 import { exerciseScript } from '../utils/exerciseScript'
@@ -13,7 +14,7 @@ import { SqlEditor } from './SqlEditor'
 import { SqlErrorMessage } from './SqlErrorMessage'
 
 // The last step of a lesson: the real exercise, written in full and checked against the verified solution.
-export function WriteTask({ exerciseId, onDone }: { exerciseId: string; onDone: (correct: boolean) => void }) {
+export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerciseId: string; dialect?: Dialect; onDone: (correct: boolean) => void }) {
   const id = useId()
   const [exercise, setExercise] = useState<Exercise | null>(null)
   const [sql, setSql] = useState('')
@@ -63,6 +64,12 @@ export function WriteTask({ exerciseId, onDone }: { exerciseId: string; onDone: 
         <Kind>Write the query · {DATASETS[exercise.dataset].name}</Kind>
         <Question>{exercise.prompt}</Question>
         {exercise.hint && <Hint>{exercise.hint}</Hint>}
+        {dialect === 'mysql' && (
+          <Hint>
+            Your query runs on PostgreSQL in your browser: there is no MySQL here. Standard SQL works in both; MySQL-only
+            syntax (backticks, IFNULL, DATE_FORMAT, LIMIT 10, 5) will not run. The answer shows the MySQL version too.
+          </Hint>
+        )}
         {exercise.setupSql && (
           <Extra open>
             <summary>Set up for you first</summary>
@@ -85,6 +92,12 @@ export function WriteTask({ exerciseId, onDone }: { exerciseId: string; onDone: 
           <>
             <Kind>One correct answer</Kind>
             <CodeBlock sql={exercise.solutions[0].postgres} />
+            {dialect === 'mysql' && exercise.solutions[0].mysql && exercise.solutions[0].mysql !== exercise.solutions[0].postgres && (
+              <>
+                <Kind>The same in MySQL</Kind>
+                <CodeBlock sql={exercise.solutions[0].mysql} />
+              </>
+            )}
           </>
         )}
       </Body>

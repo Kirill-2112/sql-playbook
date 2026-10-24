@@ -144,6 +144,8 @@ export type LessonTask =
       options: string[]
       answer: number
       explanation: string
+      /** The same blank in the MySQL solution, with options checked on MySQL 8.4. */
+      mysql?: { code: string; options: string[]; answer: number; note?: string }
     }
   | {
       /** How many rows does this query return? */
@@ -154,6 +156,8 @@ export type LessonTask =
       options: string[]
       answer: number
       explanation: string
+      /** The MySQL solution, verified to return the same rows. */
+      mysql?: { code: string; note?: string }
     }
   | {
       /** One line was changed so the query gives a wrong result or fails; tap it. */
@@ -165,6 +169,7 @@ export type LessonTask =
       /** The line as it should be. */
       fixed: string
       explanation: string
+      mysql?: { lines: string[]; answer: number; fixed: string; note?: string }
     }
   | {
       /** The lines of a verified solution, shuffled: put them back in order. */
@@ -175,6 +180,7 @@ export type LessonTask =
       /** Indexes into lines, in the right order. */
       answer: number[]
       explanation: string
+      mysql?: { lines: string[]; answer: number[] }
     }
   | {
       /** Will PostgreSQL use an index for this query? The answer comes from a real EXPLAIN on the Delivery data. */

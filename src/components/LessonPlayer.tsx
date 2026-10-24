@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import type { LessonTask } from '../content/types'
 import { datasetOf } from '../content/exercises'
+import { inDialect } from '../progress/dialect'
 import { markDatasetSeen, streak, useProgress } from '../progress/store'
 import { BugTask } from './BugTask'
 import { ChoiceTask } from './ChoiceTask'
@@ -60,7 +61,8 @@ export function LessonPlayer({ title, tasks, onFinish }: Props) {
   }
 
   const index = queue[step]!
-  const { task } = tasks[index]!
+  // In MySQL mode a task shows its MySQL version; a task without one stays in PostgreSQL, and says so.
+  const { task, fallback } = inDialect(tasks[index]!.task, progress.dialect)
 
   function done(correct: boolean) {
     if (correct && !missed.has(index)) setFirstTry(new Set(firstTry).add(index))
@@ -88,10 +90,11 @@ export function LessonPlayer({ title, tasks, onFinish }: Props) {
         </Bar>
         <Count>{title}</Count>
       </Top>
+      {!meet && fallback && <Fallback>No MySQL version of this task yet, so it is in PostgreSQL.</Fallback>}
       {meet ? (
         <MeetDatabase dataset={meet} onStart={() => markDatasetSeen(meet)} />
       ) : task.kind === 'write' ? (
-        <WriteTask key={key} exerciseId={task.exerciseId} onDone={done} />
+        <WriteTask key={key} exerciseId={task.exerciseId} dialect={progress.dialect} onDone={done} />
       ) : task.kind === 'bug' ? (
         <BugTask key={key} task={task} onDone={done} />
       ) : task.kind === 'plan' ? (
@@ -158,4 +161,15 @@ const Count = styled.span`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+`
+
+const Fallback = styled.p`
+  align-self: center;
+  max-width: 640px;
+  margin: 0 ${({ theme }) => theme.space.md};
+  padding: ${({ theme }) => theme.space.xs} ${({ theme }) => theme.space.sm};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  background: ${({ theme }) => theme.color.warnSoft};
+  color: ${({ theme }) => theme.color.warn};
+  font-size: ${({ theme }) => theme.size.xs};
 `

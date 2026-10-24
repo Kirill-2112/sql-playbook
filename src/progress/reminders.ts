@@ -63,15 +63,15 @@ export async function reminderSupport(): Promise<ReminderSupport> {
     // iPhone and iPad get Web Push only in an app added to the Home Screen.
     return { ok: false, reason: isAppleMobile() && !isInstalled() ? 'install-first' : 'unsupported' }
   }
-  if (Notification.permission === 'denied') return { ok: false, reason: 'blocked' }
+  let publicKey: string
   try {
     const response = await fetch(`${API}/key`)
     if (!response.ok) return { ok: false, reason: 'other-site' }
-    const { publicKey } = (await response.json()) as { publicKey: string }
-    return { ok: true, publicKey }
+    publicKey = ((await response.json()) as { publicKey: string }).publicKey
   } catch {
     return { ok: false, reason: 'other-site' }
   }
+  return Notification.permission === 'denied' ? { ok: false, reason: 'blocked' } : { ok: true, publicKey }
 }
 
 function keyBytes(base64url: string): Uint8Array<ArrayBuffer> {

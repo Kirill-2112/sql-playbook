@@ -30,7 +30,11 @@ export interface ProgressState {
   onboarded: boolean
   /** Datasets already introduced with the "meet the database" card. */
   seenDatasets: string[]
+  /** The SQL dialect lesson tasks are shown in, where a version exists. */
+  dialect: Dialect
 }
+
+export type Dialect = 'postgres' | 'mysql'
 
 const KEY = 'sql-playbook.progress.v1'
 export const DAILY_GOALS = [
@@ -40,14 +44,14 @@ export const DAILY_GOALS = [
   { xp: 100, name: 'Intense', about: 'Five lessons a day.' },
 ] as const
 
-const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [] }
+const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres' }
 
 function load(): ProgressState {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as Partial<ProgressState>
-    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
+    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
   } catch {
     return EMPTY
   }
@@ -136,6 +140,10 @@ export function dueReviews(review: Record<string, { box: number; due: string }>,
 
 export function setDailyGoal(xp: number) {
   save({ ...state, dailyGoal: xp })
+}
+
+export function setDialect(dialect: Dialect) {
+  save({ ...state, dialect })
 }
 
 export function unlockLevel(level: number) {

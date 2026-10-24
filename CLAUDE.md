@@ -127,5 +127,11 @@ Audit of 2026-10-15:
   every 15 min (Vercel Hobby cron is daily only). Client: `src/progress/reminders.ts`, `RemindersCard` on /progress,
   `ReminderSync` reports practice days; `public/sw.js` shows the push. GitHub Pages has no API: the card links to Vercel.
   The owner adds every secret themselves; never handle key values.
-- Next: a MySQL mode for lessons, more Northwind exercises for level 2, two replacement datasets, labs.
+- MySQL mode (2026-10-24): `dialect` in the store (Progress page, "Learn in"). build:lessons now needs the local MySQL:
+  for plain-query exercises whose first solution is verified on MySQL, gap/rows/bug/order tasks get a `mysql` version
+  whose wrong options are run on MySQL (`pb_<dataset>`, max_execution_time 10 s). `src/progress/dialect.ts` swaps it
+  in; tasks without one stay in PostgreSQL with a notice. Write tasks still run on PGlite (they show the MySQL answer).
+  Script exercises (checkSql/setupSql/files) have no MySQL version yet: most of levels 4–5.
+- Next: MySQL versions for script exercises (scratch copy per variant), more Northwind exercises for level 2, two
+  replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

@@ -7,6 +7,10 @@
  *   rows  — "how many rows does this query return?", with distractors taken from what the wrong variants return.
  *   write — the exercise itself, checked in the browser like on the exercise page.
  *
+ * MySQL mode: gap, rows, bug and order tasks also get a version built from the exercise's MySQL solution (when it is
+ * a plain query verified on MySQL). Its wrong options are run on the local MySQL 8.4, the same way as on PGlite.
+ * Needs the MySQL from the README running with the datasets loaded (npm run build:datasets).
+ *
  * Writes src/content/generated/lessons.json. Deterministic: the same exercises always give the same lessons.
  * Usage: npm run build:lessons
  */
@@ -14,6 +18,7 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { PGlite } from '@electric-sql/pglite'
+import { connectMysql, mysqlRows, type MysqlConnection } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
 import { SEED_SQL } from '../src/db/seed'
@@ -24,11 +29,13 @@ import { emulateTransactions, splitStatements } from '../src/utils/emulateTransa
 import { attachFiles } from '../src/utils/exerciseFiles'
 import { exerciseScript } from '../src/utils/exerciseScript'
 import { indexScenarios } from '../src/content/indexScenarios'
+import type { VerificationReport } from '../src/content/verification'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
 // Filled by gapTasks as a by-product: every verified wrong variant is also a "find the bug" task.
 let bugs: LessonTask[] = []
 const OUT = join(ROOT, 'src/content/generated/lessons.json')
+const VERIFICATION = JSON.parse(readFileSync(join(ROOT, 'src/content/generated/verification.json'), 'utf8')) as VerificationReport
 const LEVELS = [1, 2, 3, 4, 5] as const
 /** Marks the blank in a gap task; chosen so it can never be part of real SQL (LIKE patterns use underscores). */
 const BLANK = '⟦?⟧'
@@ -260,6 +267,63 @@ async function runOnce(db: PGlite, ex: Exercise, sql: string): Promise<unknown[]
   }
 }
 
+/** The MySQL text of the first solution, if it is a plain query that was verified on MySQL. */
+function mysqlSolution(ex: Exercise): string | null {
+  const sql = ex.solutions[0].mysql
+  if (!sql || ex.checkSql || ex.setupSql || ex.files) return null
+  return VERIFICATION.exercises[ex.id]?.solutions[0]?.mysql === 'verified' ? sql : null
+}
+
+const mysqlConnections = new Map<DatasetId, MysqlConnection>()
+
+async function mysqlRowsOf(ex: Exercise, sql: string): Promise<unknown[][] | null> {
+  const memo = 'mysql\u0000' + ex.id + '\u0000' + sql
+  if (results.has(memo)) return results.get(memo)!
+  let conn = mysqlConnections.get(ex.dataset)
+  if (!conn) {
+    conn = await connectMysql(`pb_${ex.dataset}`)
+    // A wrong variant must not run for long (a broken join can explode the row count).
+    await conn.query('set session max_execution_time = 10000')
+    mysqlConnections.set(ex.dataset, conn)
+  }
+  let rows: unknown[][] | null
+  try {
+    rows = await mysqlRows(conn, sql)
+  } catch {
+    rows = null
+  }
+  results.set(memo, rows)
+  return rows
+}
+
+type BugLines = { lines: string[]; answer: number; fixed: string }
+type GapVariant = { code: string; options: string[]; answer: number; note?: string; bug: BugLines | null }
+
+/** The same blank in the MySQL solution, with alternatives checked on MySQL. */
+async function mysqlGap(ex: Exercise, keyword: string, alternatives: string[]): Promise<GapVariant | null> {
+  const sql = mysqlSolution(ex)
+  if (!sql) return null
+  const at = findKeyword(sql, keyword)
+  if (at < 0) return null
+  const reference = await mysqlRowsOf(ex, sql)
+  if (!reference) return null
+  const original = sql.slice(at, at + keyword.length)
+  const wrong: string[] = []
+  for (const alt of alternatives) {
+    const rows = await mysqlRowsOf(ex, sql.slice(0, at) + alt + sql.slice(at + keyword.length))
+    if (rows === null || !compareRowSets(rows, reference, ex.orderMatters).equal) wrong.push(alt)
+  }
+  if (wrong.length < 2) return null
+  const options = shuffle([original.toLowerCase(), ...wrong.slice(0, 3)], ex.id + keyword + 'mysql')
+  return {
+    code: sql.slice(0, at) + BLANK + sql.slice(at + keyword.length),
+    options,
+    answer: options.indexOf(original.toLowerCase()),
+    note: ex.solutions[0].mysqlNote,
+    bug: bugLines(sql, at, keyword.length, wrong[0]!),
+  }
+}
+
 async function gapTasks(
   db: PGlite,
   ex: Exercise,
@@ -286,7 +350,9 @@ async function gapTasks(
       if (rows === null || !compareRowSets(rows, reference, ex.orderMatters).equal) wrong.push(alt)
     }
     if (wrong.length < 2) continue
+    const my = await mysqlGap(ex, keyword, alternatives)
     const bug = bugTask(ex, sql, at, keyword.length, wrong[0]!)
+    if (bug && bug.kind === 'bug' && my?.bug) bug.mysql = { ...my.bug, note: my.note }
     if (bug) bugs.push(bug)
     const options = shuffle([original.toLowerCase(), ...wrong.slice(0, 3)], ex.id + keyword)
     tasks.push({
@@ -297,6 +363,7 @@ async function gapTasks(
       options,
       answer: options.indexOf(original.toLowerCase()),
       explanation: ex.solutions[0].explanation,
+      ...(my && { mysql: { code: my.code, options: my.options, answer: my.answer, note: my.note } }),
     })
   }
   return tasks
@@ -304,42 +371,47 @@ async function gapTasks(
 
 /** "Find the bug": the same verified wrong variant, shown as a full query; the changed line is the answer. */
 function bugTask(ex: Exercise, sql: string, at: number, length: number, wrong: string): LessonTask | null {
+  const bug = bugLines(sql, at, length, wrong)
+  return bug && { kind: 'bug', exerciseId: ex.id, prompt: ex.prompt, ...bug, explanation: ex.solutions[0].explanation }
+}
+
+function bugLines(sql: string, at: number, length: number, wrong: string): BugLines | null {
   const broken = sql.slice(0, at) + wrong + sql.slice(at + length)
   const lines = broken.replace(/;\s*$/, ';').split('\n')
   const original = sql.split('\n')
   if (lines.length !== original.length || lines.length < 3 || lines.length > 12) return null
   const changed = lines.findIndex((line, i) => line !== original[i])
   if (changed < 0 || lines.filter((l) => l === lines[changed]).length > 1) return null
-  return {
-    kind: 'bug',
-    exerciseId: ex.id,
-    prompt: ex.prompt,
-    lines,
-    answer: changed,
-    fixed: original[changed]!.trim(),
-    explanation: ex.solutions[0].explanation,
-  }
+  return { lines, answer: changed, fixed: original[changed]!.trim() }
 }
 
 /** "Put the lines in order": a short solution, one clause per line, shuffled. */
 function orderTask(ex: Exercise): LessonTask | null {
   if (ex.checkSql || ex.setupSql) return null
-  // Without the final semicolon, which would give away the last line.
-  const lines = ex.solutions[0].postgres.trim().replace(/;$/, '').split('\n').map((l) => l.trim()).filter(Boolean)
-  // Only clause-per-line queries: every line must start with a clause keyword, so the order is unambiguous.
-  const CLAUSE = /^(select|from|join|left join|where|group by|having|order by|limit|offset)\b/i
-  if (lines.length < 3 || lines.length > 6 || !lines.every((l) => CLAUSE.test(l))) return null
-  if (new Set(lines).size !== lines.length) return null
-  const order = shuffle(lines.map((_, i) => i), ex.id + 'order')
-  if (order.every((v, i) => v === i)) order.reverse()
+  const pg = orderLines(ex.solutions[0].postgres, ex.id + 'order')
+  if (!pg) return null
+  const mysqlSql = mysqlSolution(ex)
+  const my = mysqlSql ? orderLines(mysqlSql, ex.id + 'order') : null
   return {
     kind: 'order',
     exerciseId: ex.id,
     prompt: ex.prompt,
-    lines: order.map((i) => lines[i]!),
-    answer: lines.map((_, i) => order.indexOf(i)),
+    ...pg,
+    ...(my && { mysql: my }),
     explanation: 'SQL clauses always come in this order: SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. The database runs them in a different order (FROM and WHERE first), which is why SELECT aliases are not visible in WHERE.',
   }
+}
+
+function orderLines(sql: string, seed: string): { lines: string[]; answer: number[] } | null {
+  // Without the final semicolon, which would give away the last line.
+  const lines = sql.trim().replace(/;$/, '').split('\n').map((l) => l.trim()).filter(Boolean)
+  // Only clause-per-line queries: every line must start with a clause keyword, so the order is unambiguous.
+  const CLAUSE = /^(select|from|join|left join|where|group by|having|order by|limit|offset)\b/i
+  if (lines.length < 3 || lines.length > 6 || !lines.every((l) => CLAUSE.test(l))) return null
+  if (new Set(lines).size !== lines.length) return null
+  const order = shuffle(lines.map((_, i) => i), seed)
+  if (order.every((v, i) => v === i)) order.reverse()
+  return { lines: order.map((i) => lines[i]!), answer: lines.map((_, i) => order.indexOf(i)) }
 }
 
 async function rowsTask(db: PGlite, ex: Exercise, reference: unknown[][]): Promise<LessonTask | null> {
@@ -364,6 +436,7 @@ async function rowsTask(db: PGlite, ex: Exercise, reference: unknown[][]): Promi
     if (n + delta >= 0) seen.add(n + delta)
   }
   const options = shuffle([...seen].slice(0, 4), ex.id + 'rows')
+  const mysqlSql = mysqlSolution(ex)
   return {
     kind: 'rows',
     exerciseId: ex.id,
@@ -372,6 +445,8 @@ async function rowsTask(db: PGlite, ex: Exercise, reference: unknown[][]): Promi
     options: options.map(String),
     answer: options.indexOf(n),
     explanation: `It returns ${n} row${n === 1 ? '' : 's'}. ${ex.solutions[0].explanation}`,
+    // Verification already showed the MySQL solution returns the same rows.
+    ...(mysqlSql && { mysql: { code: mysqlSql, note: ex.solutions[0].mysqlNote } }),
   }
 }
 
@@ -556,6 +631,7 @@ async function main() {
     course.units.push({ level, name: LEVEL_NAMES[level], skills })
   }
   for (const d of dbs.values()) await d.close()
+  for (const c of mysqlConnections.values()) await c.end()
 
   // Nothing written may contain statements we would not want a learner to see run: keep a quick sanity check.
   for (const unit of course.units)
@@ -566,7 +642,10 @@ async function main() {
 
   writeFileSync(OUT, `${JSON.stringify(course, null, 2)}\n`)
   const lessons = course.units.flatMap((u) => u.skills.flatMap((s) => s.lessons))
-  console.log(`\n${lessons.length} lessons, ${lessons.reduce((n, l) => n + l.tasks.length, 0)} tasks → ${OUT.replace(ROOT + '/', '')}`)
+  const tasks = lessons.flatMap((l) => l.tasks)
+  const tappable = tasks.filter((t) => t.kind === 'gap' || t.kind === 'rows' || t.kind === 'bug' || t.kind === 'order')
+  console.log(`\n${lessons.length} lessons, ${tasks.length} tasks → ${OUT.replace(ROOT + '/', '')}`)
+  console.log(`MySQL versions: ${tappable.filter((t) => 'mysql' in t && t.mysql).length} of ${tappable.length} gap/rows/bug/order tasks`)
 }
 
 await main()

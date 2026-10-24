@@ -13,7 +13,7 @@ import { Readable } from 'node:stream'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { PGlite } from '@electric-sql/pglite'
-import { connectMysql, type MysqlConnection } from './lib/mysql'
+import { connectMysql, mysqlRows } from './lib/mysql'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
 import { emulateTransactions, splitStatements } from '../src/utils/emulateTransactions'
@@ -83,16 +83,6 @@ async function mysqlRowsOnCopy(dataset: DatasetId, sql: string, files?: Exercise
     await conn.query(`use ${source}; drop database if exists pb_scratch`)
     await conn.end()
   }
-}
-
-async function mysqlRows(conn: MysqlConnection, sql: string) {
-  const [result] = await conn.query({ sql, rowsAsArray: true })
-  // Several statements return an array of results; keep the last one with rows.
-  if (Array.isArray(result) && result.length > 0 && Array.isArray(result[0]) && !Array.isArray(result[0][0])) {
-    return result as unknown[][]
-  }
-  const sets = (result as unknown[]).filter((r) => Array.isArray(r)) as unknown[][][]
-  return sets.at(-1) ?? []
 }
 
 const EXECUTION = /Execution Time: ([\d.]+) ms/

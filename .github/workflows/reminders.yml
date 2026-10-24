@@ -17,4 +17,5 @@ jobs:
       - name: Send due reminders
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: curl --fail-with-body --silent --show-error --max-time 60 -X POST -H "Authorization: Bearer $CRON_SECRET" https://sql-playbook.vercel.app/api/push/send
+        run: |
+          curl --fail-with-body --silent --show-error --max-time 60 -X POST -H "Authorization: Bearer $CRON_SECRET" https://sql-playbook.vercel.app/api/push/send

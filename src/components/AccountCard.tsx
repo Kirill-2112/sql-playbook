@@ -97,7 +97,7 @@ export function AccountCard() {
                 We sent an email to <strong>{sentTo}</strong>. Open its link on this device, or type the code from it here.
               </Muted>
               <label htmlFor={codeId}>Code from the email</label>
-              <input id={codeId} inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="123456" />
+              <input id={codeId} inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="12345678" />
               <Primary type="submit" disabled={busy || code.trim().length < 6}>
                 {busy ? 'Checking…' : 'Sign in'}
               </Primary>

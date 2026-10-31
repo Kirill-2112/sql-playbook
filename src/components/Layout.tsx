@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 import { BottomNav } from './BottomNav'
+import { MovedNotice } from './MovedNotice'
 import { Sidebar } from './Sidebar'
 
 export function Layout() {
@@ -18,6 +19,7 @@ export function Layout() {
       </SidebarSlot>
       <Main>
         <Content>
+          <MovedNotice />
           <Outlet />
         </Content>
       </Main>

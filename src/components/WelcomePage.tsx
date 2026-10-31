@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled, { css } from 'styled-components'
-import { DAILY_GOALS, finishOnboarding } from '../progress/store'
+import { DAILY_GOALS, finishOnboarding, type Dialect } from '../progress/store'
 
 const WHY = [
   ['A job interview', 'Practise what interviews ask, with MySQL differences shown.'],
@@ -17,7 +17,13 @@ const LEVEL = [
   ['Window functions too', 'Everything up to Level 4 opens.', 3],
 ] as const
 
-type Step = 0 | 1 | 2 | 3
+const DIALECT: readonly (readonly [string, string, Dialect])[] = [
+  ['PostgreSQL', 'The most popular open-source database for new projects.', 'postgres'],
+  ['MySQL', 'Common in web apps and many workplaces. Lessons show MySQL 8.4 where they can.', 'mysql'],
+]
+
+type Step = 0 | 1 | 2 | 3 | 4
+const LAST: Step = 4
 
 // First launch: three questions, then the path. Everything can be changed later.
 export function WelcomePage() {
@@ -25,10 +31,15 @@ export function WelcomePage() {
   const [step, setStep] = useState<Step>(0)
   const [why, setWhy] = useState<number | null>(null)
   const [level, setLevel] = useState<number | null>(null)
+  const [dialect, setDialect] = useState<number | null>(null)
   const [goal, setGoal] = useState<number | null>(null)
 
   function finish(skip = false) {
-    finishOnboarding(skip ? 20 : (DAILY_GOALS[goal ?? 0]?.xp ?? 20), skip ? 0 : (LEVEL[level ?? 0]?.[2] ?? 0))
+    finishOnboarding(
+      skip ? 20 : (DAILY_GOALS[goal ?? 0]?.xp ?? 20),
+      skip ? 0 : (LEVEL[level ?? 0]?.[2] ?? 0),
+      skip ? 'postgres' : (DIALECT[dialect ?? 0]?.[2] ?? 'postgres'),
+    )
     navigate('/', { replace: true })
   }
 
@@ -55,6 +66,9 @@ export function WelcomePage() {
           <Ghost type="button" onClick={() => finish(true)}>
             Skip, go straight to the path
           </Ghost>
+          <Ghost type="button" onClick={() => navigate('/progress')}>
+            I have an account: sign in
+          </Ghost>
         </Footer>
       </Screen>
     )
@@ -65,7 +79,9 @@ export function WelcomePage() {
       ? { title: 'Why are you learning SQL?', options: WHY.map(([t, d]) => [t, d] as const), value: why, set: setWhy }
       : step === 2
         ? { title: 'How much SQL do you know?', options: LEVEL.map(([t, d]) => [t, d] as const), value: level, set: setLevel }
-        : {
+        : step === 3
+          ? { title: 'Which database do you want to learn?', options: DIALECT.map(([t, d]) => [t, d] as const), value: dialect, set: setDialect }
+          : {
             title: 'How much time a day?',
             options: DAILY_GOALS.map((g) => [`${g.name} · ${g.xp} XP`, g.about] as const),
             value: goal,
@@ -78,8 +94,8 @@ export function WelcomePage() {
         <Back type="button" aria-label="Back" onClick={() => setStep((step - 1) as Step)}>
           ←
         </Back>
-        <Bar role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={3} aria-valuenow={step}>
-          <Fill style={{ width: `${(100 * step) / 3}%` }} />
+        <Bar role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={LAST} aria-valuenow={step}>
+          <Fill style={{ width: `${(100 * step) / LAST}%` }} />
         </Bar>
       </Top>
       <Body>
@@ -93,10 +109,11 @@ export function WelcomePage() {
           ))}
         </Options>
         {step === 2 && <Note>You can open any level later from the path, too.</Note>}
+        {step === 3 && <Note>The SQL you learn works in both. You can switch any time on the Progress page.</Note>}
       </Body>
       <Footer>
-        <Primary type="button" disabled={question.value === null} onClick={() => (step === 3 ? finish() : setStep((step + 1) as Step))}>
-          {step === 3 ? 'Start learning' : 'Continue'}
+        <Primary type="button" disabled={question.value === null} onClick={() => (step === LAST ? finish() : setStep((step + 1) as Step))}>
+          {step === LAST ? 'Start learning' : 'Continue'}
         </Primary>
       </Footer>
     </Screen>

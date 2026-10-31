@@ -7,6 +7,7 @@ import { DatasetPage } from './DatasetPage'
 import { ExercisePage } from './ExercisePage'
 import { ExercisesPage } from './ExercisesPage'
 import { HomePage } from './HomePage'
+import { ImportPage } from './ImportPage'
 import { IndexLabPage } from './IndexLabPage'
 import { Layout } from './Layout'
 import { LearnPage } from './LearnPage'
@@ -38,6 +39,7 @@ export function App() {
           <Route path="learn/:lessonId" element={<LessonPage />} />
           <Route path="review" element={<ReviewPage />} />
           <Route path="welcome" element={<WelcomePage />} />
+          <Route path="import/:data" element={<ImportPage />} />
           <Route path="practice/:id/drill" element={<DrillPage />} />
           <Route element={<Layout />}>
             <Route index element={<LearnPage />} />

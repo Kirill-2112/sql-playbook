@@ -152,10 +152,10 @@ export function unlockLevel(level: number) {
   if (!state.unlockedLevels.includes(level)) save({ ...state, unlockedLevels: [...state.unlockedLevels, level] })
 }
 
-/** First launch: the daily goal and the levels the learner says they already know. */
-export function finishOnboarding(dailyGoal: number, knownLevels: number) {
+/** First launch: the daily goal, the levels the learner says they already know, and the SQL dialect. */
+export function finishOnboarding(dailyGoal: number, knownLevels: number, dialect: Dialect = 'postgres') {
   const unlocked = Array.from({ length: knownLevels }, (_, i) => i + 2)
-  save({ ...state, dailyGoal, onboarded: true, settingsAt: new Date().toISOString(), unlockedLevels: [...new Set([...state.unlockedLevels, ...unlocked])] })
+  save({ ...state, dailyGoal, dialect, onboarded: true, settingsAt: new Date().toISOString(), unlockedLevels: [...new Set([...state.unlockedLevels, ...unlocked])] })
 }
 
 export function markDatasetSeen(id: string) {

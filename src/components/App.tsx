@@ -2,6 +2,7 @@ import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { ThemeProvider } from 'styled-components'
 import { tokens } from '../theme/tokens'
 import { GlobalStyle } from '../theme/GlobalStyle'
+import { AccountSync } from './AccountSync'
 import { DatasetPage } from './DatasetPage'
 import { ExercisePage } from './ExercisePage'
 import { ExercisesPage } from './ExercisesPage'
@@ -28,6 +29,7 @@ export function App() {
     <ThemeProvider theme={tokens}>
       <GlobalStyle />
       <ReminderSync />
+      <AccountSync />
       <HashRouter>
         <Routes>
           {/* Lessons take the whole screen, without the sidebar or tabs. */}

@@ -2,6 +2,7 @@ import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
 import { DAILY_GOALS, localDate, resetProgress, setDailyGoal, streak, useProgress } from '../progress/store'
+import { AccountCard } from './AccountCard'
 import { DialectCard } from './DialectCard'
 import { RemindersCard } from './RemindersCard'
 
@@ -28,6 +29,8 @@ export function ProgressPage() {
   return (
     <Page>
       <h1>Your progress</h1>
+
+      <AccountCard />
 
       <Card>
         <Streak>
@@ -88,11 +91,11 @@ export function ProgressPage() {
       <RemindersCard />
 
       <Muted>
-        Progress is saved on this device only. Accounts that keep it on every device come later.{' '}
+        Progress is saved on this device, and in your account when you are signed in.{' '}
         <Reset
           type="button"
           onClick={() => {
-            if (window.confirm('Delete all progress on this device?')) resetProgress()
+            if (window.confirm('Delete all progress on this device? If you are signed in, it is deleted from your account too.')) resetProgress()
           }}
         >
           Reset progress

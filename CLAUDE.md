@@ -134,5 +134,13 @@ Audit of 2026-10-15:
   Script exercises (checkSql/setupSql) run each MySQL variant on a fresh copy (`pb_lessons`) of only the tables the
   script mentions (`mysqlRowsOnCopy` in scripts/lib/mysql.ts, shared with verify). 524 of 671 tap tasks have a MySQL
   version. build:lessons takes ~15 min; the CI timeout is 75 min.
+- Accounts (2026-10-31): Supabase Auth via `@supabase/auth-js` only (lazy chunk), PKCE flow (the email link returns
+  `?code=` next to the #/ route). `api/config` hands the app SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY (public; the owner
+  adds it in Vercel). `src/progress/account.ts`: sign in by email link/code or Google, progress stored in table
+  `progress` (supabase/progress.sql, RLS own row only), merged with `src/progress/merge.ts` on sign-in and when the
+  app comes to the front, pushed 3 s after each change. `AccountCard` on /progress, `AccountSync` in App.
+  Supabase's built-in email sends only to project members, ~2/hour, and its templates (link only, no code) cannot be
+  edited: real users need custom SMTP (owner's choice of service). Auth Site URL https://sql.kirillabs.com; redirect
+  URLs: sql.kirillabs.com, sql-playbook.vercel.app, localhost:5173. Apple sign-in waits for an Apple Developer account.
 - Next: more Northwind exercises for level 2, two replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

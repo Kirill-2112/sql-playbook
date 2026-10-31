@@ -32,6 +32,8 @@ export interface ProgressState {
   seenDatasets: string[]
   /** The SQL dialect lesson tasks are shown in, where a version exists. */
   dialect: Dialect
+  /** When the daily goal, dialect or onboarding last changed: when two devices merge, the newer settings win. */
+  settingsAt: string
 }
 
 export type Dialect = 'postgres' | 'mysql'
@@ -44,14 +46,14 @@ export const DAILY_GOALS = [
   { xp: 100, name: 'Intense', about: 'Five lessons a day.' },
 ] as const
 
-const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres' }
+const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres', settingsAt: '' }
 
 function load(): ProgressState {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as Partial<ProgressState>
-    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
+    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', settingsAt: parsed.settingsAt ?? '', onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
   } catch {
     return EMPTY
   }
@@ -139,11 +141,11 @@ export function dueReviews(review: Record<string, { box: number; due: string }>,
 }
 
 export function setDailyGoal(xp: number) {
-  save({ ...state, dailyGoal: xp })
+  save({ ...state, dailyGoal: xp, settingsAt: new Date().toISOString() })
 }
 
 export function setDialect(dialect: Dialect) {
-  save({ ...state, dialect })
+  save({ ...state, dialect, settingsAt: new Date().toISOString() })
 }
 
 export function unlockLevel(level: number) {
@@ -153,7 +155,7 @@ export function unlockLevel(level: number) {
 /** First launch: the daily goal and the levels the learner says they already know. */
 export function finishOnboarding(dailyGoal: number, knownLevels: number) {
   const unlocked = Array.from({ length: knownLevels }, (_, i) => i + 2)
-  save({ ...state, dailyGoal, onboarded: true, unlockedLevels: [...new Set([...state.unlockedLevels, ...unlocked])] })
+  save({ ...state, dailyGoal, onboarded: true, settingsAt: new Date().toISOString(), unlockedLevels: [...new Set([...state.unlockedLevels, ...unlocked])] })
 }
 
 export function markDatasetSeen(id: string) {
@@ -161,8 +163,19 @@ export function markDatasetSeen(id: string) {
 }
 
 export function resetProgress() {
-  save(EMPTY)
+  save({ ...EMPTY, settingsAt: new Date().toISOString() })
 }
+
+/** The whole state, e.g. after merging with the copy saved in the learner's account. */
+export function replaceProgress(next: ProgressState) {
+  save(next)
+}
+
+export function currentProgress(): ProgressState {
+  return state
+}
+
+export { EMPTY as EMPTY_PROGRESS }
 
 /** Days in a row with at least one lesson, ending today, or yesterday if today has none yet. */
 export function streak(days: Record<string, number>, today = new Date()): number {
@@ -182,11 +195,11 @@ export function lastActivity(days: Record<string, number>): { practisedOn: strin
   return { practisedOn, streak: practisedOn ? streak(days, new Date(`${practisedOn}T12:00:00`)) : 0 }
 }
 
-function subscribe(listener: () => void) {
+export function subscribeProgress(listener: () => void) {
   listeners.add(listener)
   return () => listeners.delete(listener)
 }
 
 export function useProgress(): ProgressState {
-  return useSyncExternalStore(subscribe, () => state, () => state)
+  return useSyncExternalStore(subscribeProgress, () => state, () => state)
 }

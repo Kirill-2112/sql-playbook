@@ -1,3 +1,4 @@
+import { timingSafeEqual } from 'node:crypto'
 import { allSubscriptions, deleteSubscription, updateSubscription } from '../_lib/db.js'
 import { handle, json, vapid } from '../_lib/http.js'
 import { dueReminder, localNow } from '../_lib/reminders.js'
@@ -8,7 +9,7 @@ import { sendPush } from '../_lib/webpush.js'
 export function POST(request: Request): Promise<Response> {
   return handle(async () => {
     const secret = process.env.CRON_SECRET
-    if (!secret || request.headers.get('authorization') !== `Bearer ${secret}`) return json({ error: 'Unauthorized' }, 401)
+    if (!secret || !sameSecret(request.headers.get('authorization') ?? '', `Bearer ${secret}`)) return json({ error: 'Unauthorized' }, 401)
     const keys = vapid()
     const now = new Date()
     let sent = 0
@@ -38,4 +39,11 @@ export function POST(request: Request): Promise<Response> {
     }
     return json({ sent, removed, failed })
   })
+}
+
+/** Compares in constant time, so response timing does not reveal how much of a guessed secret was right. */
+function sameSecret(given: string, expected: string): boolean {
+  const a = Buffer.from(given)
+  const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
 }

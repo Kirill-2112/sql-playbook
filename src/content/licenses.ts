@@ -138,7 +138,7 @@ THE UNIVERSITY OF CALIFORNIA SPECIFICALLY DISCLAIMS ANY WARRANTIES, INCLUDING, B
     title: 'IBM Plex Sans and IBM Plex Mono',
     license: 'SIL Open Font License 1.1',
     url: 'https://github.com/IBM/plex/blob/master/LICENSE.txt',
-    text: 'Copyright © 2017 IBM Corp. with Reserved Font Name "Plex". Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org). Served by Google Fonts.',
+    text: 'Copyright © 2017 IBM Corp. with Reserved Font Name "Plex". Licensed under the SIL Open Font License, Version 1.1 (https://openfontlicense.org). Served from this site (the @fontsource packages).',
   },
   {
     title: 'Documentation links',

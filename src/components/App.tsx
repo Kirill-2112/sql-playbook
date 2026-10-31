@@ -39,7 +39,6 @@ export function App() {
           <Route path="learn/:lessonId" element={<LessonPage />} />
           <Route path="review" element={<ReviewPage />} />
           <Route path="welcome" element={<WelcomePage />} />
-          <Route path="import/:data" element={<ImportPage />} />
           <Route path="practice/:id/drill" element={<DrillPage />} />
           <Route element={<Layout />}>
             <Route index element={<LearnPage />} />
@@ -57,6 +56,7 @@ export function App() {
             <Route path="licenses" element={<LicensesPage />} />
             <Route path="privacy" element={<PrivacyPage />} />
             <Route path="terms" element={<TermsPage />} />
+            <Route path="import/:data" element={<ImportPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

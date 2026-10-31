@@ -146,5 +146,11 @@ Audit of 2026-10-15:
 - Legal (2026-10-31): `/privacy` and `/terms` (PrivacyPage, TermsPage, LegalPage; owner and contact in
   src/content/legal.ts). Keep the Privacy Policy in step with what the code stores. `api/account/delete` deletes the
   signed-in user (progress cascades); "Delete account" in AccountCard.
+- Security (2026-10-31): vercel.json sets CSP (script-src 'self' 'wasm-unsafe-eval' is enough for PGlite; connect-src
+  allows the Supabase project), X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy. Fonts are
+  self-hosted (@fontsource, OFL-1.1 allowed in bundledPackages). API: per-caller limits in Supabase
+  (supabase/rate_limits.sql, `rateLimited` in api/_lib/rateLimit.ts, hashed IP), JSON-only bodies (CSRF), a 20,000
+  subscription ceiling, constant-time CRON_SECRET check. Actions are pinned to commit SHAs; Dependabot weekly;
+  workflow tokens read-only by default; health.yml pings the app every 6 h. /import asks before merging.
 - Next: more Northwind exercises for level 2, two replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

@@ -1,0 +1,16 @@
+# Weekly pull requests for updated npm packages and GitHub Actions; each one runs the full Verify workflow,
+# so an update is only merged once every exercise still passes on PostgreSQL and MySQL.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly

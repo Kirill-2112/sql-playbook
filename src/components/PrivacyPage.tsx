@@ -41,7 +41,9 @@ export function PrivacyPage() {
         </li>
         <li>
           <strong>Hosting.</strong> Like any website, the hosting provider processes your IP address and basic request
-          details to deliver the pages and keep the service secure.
+          details to deliver the pages and keep the service secure. To stop abuse, the reminder and account server counts
+          requests from each visitor for up to a day, keyed by a one-way hash of the IP address; the address itself is not
+          stored.
         </li>
       </ul>
       <p>

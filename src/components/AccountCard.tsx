@@ -50,9 +50,12 @@ export function AccountCard() {
             device where you sign in.
             {account.syncedAt && ` Last saved at ${new Date(account.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`}
           </Muted>
-          <Secondary type="button" disabled={busy} onClick={() => void run(signOut)}>
+          <Secondary type="button" disabled={busy} onClick={() => void run(() => signOut())}>
             Sign out on this device
           </Secondary>
+          <Danger type="button" disabled={busy} onClick={() => void run(() => signOut(true), 'Signed out on every device.')}>
+            Sign out on all devices
+          </Danger>
           <Danger
             type="button"
             disabled={busy}

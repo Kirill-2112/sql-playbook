@@ -201,10 +201,10 @@ export async function signInWithGoogle(): Promise<void> {
   if (error) throw new Error(error.message)
 }
 
-/** Signs out on this device. Progress stays on the device and in the account. */
-export async function signOut(): Promise<void> {
+/** Signs out on this device, or on every device (e.g. after losing a phone). Progress stays on the device and in the account. */
+export async function signOut(everywhere = false): Promise<void> {
   const s = await startAccounts()
-  await s?.client.signOut({ scope: 'local' })
+  await s?.client.signOut({ scope: everywhere ? 'global' : 'local' })
 }
 
 /** Deletes the account and its saved progress. Progress on this device stays (Reset progress clears it). */

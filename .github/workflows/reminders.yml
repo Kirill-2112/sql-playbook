@@ -9,6 +9,10 @@ on:
     - cron: '*/15 * * * *'
   workflow_dispatch:
 
+# The workflow token can only read the repository unless a job asks for more (the Pages deploy does).
+permissions:
+  contents: read
+
 jobs:
   send:
     runs-on: ubuntu-latest

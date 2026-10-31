@@ -1,9 +1,12 @@
 import { handle, json } from '../_lib/http.js'
+import { rateLimited } from '../_lib/rateLimit.js'
 
 // POST /api/account/delete: deletes the signed-in user. The access token proves who asks; deleting the user also
 // deletes their progress row (on delete cascade in supabase/progress.sql). Needs the secret key, so it runs here.
 export function POST(request: Request): Promise<Response> {
   return handle(async () => {
+    const limited = await rateLimited(request, 'delete-account', 5, 3600)
+    if (limited) return limited
     const url = process.env.SUPABASE_URL
     const secret = process.env.SUPABASE_SECRET_KEY
     if (!url || !secret) throw new Error('Supabase is not set up')

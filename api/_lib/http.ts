@@ -4,6 +4,8 @@ export const json = (data: unknown, status = 200) => Response.json(data, { statu
 export class BadRequest extends Error {}
 
 export async function readJson(request: Request): Promise<Record<string, unknown>> {
+  // Only JSON: another site cannot send that type without the browser asking first (CORS), which this API never allows.
+  if (!request.headers.get('content-type')?.startsWith('application/json')) throw new BadRequest('Expected application/json')
   const text = await request.text()
   if (text.length > 4000) throw new BadRequest('Request too large')
   try {

@@ -1,9 +1,12 @@
 import { updateSubscription } from '../_lib/db.js'
 import { DATE, endpoint, handle, json, readJson, string } from '../_lib/http.js'
+import { rateLimited } from '../_lib/rateLimit.js'
 
 // POST /api/push/activity: the app says the learner practised today, so today's reminders are skipped.
 export function POST(request: Request): Promise<Response> {
   return handle(async () => {
+    const limited = await rateLimited(request, 'activity', 120, 3600)
+    if (limited) return limited
     const data = await readJson(request)
     const streak = typeof data.streak === 'number' ? Math.max(0, Math.min(10000, Math.floor(data.streak))) : 0
     const found = await updateSubscription(endpoint(data), { practised_on: string(data, 'practisedOn', DATE), streak })

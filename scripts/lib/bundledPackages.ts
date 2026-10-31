@@ -2,7 +2,8 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 // Licenses that allow shipping the code in a paid product. Anything else stops the build until it is checked by hand.
-export const ALLOWED_LICENSES = ['MIT', 'ISC', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', '0BSD']
+// OFL-1.1 is the fonts' license: free to bundle and use commercially, not to sell the fonts on their own.
+export const ALLOWED_LICENSES = ['MIT', 'ISC', 'Apache-2.0', 'BSD-2-Clause', 'BSD-3-Clause', '0BSD', 'OFL-1.1']
 
 export interface BundledPackage {
   name: string

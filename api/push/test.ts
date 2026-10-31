@@ -1,10 +1,13 @@
 import { deleteSubscription, findSubscription } from '../_lib/db.js'
 import { endpoint, handle, json, readJson, vapid } from '../_lib/http.js'
 import { sendPush } from '../_lib/webpush.js'
+import { rateLimited } from '../_lib/rateLimit.js'
 
 // POST /api/push/test: sends one notification right away, so the learner sees that reminders work.
 export function POST(request: Request): Promise<Response> {
   return handle(async () => {
+    const limited = await rateLimited(request, 'test', 5, 3600)
+    if (limited) return limited
     const sub = await findSubscription(endpoint(await readJson(request)))
     if (!sub) return json({ error: 'Not subscribed' }, 404)
     const result = await sendPush(sub, { title: 'Reminders are on', body: `You will hear from SQL Playbook at ${sub.remind_at}.` }, vapid())

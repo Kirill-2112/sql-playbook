@@ -43,6 +43,12 @@ export async function allSubscriptions(): Promise<Subscription[]> {
   return (await rest(`${TABLE}?select=*`)).json() as Promise<Subscription[]>
 }
 
+/** How many subscriptions exist (from the Content-Range header, without reading the rows). */
+export async function countSubscriptions(): Promise<number> {
+  const response = await rest(`${TABLE}?select=endpoint`, { method: 'HEAD', headers: { Prefer: 'count=exact' } })
+  return Number(response.headers.get('content-range')?.split('/')[1] ?? 0)
+}
+
 export async function findSubscription(endpoint: string): Promise<Subscription | null> {
   const rows = (await (await rest(`${byEndpoint(endpoint)}&select=*`)).json()) as Subscription[]
   return rows[0] ?? null

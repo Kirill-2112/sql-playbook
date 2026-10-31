@@ -56,5 +56,5 @@ export function vapid() {
   const publicKey = process.env.VAPID_PUBLIC_KEY
   const privateKey = process.env.VAPID_PRIVATE_KEY
   if (!publicKey || !privateKey) throw new Error('VAPID keys are not set')
-  return { publicKey, privateKey, subject: 'https://sql-playbook.vercel.app' }
+  return { publicKey, privateKey, subject: 'https://sql.kirillabs.com' }
 }

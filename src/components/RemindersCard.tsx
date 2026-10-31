@@ -4,7 +4,7 @@ import { reminderSupport, saveReminders, sendTestReminder, turnOffReminders, use
 import { lastActivity, useProgress } from '../progress/store'
 import { Switch } from './Switch'
 
-const APP_URL = 'https://sql-playbook.vercel.app/'
+const APP_URL = 'https://sql.kirillabs.com/'
 
 const WHY_NOT: Record<Exclude<ReminderSupport, { ok: true }>['reason'], string> = {
   unsupported: 'This browser cannot show reminders. Try Chrome, Edge, Firefox or Safari.',
@@ -49,7 +49,7 @@ export function RemindersCard() {
       {support === null && <Muted>Checking whether this browser can show reminders…</Muted>}
       {support && !support.ok && support.reason === 'other-site' && (
         <Muted>
-          Reminders work in the app at <a href={APP_URL}>sql-playbook.vercel.app</a>. Open it there to turn them on.
+          Reminders work in the app at <a href={APP_URL}>sql.kirillabs.com</a>. Open it there to turn them on.
         </Muted>
       )}
       {support && !support.ok && support.reason !== 'other-site' && <Muted>{WHY_NOT[support.reason]}</Muted>}

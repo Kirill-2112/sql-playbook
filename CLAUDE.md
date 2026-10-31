@@ -118,7 +118,7 @@ Audit of 2026-10-15:
   Generator: solutions with recursion or loops only vary keywords that cannot break termination (PGlite has no
   statement timeout; a broken stop condition hangs it).
 - Index topics use "plan" tasks (will PostgreSQL use an index?) answered by a real EXPLAIN on Delivery during the build.
-- Reminders (2026-10-24): Vercel project `sql-playbook` (https://sql-playbook.vercel.app, deploys on push to main)
+- Reminders (2026-10-24): Vercel project `sql-playbook` (https://sql.kirillabs.com, also sql-playbook.vercel.app; deploys on push to main)
   serves the same app plus `api/push/*` (Web-standard `GET/POST(request)` handlers; `api/_lib` is shared code, not
   routes). Web Push is implemented with node:crypto in `api/_lib/webpush.ts` (VAPID + aes128gcm, no web-push package).
   Subscriptions live in Supabase (project `sql-playbook`, eu-west-1, table from `supabase/push_subscriptions.sql`, RLS

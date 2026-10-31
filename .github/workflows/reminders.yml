@@ -18,4 +18,4 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          curl --fail-with-body --silent --show-error --max-time 60 -X POST -H "Authorization: Bearer $CRON_SECRET" https://sql-playbook.vercel.app/api/push/send
+          curl --fail-with-body --silent --show-error --max-time 60 -X POST -H "Authorization: Bearer $CRON_SECRET" https://sql.kirillabs.com/api/push/send

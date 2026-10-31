@@ -55,6 +55,8 @@ export function Sidebar() {
       <Section>
         <SectionTitle>About</SectionTitle>
         <Link to="/licenses">Licenses &amp; credits</Link>
+        <Link to="/privacy">Privacy Policy</Link>
+        <Link to="/terms">Terms of Use</Link>
       </Section>
 
       <Footer>

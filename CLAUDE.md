@@ -142,5 +142,8 @@ Audit of 2026-10-15:
   Supabase's built-in email sends only to project members, ~2/hour, and its templates (link only, no code) cannot be
   edited: real users need custom SMTP (owner's choice of service). Auth Site URL https://sql.kirillabs.com; redirect
   URLs: sql.kirillabs.com, sql-playbook.vercel.app, localhost:5173. Apple sign-in waits for an Apple Developer account.
+- Legal (2026-10-31): `/privacy` and `/terms` (PrivacyPage, TermsPage, LegalPage; owner and contact in
+  src/content/legal.ts). Keep the Privacy Policy in step with what the code stores. `api/account/delete` deletes the
+  signed-in user (progress cascades); "Delete account" in AccountCard.
 - Next: more Northwind exercises for level 2, two replacement datasets, labs.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

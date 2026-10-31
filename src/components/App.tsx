@@ -15,6 +15,7 @@ import { LicensesPage } from './LicensesPage'
 import { DrillPage } from './DrillPage'
 import { KeywordPage } from './KeywordPage'
 import { PracticePage } from './PracticePage'
+import { PrivacyPage } from './PrivacyPage'
 import { ProgressPage } from './ProgressPage'
 import { ReminderSync } from './ReminderSync'
 import { ReviewPage } from './ReviewPage'
@@ -22,6 +23,7 @@ import { WelcomePage } from './WelcomePage'
 import { ReferenceEntryPage } from './ReferenceEntryPage'
 import { ReferencePage } from './ReferencePage'
 import { SituationPage } from './SituationPage'
+import { TermsPage } from './TermsPage'
 
 // HashRouter keeps deep links working on static hosting (GitHub Pages) without server rewrites.
 export function App() {
@@ -51,6 +53,8 @@ export function App() {
             <Route path="reference" element={<ReferencePage />} />
             <Route path="reference/:id" element={<ReferenceEntryPage />} />
             <Route path="licenses" element={<LicensesPage />} />
+            <Route path="privacy" element={<PrivacyPage />} />
+            <Route path="terms" element={<TermsPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

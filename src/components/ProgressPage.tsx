@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
@@ -100,6 +101,9 @@ export function ProgressPage() {
         >
           Reset progress
         </Reset>
+      </Muted>
+      <Muted>
+        <Link to="/privacy">Privacy Policy</Link> · <Link to="/terms">Terms of Use</Link> · <Link to="/licenses">Licenses &amp; credits</Link>
       </Muted>
     </Page>
   )

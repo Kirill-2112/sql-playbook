@@ -206,3 +206,12 @@ export async function signOut(): Promise<void> {
   const s = await startAccounts()
   await s?.client.signOut({ scope: 'local' })
 }
+
+/** Deletes the account and its saved progress. Progress on this device stays (Reset progress clears it). */
+export async function deleteAccount(): Promise<void> {
+  const s = await startAccounts()
+  if (!s || !session) throw new Error('You are not signed in.')
+  const response = await fetch(`${API}/account/delete`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}` } })
+  if (!response.ok) throw new Error('The account could not be deleted. Try again, or write to the address in the Privacy Policy.')
+  await s.client.signOut({ scope: 'local' })
+}

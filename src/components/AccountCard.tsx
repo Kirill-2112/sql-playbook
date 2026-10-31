@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import styled from 'styled-components'
-import { sendSignInEmail, signInWithGoogle, signOut, startAccounts, useAccount, verifyEmailCode } from '../progress/account'
+import { Link } from 'react-router-dom'
+import { deleteAccount, sendSignInEmail, signInWithGoogle, signOut, startAccounts, useAccount, verifyEmailCode } from '../progress/account'
 
 const APP_URL = 'https://sql.kirillabs.com/'
 
@@ -52,6 +53,16 @@ export function AccountCard() {
           <Secondary type="button" disabled={busy} onClick={() => void run(signOut)}>
             Sign out on this device
           </Secondary>
+          <Danger
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              if (window.confirm('Delete your account and the progress saved in it? This cannot be undone. Progress on this device stays.'))
+                void run(deleteAccount, 'Your account was deleted.')
+            }}
+          >
+            Delete account
+          </Danger>
         </>
       )}
       {account.status === 'signed-out' && (
@@ -100,6 +111,10 @@ export function AccountCard() {
               Continue with Google
             </Secondary>
           )}
+          <Small>
+            By signing in you agree to the <Link to="/terms">Terms of Use</Link>. How your email and progress are kept:{' '}
+            <Link to="/privacy">Privacy Policy</Link>.
+          </Small>
         </>
       )}
       {message && <Status role="status">{message}</Status>}
@@ -178,4 +193,21 @@ const Secondary = styled.button`
   font: inherit;
   font-weight: 700;
   cursor: pointer;
+`
+
+const Danger = styled.button`
+  align-self: flex-start;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: ${({ theme }) => theme.color.bad};
+  font: inherit;
+  font-size: ${({ theme }) => theme.size.sm};
+  text-decoration: underline;
+  cursor: pointer;
+`
+
+const Small = styled.p`
+  font-size: ${({ theme }) => theme.size.xs};
+  color: ${({ theme }) => theme.color.muted};
 `

@@ -36,7 +36,7 @@ jobs:
             *'[YOUR-PASSWORD]'*) echo "SUPABASE_DB_URL still contains [YOUR-PASSWORD]: put the database password there"; exit 1 ;;
           esac
           export SUPABASE_DB_URL
-          docker run --rm -e SUPABASE_DB_URL -v "$PWD:/out" postgres:17 \
+          docker run --rm --user "$(id -u):$(id -g)" -e SUPABASE_DB_URL -v "$PWD:/out" postgres:17 \
             sh -c 'pg_dump "$SUPABASE_DB_URL" --schema=public --schema=auth --no-owner --no-privileges --format=custom --file=/out/backup.dump'
           ls -l backup.dump
 

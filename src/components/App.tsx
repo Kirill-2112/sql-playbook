@@ -15,6 +15,7 @@ import { LessonPage } from './LessonPage'
 import { LicensesPage } from './LicensesPage'
 import { DrillPage } from './DrillPage'
 import { KeywordPage } from './KeywordPage'
+import { LabPage } from './LabPage'
 import { PracticePage } from './PracticePage'
 import { PrivacyPage } from './PrivacyPage'
 import { ProgressPage } from './ProgressPage'
@@ -39,6 +40,7 @@ export function App() {
           <Route path="learn/:lessonId" element={<LessonPage />} />
           <Route path="review" element={<ReviewPage />} />
           <Route path="welcome" element={<WelcomePage />} />
+          <Route path="labs/:labId" element={<LabPage />} />
           <Route path="practice/:id/drill" element={<DrillPage />} />
           <Route element={<Layout />}>
             <Route index element={<LearnPage />} />

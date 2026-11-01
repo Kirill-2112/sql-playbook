@@ -4905,17 +4905,27 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "chinook-018",
-                  "prompt": "For each genre: total tracks, tracks shorter than 3 minutes, and tracks with no composer. Show genre_id with the three counts; order does not matter.",
-                  "code": "select genre_id,\n       ⟦?⟧(*) as tracks,\n       count(*) filter (where milliseconds < 180000) as short_tracks,\n       count(*) filter (where composer is null) as no_composer\nfrom track\ngroup by genre_id;",
+                  "exerciseId": "northwind-198",
+                  "prompt": "Compare the same four months of two years: revenue from January to April 1997 and from January to April 1998, as jan_apr_1997 and jan_apr_1998, each rounded to 2 decimals.",
+                  "code": "select round(⟦?⟧(case when o.order_date >= '1997-01-01' and o.order_date < '1997-05-01'\n                      then d.unit_price * d.quantity * (1 - d.discount) end), 2) as jan_apr_1997,\n       round(sum(case when o.order_date >= '1998-01-01' and o.order_date < '1998-05-01'\n                      then d.unit_price * d.quantity * (1 - d.discount) end), 2) as jan_apr_1998\nfrom orders o\njoin order_details d on d.order_id = o.order_id;",
                   "options": [
+                    "sum",
                     "max",
                     "avg",
-                    "sum",
                     "count"
                   ],
-                  "answer": 3,
-                  "explanation": "Each aggregate gets its own row filter."
+                  "answer": 0,
+                  "explanation": "The same months more than doubled, from about 191 thousand to 422 thousand. Sales did not drop: they grew fast, and the year was simply not over.",
+                  "mysql": {
+                    "code": "select round(⟦?⟧(case when o.order_date >= '1997-01-01' and o.order_date < '1997-05-01'\n                      then d.unit_price * d.quantity * (1 - d.discount) end), 2) as jan_apr_1997,\n       round(sum(case when o.order_date >= '1998-01-01' and o.order_date < '1998-05-01'\n                      then d.unit_price * d.quantity * (1 - d.discount) end), 2) as jan_apr_1998\nfrom orders o\njoin order_details d on d.order_id = o.order_id;",
+                    "options": [
+                      "avg",
+                      "count",
+                      "sum",
+                      "max"
+                    ],
+                    "answer": 2
+                  }
                 },
                 {
                   "kind": "write",
@@ -4931,17 +4941,27 @@
               "tasks": [
                 {
                   "kind": "gap",
-                  "exerciseId": "sakila-015",
-                  "prompt": "For each rating, show the total number of films, how many are longer than 120 minutes, and how many rent for 4.99. One row per rating; order does not matter.",
-                  "code": "select rating,\n       ⟦?⟧(*) as films,\n       count(*) filter (where length > 120) as long_films,\n       count(*) filter (where rental_rate = 4.99) as premium\nfrom film\ngroup by rating;",
+                  "exerciseId": "northwind-198",
+                  "prompt": "Compare the same four months of two years: revenue from January to April 1997 and from January to April 1998, as jan_apr_1997 and jan_apr_1998, each rounded to 2 decimals.",
+                  "code": "select round(sum(case when o.order_date >= '1997-01-01' ⟦?⟧ o.order_date < '1997-05-01'\n                      then d.unit_price * d.quantity * (1 - d.discount) end), 2) as jan_apr_1997,\n       round(sum(case when o.order_date >= '1998-01-01' and o.order_date < '1998-05-01'\n                      then d.unit_price * d.quantity * (1 - d.discount) end), 2) as jan_apr_1998\nfrom orders o\njoin order_details d on d.order_id = o.order_id;",
                   "options": [
-                    "count",
-                    "max",
-                    "avg",
-                    "sum"
+                    "xor",
+                    "or",
+                    "and",
+                    ","
                   ],
-                  "answer": 0,
-                  "explanation": "FILTER restricts which rows a single aggregate sees, while the group stays the same."
+                  "answer": 2,
+                  "explanation": "The same months more than doubled, from about 191 thousand to 422 thousand. Sales did not drop: they grew fast, and the year was simply not over.",
+                  "mysql": {
+                    "code": "select round(sum(case when o.order_date >= '1997-01-01' ⟦?⟧ o.order_date < '1997-05-01'\n                      then d.unit_price * d.quantity * (1 - d.discount) end), 2) as jan_apr_1997,\n       round(sum(case when o.order_date >= '1998-01-01' and o.order_date < '1998-05-01'\n                      then d.unit_price * d.quantity * (1 - d.discount) end), 2) as jan_apr_1998\nfrom orders o\njoin order_details d on d.order_id = o.order_id;",
+                    "options": [
+                      "xor",
+                      ",",
+                      "and",
+                      "or"
+                    ],
+                    "answer": 2
+                  }
                 },
                 {
                   "kind": "rows",
@@ -4963,33 +4983,52 @@
                 },
                 {
                   "kind": "bug",
-                  "exerciseId": "chinook-018",
-                  "prompt": "For each genre: total tracks, tracks shorter than 3 minutes, and tracks with no composer. Show genre_id with the three counts; order does not matter.",
+                  "exerciseId": "northwind-200",
+                  "prompt": "Count the orders shipped after their required date (late), the orders not shipped yet (not_shipped) and all orders (total).",
                   "lines": [
-                    "select genre_id,",
-                    "       sum(*) as tracks,",
-                    "       count(*) filter (where milliseconds < 180000) as short_tracks,",
-                    "       count(*) filter (where composer is null) as no_composer",
-                    "from track",
-                    "group by genre_id;"
+                    "select sum(*) filter (where shipped_date > required_date) as late,",
+                    "       count(*) filter (where shipped_date is null) as not_shipped,",
+                    "       count(*) as total",
+                    "from orders;"
                   ],
-                  "answer": 1,
-                  "fixed": "count(*) as tracks,",
-                  "explanation": "Each aggregate gets its own row filter."
+                  "answer": 0,
+                  "fixed": "select count(*) filter (where shipped_date > required_date) as late,",
+                  "explanation": "FILTER counts only the rows that match its condition, all in one pass. An order without a shipped_date is neither late nor on time yet: comparing NULL gives no answer, so it is not counted as late.",
+                  "mysql": {
+                    "lines": [
+                      "select sum(case when shipped_date > required_date then 1 else 0 end) as late,",
+                      "       sum(case when shipped_date is null then 1 else 0 end) as not_shipped,",
+                      "       sum(*) as total",
+                      "from orders;"
+                    ],
+                    "answer": 2,
+                    "fixed": "count(*) as total",
+                    "note": "MySQL has no FILTER: a SUM of CASE … THEN 1 ELSE 0 counts the same rows."
+                  }
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "sakila-045",
-                  "prompt": "Count the films stocked in both stores, only in store 1, only in store 2, and in neither, in one row.",
-                  "code": "with s1 as (select distinct film_id from inventory where store_id = 1),\n     s2 as (select distinct film_id from inventory where store_id = 2)\nselect ⟦?⟧(*) filter (where s1.film_id is not null and s2.film_id is not null) as both_stores,\n       count(*) filter (where s2.film_id is null)                                as only_store_1,\n       count(*) filter (where s1.film_id is null)                                as only_store_2,\n       (select count(*) from film) - count(*)                                    as neither\nfrom s1\nfull join s2 on s2.film_id = s1.film_id;",
+                  "exerciseId": "northwind-199",
+                  "prompt": "For each category: category_name, revenue in January–April 1997 and 1998 (y1997, y1998, rounded to 2 decimals) and the growth in percent (growth_pct, rounded to 1 decimal), biggest growth first.",
+                  "code": "select category_name,\n       round(y1997, 2) as y1997,\n       round(y1998, 2) as y1998,\n       round(100 * (y1998 - y1997) / y1997, 1) as growth_pct\nfrom (\n  select c.category_name,\n         ⟦?⟧(case when o.order_date >= '1997-01-01' and o.order_date < '1997-05-01'\n                  then d.unit_price * d.quantity * (1 - d.discount) else 0 end) as y1997,\n         sum(case when o.order_date >= '1998-01-01' and o.order_date < '1998-05-01'\n                  then d.unit_price * d.quantity * (1 - d.discount) else 0 end) as y1998\n  from orders o\n  join order_details d on d.order_id = o.order_id\n  join products p on p.product_id = d.product_id\n  join categories c on c.category_id = p.category_id\n  group by c.category_name\n) t\norder by growth_pct desc;",
                   "options": [
-                    "sum",
                     "max",
-                    "avg",
-                    "count"
+                    "sum",
+                    "count",
+                    "avg"
                   ],
-                  "answer": 3,
-                  "explanation": "FULL JOIN keeps films from either side, with NULL on the side that lacks them. Films in neither store are not in either list at all, so they are the total minus everything the join returned."
+                  "answer": 1,
+                  "explanation": "The inner query adds up each period per category; the outer one compares them. Seafood almost quadrupled and Beverages more than doubled, so the growth is broad, not one lucky product.",
+                  "mysql": {
+                    "code": "select category_name,\n       round(y1997, 2) as y1997,\n       round(y1998, 2) as y1998,\n       round(100 * (y1998 - y1997) / y1997, 1) as growth_pct\nfrom (\n  select c.category_name,\n         ⟦?⟧(case when o.order_date >= '1997-01-01' and o.order_date < '1997-05-01'\n                  then d.unit_price * d.quantity * (1 - d.discount) else 0 end) as y1997,\n         sum(case when o.order_date >= '1998-01-01' and o.order_date < '1998-05-01'\n                  then d.unit_price * d.quantity * (1 - d.discount) else 0 end) as y1998\n  from orders o\n  join order_details d on d.order_id = o.order_id\n  join products p on p.product_id = d.product_id\n  join categories c on c.category_id = p.category_id\n  group by c.category_name\n) t\norder by growth_pct desc;",
+                    "options": [
+                      "count",
+                      "max",
+                      "sum",
+                      "avg"
+                    ],
+                    "answer": 2
+                  }
                 },
                 {
                   "kind": "write",

@@ -26,6 +26,10 @@ export function mergeProgress(a: ProgressState, b: ProgressState): ProgressState
     review[key] = !mine || r.due < mine.due ? r : mine
   }
 
+  // Older saved states have no labs field.
+  const labs: Record<string, string[]> = { ...(a.labs ?? {}) }
+  for (const [id, steps] of Object.entries(b.labs ?? {})) labs[id] = [...new Set([...(labs[id] ?? []), ...steps])].sort()
+
   const settings = (b.settingsAt ?? '') > (a.settingsAt ?? '') ? b : a
   const sum = Object.values(days).reduce((n, xp) => n + xp, 0)
   return {
@@ -40,5 +44,6 @@ export function mergeProgress(a: ProgressState, b: ProgressState): ProgressState
     onboarded: a.onboarded || b.onboarded,
     unlockedLevels: [...new Set([...a.unlockedLevels, ...b.unlockedLevels])].sort((x, y) => x - y),
     seenDatasets: [...new Set([...a.seenDatasets, ...b.seenDatasets])].sort(),
+    labs,
   }
 }

@@ -1,8 +1,10 @@
 import { Link, Navigate } from 'react-router-dom'
 import styled from 'styled-components'
+import { LABS } from '../content/labs'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
 import { dueReviews, unlockLevel, useProgress } from '../progress/store'
+import { LabCard } from './LabCard'
 import { SkillNode } from './SkillNode'
 import { StatsBar } from './StatsBar'
 
@@ -49,12 +51,13 @@ export function LearnPage() {
               <SkillNode key={item.skill.topic} item={item} index={i} />
             ))}
           </Path>
+          {unit.unlocked && LABS.filter((lab) => lab.level === unit.level).map((lab) => <LabCard key={lab.id} lab={lab} />)}
         </Unit>
       ))}
       {course && (
         <Note>
-          Levels 3–5 come next. Until then, every exercise is in <Link to="/exercises">Practice</Link>, and the datasets,
-          situations and labs are in the <Link to="/overview">overview</Link>.
+          Every exercise is also in <Link to="/exercises">Practice</Link>, and the datasets and situations are in the{' '}
+          <Link to="/overview">overview</Link>.
         </Note>
       )}
     </Page>

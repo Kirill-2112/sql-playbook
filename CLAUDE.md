@@ -99,7 +99,7 @@ Audit of 2026-10-15:
   AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
   every 200th booking), Lahman (SABR CSVs, CC BY-SA, major leagues only, player data from 2010), Delivery (own,
   generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
-  1,096 exercises, all 58 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
+  1,106 exercises, all 58 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
 - Done 2026-10-21: Licenses & credits page; functions & keywords reference (188 entries in 18 groups, `#/reference`);
   practice batches (`*Practice.ts`, `morePractice.ts`): report dates, cleaning, pagination, information_schema,
@@ -152,5 +152,9 @@ Audit of 2026-10-15:
   (supabase/rate_limits.sql, `rateLimited` in api/_lib/rateLimit.ts, hashed IP), JSON-only bodies (CSRF), a 20,000
   subscription ceiling, constant-time CRON_SECRET check. Actions are pinned to commit SHAs; Dependabot weekly;
   workflow tokens read-only by default; health.yml pings the app every 6 h. /import asks before merging.
-- Next: more Northwind exercises for level 2, two replacement datasets, labs.
+- Labs (2026-11-01): `src/content/labs.ts` (story, steps with a lead each, conclusion) built from ordinary verified
+  exercises (`exercises/northwindLabs.ts`, northwind-195..204). `/labs/:labId` (LabPage) plays them with WriteTask;
+  solved steps live in `labs` in the store (merged across devices); LabCard shows labs at the end of their level on
+  the path. The intro shows only step numbers: leads reveal what the previous step found. 1,106 exercises.
+- Next: more labs (levels 3–4: cohorts/retention with window functions), two replacement datasets.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

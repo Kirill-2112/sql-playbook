@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { DATASETS, DATASET_IDS } from '../content/datasets'
 import { situations } from '../content/situations'
 import { DatabaseStatusBadge } from './DatabaseStatusBadge'
+import { LABS } from '../content/labs'
 
 export function Sidebar() {
   return (
@@ -44,6 +45,11 @@ export function Sidebar() {
 
       <Section>
         <SectionTitle>Labs</SectionTitle>
+        {LABS.map((lab) => (
+          <Link key={lab.id} to={`/labs/${lab.id}`}>
+            {lab.title}
+          </Link>
+        ))}
         <Link to="/index-lab">Index Lab</Link>
       </Section>
 

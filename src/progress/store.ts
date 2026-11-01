@@ -34,6 +34,8 @@ export interface ProgressState {
   dialect: Dialect
   /** When the daily goal, dialect or onboarding last changed: when two devices merge, the newer settings win. */
   settingsAt: string
+  /** Labs: the exercise ids of the steps solved, per lab id. */
+  labs: Record<string, string[]>
 }
 
 export type Dialect = 'postgres' | 'mysql'
@@ -46,14 +48,14 @@ export const DAILY_GOALS = [
   { xp: 100, name: 'Intense', about: 'Five lessons a day.' },
 ] as const
 
-const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres', settingsAt: '' }
+const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres', settingsAt: '', labs: {} }
 
 function load(): ProgressState {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as Partial<ProgressState>
-    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', settingsAt: parsed.settingsAt ?? '', onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
+    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', settingsAt: parsed.settingsAt ?? '', labs: parsed.labs ?? {}, onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
   } catch {
     return EMPTY
   }
@@ -125,7 +127,13 @@ export function recordReview(results: { key: string; correct: boolean }[]): numb
   return xp
 }
 
-/** XP for a practice drill, which is not part of the path. */
+/** Records a solved lab step. */
+export function recordLabStep(labId: string, exerciseId: string) {
+  const done = state.labs[labId] ?? []
+  if (!done.includes(exerciseId)) save({ ...state, labs: { ...state.labs, [labId]: [...done, exerciseId] } })
+}
+
+/** XP for a practice drill or a lab, which are not part of the path. */
 export function recordPractice(correct: number): number {
   const xp = lessonXp(correct)
   const today = localDate()

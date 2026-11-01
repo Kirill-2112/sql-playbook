@@ -18,7 +18,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 926,
+    "exerciseCount": 936,
     "exercises": [
       {
         "id": "sakila-001",
@@ -75,7 +75,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 744,
+    "exerciseCount": 750,
     "exercises": [
       {
         "id": "sakila-001",
@@ -239,7 +239,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 591,
+    "exerciseCount": 598,
     "exercises": [
       {
         "id": "sakila-001",
@@ -296,7 +296,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 121,
+    "exerciseCount": 122,
     "exercises": [
       {
         "id": "sakila-002",
@@ -403,7 +403,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 393,
+    "exerciseCount": 399,
     "exercises": [
       {
         "id": "sakila-003",
@@ -899,7 +899,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 365,
+    "exerciseCount": 366,
     "exercises": [
       {
         "id": "chinook-070",
@@ -1004,7 +1004,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 393,
+    "exerciseCount": 400,
     "exercises": [
       {
         "id": "lahman-004",
@@ -1644,7 +1644,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 72,
+    "exerciseCount": 78,
     "exercises": [
       {
         "id": "sakila-006",
@@ -1882,7 +1882,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 108,
+    "exerciseCount": 109,
     "exercises": [
       {
         "id": "sakila-004",
@@ -2204,7 +2204,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 360,
+    "exerciseCount": 365,
     "exercises": [
       {
         "id": "sakila-084",
@@ -2267,7 +2267,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 228,
+    "exerciseCount": 235,
     "exercises": [
       {
         "id": "sakila-082",
@@ -2325,7 +2325,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 80,
+    "exerciseCount": 81,
     "exercises": [
       {
         "id": "chinook-073",
@@ -2388,7 +2388,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 75,
+    "exerciseCount": 79,
     "exercises": [
       {
         "id": "sakila-084",
@@ -3999,7 +3999,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 134,
+    "exerciseCount": 140,
     "exercises": [
       {
         "id": "chinook-008",
@@ -4435,7 +4435,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 78,
+    "exerciseCount": 79,
     "exercises": [
       {
         "id": "chinook-009",
@@ -4545,7 +4545,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 20,
+    "exerciseCount": 22,
     "exercises": [
       {
         "id": "northwind-020",
@@ -4555,6 +4555,16 @@
       {
         "id": "employees-011",
         "title": "Seniority by title",
+        "level": 2
+      },
+      {
+        "id": "northwind-203",
+        "title": "How late, on average?",
+        "level": 2
+      },
+      {
+        "id": "northwind-204",
+        "title": "The five latest deliveries",
         "level": 2
       },
       {
@@ -4575,16 +4585,6 @@
       {
         "id": "adventureworks-018",
         "title": "Shipping speed by method",
-        "level": 3
-      },
-      {
-        "id": "delivery-050",
-        "title": "Quiet days for one restaurant",
-        "level": 3
-      },
-      {
-        "id": "chinook-077",
-        "title": "The longest pause between purchases",
         "level": 3
       }
     ]
@@ -4689,7 +4689,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 46,
+    "exerciseCount": 47,
     "exercises": [
       {
         "id": "sakila-114",
@@ -4896,7 +4896,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 184,
+    "exerciseCount": 187,
     "exercises": [
       {
         "id": "sakila-003",
@@ -5008,7 +5008,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 65,
+    "exerciseCount": 66,
     "exercises": [
       {
         "id": "northwind-060",

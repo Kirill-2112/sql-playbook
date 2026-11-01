@@ -158,7 +158,8 @@ Audit of 2026-10-15:
   the path. The intro shows only step numbers: leads reveal what the previous step found. 1,106 exercises.
 - Captcha: Cloudflare Turnstile on the email sign-in form (TurnstileWidget, loaded only there). The site key comes from
   TURNSTILE_SITE_KEY via api/config; with no key the form works without it. Supabase checks the token once the
-  owner turns on Attack Protection → captcha with the secret key. CSP allows challenges.cloudflare.com.
+  owner turns on Attack Protection → captcha with the secret key; the provider there must be "Turnstile" (the
+  default hCaptcha rejects Turnstile tokens with invalid-input-response). CSP allows challenges.cloudflare.com.
 - Backups: .github/workflows/backup.yml, weekly pg_dump (postgres:17 image) of public + auth, gpg-encrypted with
   BACKUP_PASSPHRASE, kept 90 days as an artifact. Needs SUPABASE_DB_URL (session pooler) and BACKUP_PASSPHRASE.
 - Next: more labs (levels 3–4: cohorts/retention with window functions), two replacement datasets.

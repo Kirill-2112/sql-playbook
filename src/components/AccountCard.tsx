@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import styled from 'styled-components'
 import { Link } from 'react-router-dom'
+import { TurnstileWidget } from './TurnstileWidget'
 import { deleteAccount, sendSignInEmail, signInWithGoogle, signOut, startAccounts, useAccount, verifyEmailCode } from '../progress/account'
 
 const APP_URL = 'https://sql.kirillabs.com/'
@@ -13,6 +14,9 @@ export function AccountCard() {
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [sentTo, setSentTo] = useState<string | null>(null)
+  const [captcha, setCaptcha] = useState<string | null>(null)
+  // A Turnstile token works once: a new widget after every attempt.
+  const [captchaRound, setCaptchaRound] = useState(0)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
 
@@ -78,14 +82,20 @@ export function AccountCard() {
                 e.preventDefault()
                 const to = email.trim()
                 void run(async () => {
-                  await sendSignInEmail(to)
-                  setSentTo(to)
+                  try {
+                    await sendSignInEmail(to, captcha ?? undefined)
+                    setSentTo(to)
+                  } finally {
+                    setCaptcha(null)
+                    setCaptchaRound((n) => n + 1)
+                  }
                 })
               }}
             >
               <label htmlFor={emailId}>Email</label>
               <input id={emailId} type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-              <Primary type="submit" disabled={busy || !email.trim()}>
+              {account.captchaSiteKey && <TurnstileWidget key={captchaRound} siteKey={account.captchaSiteKey} onToken={setCaptcha} />}
+              <Primary type="submit" disabled={busy || !email.trim() || (account.captchaSiteKey !== null && !captcha)}>
                 {busy ? 'Sending…' : 'Email me a sign-in link'}
               </Primary>
             </Form>

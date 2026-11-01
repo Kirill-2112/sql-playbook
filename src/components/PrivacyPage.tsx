@@ -64,6 +64,10 @@ export function PrivacyPage() {
           <strong>Google</strong>, if you choose “Continue with Google”, confirms who you are.
         </li>
         <li>
+          <strong>Cloudflare</strong> (Turnstile) checks that a person, not a bot, asks for a sign-in email. It sees your
+          IP address and browser details for that check only.
+        </li>
+        <li>
           <strong>Your browser’s push service</strong> (Google, Apple, Mozilla or Microsoft, depending on the browser)
           delivers reminders. Their content is encrypted so the push service cannot read it.
         </li>

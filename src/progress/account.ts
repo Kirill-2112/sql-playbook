@@ -14,12 +14,14 @@ export type AccountState =
   | { status: 'loading' }
   /** No accounts here (GitHub Pages, or the server is not set up). */
   | { status: 'unavailable' }
-  | { status: 'signed-out'; google: boolean; notice?: string }
+  | { status: 'signed-out'; google: boolean; notice?: string; captchaSiteKey: string | null }
   | { status: 'signed-in'; email: string; syncedAt: string | null; google: boolean }
 
 interface Config {
   supabaseUrl: string
   publishableKey: string
+  /** Cloudflare Turnstile: when set, Supabase asks for a captcha token before it sends a sign-in email. */
+  turnstileSiteKey: string | null
 }
 
 const STORAGE_KEY = 'sql-playbook.auth'
@@ -83,7 +85,7 @@ export function startAccounts() {
     if (!data.session && url.searchParams.has('code')) {
       url.searchParams.delete('code')
       history.replaceState(history.state, '', url.toString())
-      set({ status: 'signed-out', google, notice: 'That sign-in link was opened in a different browser or app. Type the code from the email instead, or ask for a new link here.' })
+      set({ status: 'signed-out', google, captchaSiteKey: config.turnstileSiteKey, notice: 'That sign-in link was opened in a different browser or app. Type the code from the email instead, or ask for a new link here.' })
     }
     return { client, config, google }
   })()
@@ -97,7 +99,7 @@ async function onSession(event: string, next: Session | null, config: Config, go
   session = next
   if (!next) {
     lastPushed = ''
-    if (account.status !== 'signed-out') set({ status: 'signed-out', google })
+    if (account.status !== 'signed-out') set({ status: 'signed-out', google, captchaSiteKey: config.turnstileSiteKey })
     return
   }
   const email = next.user.email ?? ''
@@ -180,10 +182,10 @@ export function hasAccountActivity(): boolean {
 
 const redirectTo = () => `${location.origin}${import.meta.env.BASE_URL}`
 
-export async function sendSignInEmail(email: string): Promise<void> {
+export async function sendSignInEmail(email: string, captchaToken?: string): Promise<void> {
   const s = await startAccounts()
   if (!s) throw new Error('Accounts are not available here.')
-  const { error } = await s.client.signInWithOtp({ email, options: { emailRedirectTo: redirectTo(), shouldCreateUser: true } })
+  const { error } = await s.client.signInWithOtp({ email, options: { emailRedirectTo: redirectTo(), shouldCreateUser: true, captchaToken } })
   if (error) throw new Error(error.message)
 }
 

@@ -156,5 +156,10 @@ Audit of 2026-10-15:
   exercises (`exercises/northwindLabs.ts`, northwind-195..204). `/labs/:labId` (LabPage) plays them with WriteTask;
   solved steps live in `labs` in the store (merged across devices); LabCard shows labs at the end of their level on
   the path. The intro shows only step numbers: leads reveal what the previous step found. 1,106 exercises.
+- Captcha: Cloudflare Turnstile on the email sign-in form (TurnstileWidget, loaded only there). The site key comes from
+  TURNSTILE_SITE_KEY via api/config; with no key the form works without it. Supabase checks the token once the
+  owner turns on Attack Protection → captcha with the secret key. CSP allows challenges.cloudflare.com.
+- Backups: .github/workflows/backup.yml, weekly pg_dump (postgres:17 image) of public + auth, gpg-encrypted with
+  BACKUP_PASSPHRASE, kept 90 days as an artifact. Needs SUPABASE_DB_URL (session pooler) and BACKUP_PASSPHRASE.
 - Next: more labs (levels 3–4: cohorts/retention with window functions), two replacement datasets.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

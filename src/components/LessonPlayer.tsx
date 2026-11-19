@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import type { LessonTask } from '../content/types'
@@ -78,35 +78,78 @@ export function LessonPlayer({ title, tasks, onFinish }: Props) {
 
   const key = `${step}-${index}`
   return (
-    <Screen>
-      <Top>
-        <Close to="/" aria-label="Leave">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
-            <path d="M6 6l12 12M18 6 6 18" />
-          </svg>
-        </Close>
-        <Bar role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={tasks.length} aria-valuenow={cleared.size}>
-          <Fill style={{ width: `${(100 * cleared.size) / tasks.length}%` }} />
-        </Bar>
-        <Count>{title}</Count>
-      </Top>
-      {!meet && fallback && <Fallback>No MySQL version of this task yet, so it is in PostgreSQL.</Fallback>}
-      {meet ? (
-        <MeetDatabase dataset={meet} onStart={() => markDatasetSeen(meet)} />
-      ) : task.kind === 'write' ? (
-        <WriteTask key={key} exerciseId={task.exerciseId} dialect={progress.dialect} onDone={done} />
-      ) : task.kind === 'bug' ? (
-        <BugTask key={key} task={task} onDone={done} />
-      ) : task.kind === 'plan' ? (
-        <PlanTask key={key} task={task} onDone={done} />
-      ) : task.kind === 'order' ? (
-        <OrderTask key={key} task={task} onDone={done} />
-      ) : (
-        <ChoiceTask key={key} task={task} onDone={done} />
-      )}
-    </Screen>
+    <TaskFocus taskKey={meet ? `meet-${meet}` : key}>
+      <Screen>
+        <Top>
+          <Close to="/" aria-label="Leave">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+              <path d="M6 6l12 12M18 6 6 18" />
+            </svg>
+          </Close>
+          <Bar role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={tasks.length} aria-valuenow={cleared.size}>
+            <Fill style={{ width: `${(100 * cleared.size) / tasks.length}%` }} />
+          </Bar>
+          <Count>{title}</Count>
+        </Top>
+        {!meet && fallback && <Fallback>No MySQL version of this task yet, so it is in PostgreSQL.</Fallback>}
+        {meet ? (
+          <MeetDatabase dataset={meet} onStart={() => markDatasetSeen(meet)} />
+        ) : task.kind === 'write' ? (
+          <WriteTask key={key} exerciseId={task.exerciseId} dialect={progress.dialect} onDone={done} />
+        ) : task.kind === 'bug' ? (
+          <BugTask key={key} task={task} onDone={done} />
+        ) : task.kind === 'plan' ? (
+          <PlanTask key={key} task={task} onDone={done} />
+        ) : task.kind === 'order' ? (
+          <OrderTask key={key} task={task} onDone={done} />
+        ) : (
+          <ChoiceTask key={key} task={task} onDone={done} />
+        )}
+      </Screen>
+    </TaskFocus>
   )
 }
+
+/**
+ * Moves focus to the heading of each new task, so keyboard and screen-reader users start there instead of at the top
+ * of the page (focus would otherwise be lost when the previous task's Continue button disappears). Tasks that load
+ * their exercise first (write the query) get their heading a moment later, hence the observer.
+ */
+function TaskFocus({ taskKey, children }: { taskKey: string; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null)
+  const first = useRef(true)
+  useEffect(() => {
+    // Not on the first task: the page has just opened and nothing had focus to lose.
+    if (first.current) {
+      first.current = false
+      return
+    }
+    const root = box.current
+    if (!root) return
+    const focus = () => {
+      const heading = root.querySelector<HTMLElement>('h1')
+      if (!heading) return false
+      heading.tabIndex = -1
+      heading.focus({ preventScroll: true })
+      return true
+    }
+    if (focus()) return
+    const observer = new MutationObserver(() => focus() && observer.disconnect())
+    observer.observe(root, { childList: true, subtree: true })
+    const stop = setTimeout(() => observer.disconnect(), 5000)
+    return () => {
+      observer.disconnect()
+      clearTimeout(stop)
+    }
+  }, [taskKey])
+  return <FocusRoot ref={box}>{children}</FocusRoot>
+}
+
+const FocusRoot = styled.div`
+  h1:focus {
+    outline: none;
+  }
+`
 
 export const Screen = styled.div`
   min-height: 100dvh;

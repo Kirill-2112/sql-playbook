@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { onRadioGroupKeyDown, radioTabIndex } from '../utils/radioGroup'
 import styled, { css } from 'styled-components'
 import { DAILY_GOALS, finishOnboarding, type Dialect } from '../progress/store'
 
@@ -100,9 +101,9 @@ export function WelcomePage() {
       </Top>
       <Body>
         <h1>{question.title}</h1>
-        <Options role="radiogroup" aria-label={question.title}>
+        <Options role="radiogroup" aria-label={question.title} onKeyDown={onRadioGroupKeyDown}>
           {question.options.map(([title, detail], i) => (
-            <Option key={title} type="button" role="radio" aria-checked={question.value === i} $on={question.value === i} onClick={() => question.set(i)}>
+            <Option key={title} type="button" role="radio" aria-checked={question.value === i} tabIndex={radioTabIndex(i, question.value)} $on={question.value === i} onClick={() => question.set(i)}>
               <strong>{title}</strong>
               <small>{detail}</small>
             </Option>

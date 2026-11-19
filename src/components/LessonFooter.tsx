@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useId, type ReactNode } from 'react'
 import styled, { css } from 'styled-components'
 
 export type FooterState = 'idle' | 'correct' | 'wrong'
@@ -16,23 +16,28 @@ interface Props {
 
 // The bar under every lesson task: Check, then a green or orange verdict with the explanation and Continue.
 export function LessonFooter({ state, canCheck, onCheck, onContinue, checkLabel = 'Check', title, children, extra }: Props) {
+  const verdictId = useId()
+  const heading = title ?? (state === 'correct' ? 'Correct' : 'Not quite')
   return (
     <Bar $state={state}>
+      {/* Always in the page, so screen readers announce the verdict when its text appears. */}
+      <Announcer role="status">{state === 'idle' ? '' : heading}</Announcer>
       <Inner>
         {state !== 'idle' && (
-          <Verdict role="status">
-            <strong>{title ?? (state === 'correct' ? 'Correct' : 'Not quite')}</strong>
+          <Verdict id={verdictId}>
+            <strong>{heading}</strong>
             {children}
           </Verdict>
         )}
         <Buttons>
           {extra}
           {state === 'idle' ? (
-            <Primary type="button" $tone="accent" disabled={!canCheck} onClick={onCheck}>
+            <Primary key="check" type="button" $tone="accent" disabled={!canCheck} onClick={onCheck}>
               {checkLabel}
             </Primary>
           ) : (
-            <Primary type="button" $tone={state === 'correct' ? 'good' : 'miss'} onClick={onContinue} autoFocus>
+            // A new element (key), so autoFocus moves focus here and screen readers read the verdict with it.
+            <Primary key="continue" type="button" $tone={state === 'correct' ? 'good' : 'miss'} onClick={onContinue} autoFocus aria-describedby={verdictId}>
               Continue
             </Primary>
           )}
@@ -49,6 +54,15 @@ const Bar = styled.footer<{ $state: FooterState }>`
   background: ${({ theme, $state }) =>
     $state === 'correct' ? theme.color.goodSoft : $state === 'wrong' ? theme.color.missSoft : theme.color.surface};
   padding: ${({ theme }) => theme.space.md} ${({ theme }) => theme.space.md} calc(${({ theme }) => theme.space.lg} + env(safe-area-inset-bottom));
+`
+
+const Announcer = styled.span`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 `
 
 const Inner = styled.div`

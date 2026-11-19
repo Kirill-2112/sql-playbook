@@ -19,6 +19,7 @@ export function LearnPage() {
 
   return (
     <Page>
+      <HiddenTitle>Your learning path</HiddenTitle>
       <StatsBar />
       {due > 0 && (
         <Review to="/review">
@@ -171,4 +172,14 @@ const Review = styled(Link)`
     background: ${({ theme }) => theme.color.missStrong};
     color: ${({ theme }) => theme.color.surface};
   }
+`
+
+// The page's heading for screen readers; the level banners below are its sections (h2).
+const HiddenTitle = styled.h1`
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 `

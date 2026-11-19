@@ -3,6 +3,7 @@ import styled, { css } from 'styled-components'
 import type { LessonTask } from '../content/types'
 import { useLessonKeys } from '../hooks/useLessonKeys'
 import { LessonFooter, type FooterState } from './LessonFooter'
+import { onRadioGroupKeyDown, radioTabIndex } from '../utils/radioGroup'
 
 type Choice = Extract<LessonTask, { kind: 'gap' | 'rows' }>
 
@@ -43,13 +44,14 @@ export function ChoiceTask({ task, onDone }: { task: Choice; onDone: (correct: b
             task.code
           )}
         </Code>
-        <Options role="radiogroup" aria-label="Answers" $numeric={task.kind === 'rows'}>
+        <Options role="radiogroup" aria-label="Answers" $numeric={task.kind === 'rows'} onKeyDown={onRadioGroupKeyDown}>
           {task.options.map((option, i) => (
             <Option
               key={option}
               type="button"
               role="radio"
               aria-checked={picked === i}
+              tabIndex={radioTabIndex(i, picked)}
               disabled={state !== 'idle'}
               $selected={picked === i}
               $result={state === 'idle' ? null : i === task.answer ? 'right' : picked === i ? 'wrong' : null}
@@ -125,8 +127,8 @@ const Blank = styled.span<{ $filled: boolean; $state: FooterState }>`
   padding: 1px 6px;
   border-radius: 5px;
   background: ${({ theme, $filled, $state }) =>
-    $state === 'correct' ? theme.color.good : $state === 'wrong' ? theme.color.missStrong : $filled ? theme.color.accent : theme.color.codeMuted};
-  color: ${({ theme }) => theme.color.surface};
+    $state !== 'idle' ? theme.color.good : $filled ? theme.color.accent : theme.color.lockedStrong};
+  color: ${({ theme, $filled, $state }) => ($state === 'idle' && !$filled ? theme.color.ink : theme.color.surface)};
 `
 
 const Options = styled.div<{ $numeric: boolean }>`

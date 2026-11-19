@@ -20,7 +20,7 @@ export function OrderTask({ task, onDone }: { task: Order; onDone: (correct: boo
       <Body>
         <Kind>Put the lines in order</Kind>
         <Question>{task.prompt}</Question>
-        <Built aria-label="Your query" $state={state}>
+        <Built role="group" aria-label="Your query, in order" $state={state}>
           {placed.length === 0 && <Placeholder>Tap the lines below in the right order</Placeholder>}
           {placed.map((i) => (
             <Piece key={i} type="button" disabled={state !== 'idle'} onClick={() => setPlaced(placed.filter((p) => p !== i))}>
@@ -28,7 +28,7 @@ export function OrderTask({ task, onDone }: { task: Order; onDone: (correct: boo
             </Piece>
           ))}
         </Built>
-        <Bank>
+        <Bank role="group" aria-label="Lines to place">
           {left.map((i) => (
             <Piece key={i} type="button" $raised disabled={state !== 'idle'} onClick={() => setPlaced([...placed, i])}>
               {task.lines[i]}

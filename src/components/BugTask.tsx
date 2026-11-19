@@ -2,6 +2,7 @@ import { useState } from 'react'
 import styled, { css } from 'styled-components'
 import type { LessonTask } from '../content/types'
 import { useLessonKeys } from '../hooks/useLessonKeys'
+import { onRadioGroupKeyDown, radioTabIndex } from '../utils/radioGroup'
 import { LessonFooter, type FooterState } from './LessonFooter'
 
 type Bug = Extract<LessonTask, { kind: 'bug' }>
@@ -26,13 +27,14 @@ export function BugTask({ task, onDone }: { task: Bug; onDone: (correct: boolean
         <Kind>Find the bug</Kind>
         <Question>One line of this query is wrong. Tap it.</Question>
         <Context>The query should answer: {task.prompt}</Context>
-        <Lines role="radiogroup" aria-label="Lines of the query">
+        <Lines role="radiogroup" aria-label="Lines of the query" onKeyDown={onRadioGroupKeyDown}>
           {task.lines.map((line, i) => (
             <Line
               key={i}
               type="button"
               role="radio"
               aria-checked={picked === i}
+              tabIndex={radioTabIndex(i, picked)}
               disabled={state !== 'idle'}
               $selected={picked === i}
               $result={state === 'idle' ? null : i === task.answer ? 'right' : picked === i ? 'wrong' : null}

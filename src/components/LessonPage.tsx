@@ -30,5 +30,5 @@ export function LessonPage() {
   if (!found) return <Screen>Loading the lesson…</Screen>
 
   const { lesson, skill } = found
-  return <LessonPlayer key={lesson.id} title={`${skill.name} · ${lesson.index}/${skill.lessons.length}`} tasks={tasks} onFinish={finish} />
+  return <LessonPlayer key={lesson.id} title={skill.name} step={`${lesson.index}/${skill.lessons.length}`} tasks={tasks} onFinish={finish} />
 }

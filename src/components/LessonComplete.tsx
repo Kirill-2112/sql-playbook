@@ -7,9 +7,13 @@ interface Props {
   correct: number
   total: number
   streak: number
+  /** The daily goal and today's XP including this lesson: crossing the goal now gets its own moment. */
+  goal: number
+  today: number
 }
 
-export function LessonComplete({ skillName, xp, correct, total, streak }: Props) {
+export function LessonComplete({ skillName, xp, correct, total, streak, goal, today }: Props) {
+  const goalReached = xp > 0 && today >= goal && today - xp < goal
   const accuracy = Math.round((100 * correct) / Math.max(total, 1))
   return (
     <Wrap>
@@ -19,6 +23,11 @@ export function LessonComplete({ skillName, xp, correct, total, streak }: Props)
       </svg>
       <h1>Lesson complete</h1>
       <p>{skillName} is one step closer to second nature.</p>
+      {goalReached && (
+        <Goal>
+          Daily goal reached: {today} of {goal} XP today
+        </Goal>
+      )}
       <Stats>
         <Stat>
           <small>XP</small>
@@ -73,6 +82,15 @@ const Check = styled.path`
   stroke-width: 7;
   stroke-linecap: round;
   stroke-linejoin: round;
+`
+
+const Goal = styled.p`
+  width: 100%;
+  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.color.goodSoft};
+  color: ${({ theme }) => theme.color.goodStrong};
+  font-weight: 700;
 `
 
 const Stats = styled.div`

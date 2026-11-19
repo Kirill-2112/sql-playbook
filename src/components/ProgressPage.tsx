@@ -42,7 +42,7 @@ export function ProgressPage() {
             <strong>
               {days}-day streak
             </strong>
-            <small>{days === 0 ? 'Finish a lesson today to start one.' : 'Finish a lesson every day to keep it going.'}</small>
+            <small>{days === 0 ? 'Finish a lesson today to start one.' : 'Practise every day to keep it going: a lesson, a review or a drill.'}</small>
           </span>
         </Streak>
         <Chart role="img" aria-label={`XP in the last 7 days: ${week.map((d) => `${d.label} ${d.xp}`).join(', ')}`}>

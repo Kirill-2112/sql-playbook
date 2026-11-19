@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import type { LessonTask } from '../content/types'
 import { datasetOf } from '../content/exercises'
 import { inDialect } from '../progress/dialect'
-import { markDatasetSeen, streak, useProgress } from '../progress/store'
+import { localDate, markDatasetSeen, streak, useProgress } from '../progress/store'
 import { BugTask } from './BugTask'
 import { ChoiceTask } from './ChoiceTask'
 import { LessonComplete } from './LessonComplete'
@@ -21,6 +21,8 @@ export interface PlayerTask {
 
 interface Props {
   title: string
+  /** Shown before the title and never cut off, e.g. "2/3" for the second lesson of a skill. */
+  step?: string
   tasks: PlayerTask[]
   /** Called once at the end with what was right the first time; returns the XP to show. */
   onFinish: (results: { key: string; correct: boolean }[]) => number
@@ -30,13 +32,12 @@ interface Props {
  * Plays a list of tasks full screen: lessons, reviews and practice drills. A task answered wrongly comes back once
  * at the end (except a full query, which offers its own retry), so a session always ends on a right answer.
  */
-export function LessonPlayer({ title, tasks, onFinish }: Props) {
+export function LessonPlayer({ title, step: lessonStep, tasks, onFinish }: Props) {
   const progress = useProgress()
   const [queue, setQueue] = useState<number[]>(() => tasks.map((_, i) => i))
   const [step, setStep] = useState(0)
   const [firstTry, setFirstTry] = useState<Set<number>>(new Set())
   const [missed, setMissed] = useState<Set<number>>(new Set())
-  const [cleared, setCleared] = useState<Set<number>>(new Set())
   const [earned, setEarned] = useState<number | null>(null)
   const finishedOnce = useRef(false)
   const finished = step >= queue.length
@@ -55,7 +56,15 @@ export function LessonPlayer({ title, tasks, onFinish }: Props) {
   if (finished) {
     return (
       <Screen>
-        <LessonComplete skillName={title} xp={earned ?? 0} correct={firstTry.size} total={tasks.length} streak={streak(progress.days)} />
+        <LessonComplete
+          skillName={title}
+          xp={earned ?? 0}
+          correct={firstTry.size}
+          total={tasks.length}
+          streak={streak(progress.days)}
+          goal={progress.dailyGoal}
+          today={progress.days[localDate()] ?? 0}
+        />
       </Screen>
     )
   }
@@ -68,11 +77,10 @@ export function LessonPlayer({ title, tasks, onFinish }: Props) {
     if (correct && !missed.has(index)) setFirstTry(new Set(firstTry).add(index))
     if (!correct && !missed.has(index) && task.kind !== 'write') {
       setMissed(new Set(missed).add(index))
-      setQueue([...queue, index])
-    } else {
-      if (!correct) setMissed(new Set(missed).add(index))
-      setCleared(new Set(cleared).add(index))
-    }
+      // Back before a "write the query" still ahead, so the lesson ends on the full query; otherwise at the end.
+      const write = queue.findIndex((i, at) => at > step && tasks[i]!.task.kind === 'write')
+      setQueue(write < 0 ? [...queue, index] : [...queue.slice(0, write), index, ...queue.slice(write)])
+    } else if (!correct) setMissed(new Set(missed).add(index))
     setStep(step + 1)
   }
 
@@ -86,10 +94,13 @@ export function LessonPlayer({ title, tasks, onFinish }: Props) {
               <path d="M6 6l12 12M18 6 6 18" />
             </svg>
           </Close>
-          <Bar role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={tasks.length} aria-valuenow={cleared.size}>
-            <Fill style={{ width: `${(100 * cleared.size) / tasks.length}%` }} />
+          <Bar role="progressbar" aria-label="Progress" aria-valuemin={0} aria-valuemax={queue.length} aria-valuenow={step}>
+            <Fill style={{ width: `${(100 * step) / queue.length}%` }} />
           </Bar>
-          <Count>{title}</Count>
+          <Count>
+            {lessonStep && <b>{lessonStep}</b>}
+            <span>{title}</span>
+          </Count>
         </Top>
         {!meet && fallback && <Fallback>No MySQL version of this task yet, so it is in PostgreSQL.</Fallback>}
         {meet ? (
@@ -198,12 +209,22 @@ const Fill = styled.div`
 
 const Count = styled.span`
   flex: none;
+  display: flex;
+  gap: 6px;
   font-size: ${({ theme }) => theme.size.xs};
   color: ${({ theme }) => theme.color.muted};
-  max-width: 40%;
+  max-width: 45%;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+
+  b {
+    flex: none;
+    color: ${({ theme }) => theme.color.ink};
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 `
 
 const Fallback = styled.p`

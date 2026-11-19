@@ -18,7 +18,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 936,
+    "exerciseCount": 940,
     "exercises": [
       {
         "id": "sakila-001",
@@ -75,7 +75,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 750,
+    "exerciseCount": 754,
     "exercises": [
       {
         "id": "sakila-001",
@@ -132,7 +132,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 55,
+    "exerciseCount": 56,
     "exercises": [
       {
         "id": "sakila-003",
@@ -239,7 +239,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 598,
+    "exerciseCount": 602,
     "exercises": [
       {
         "id": "sakila-001",
@@ -403,7 +403,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 399,
+    "exerciseCount": 403,
     "exercises": [
       {
         "id": "sakila-003",
@@ -645,7 +645,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 131,
+    "exerciseCount": 135,
     "exercises": [
       {
         "id": "sakila-018",
@@ -899,7 +899,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 366,
+    "exerciseCount": 370,
     "exercises": [
       {
         "id": "chinook-070",
@@ -1004,7 +1004,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 400,
+    "exerciseCount": 403,
     "exercises": [
       {
         "id": "lahman-004",
@@ -1072,7 +1072,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 57,
+    "exerciseCount": 58,
     "exercises": [
       {
         "id": "delivery-058",
@@ -1644,7 +1644,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 78,
+    "exerciseCount": 80,
     "exercises": [
       {
         "id": "sakila-006",
@@ -2204,7 +2204,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 365,
+    "exerciseCount": 369,
     "exercises": [
       {
         "id": "sakila-084",
@@ -2267,7 +2267,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 235,
+    "exerciseCount": 236,
     "exercises": [
       {
         "id": "sakila-082",
@@ -2388,7 +2388,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 79,
+    "exerciseCount": 80,
     "exercises": [
       {
         "id": "sakila-084",
@@ -2639,7 +2639,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 121,
+    "exerciseCount": 124,
     "exercises": [
       {
         "id": "chinook-070",
@@ -2723,7 +2723,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 44,
+    "exerciseCount": 47,
     "exercises": [
       {
         "id": "sakila-022",
@@ -3999,7 +3999,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 140,
+    "exerciseCount": 142,
     "exercises": [
       {
         "id": "chinook-008",
@@ -4435,7 +4435,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 79,
+    "exerciseCount": 81,
     "exercises": [
       {
         "id": "chinook-009",
@@ -4689,7 +4689,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 47,
+    "exerciseCount": 50,
     "exercises": [
       {
         "id": "sakila-114",
@@ -4896,7 +4896,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 187,
+    "exerciseCount": 188,
     "exercises": [
       {
         "id": "sakila-003",
@@ -5008,7 +5008,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 66,
+    "exerciseCount": 67,
     "exercises": [
       {
         "id": "northwind-060",

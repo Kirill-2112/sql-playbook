@@ -8,7 +8,7 @@ Queries run on real PostgreSQL inside the browser; MySQL versions are verified a
 
 ## What is inside
 
-- **Exercises** — 1,106 exercises on eight datasets, levels 1–5, each with 1–4 solutions,
+- **Exercises** — 1,110 exercises on eight datasets, levels 1–5, each with 1–4 solutions,
   a MySQL 8.4 version (or an explanation of why it is impossible in MySQL) and links to the official docs.
 - **Situations** — problem-first guides ("top N per group", "rows with no match", …).
 - **Index Lab** — `EXPLAIN ANALYZE` before and after adding an index on 200,000 rows, including the cases where an index does not help.
@@ -91,8 +91,10 @@ one full query. `npm run build:lessons` generates them from the verified exercis
 if it really changes the result; "how many rows" tasks take their distractors from what those near-miss queries return.
 XP, streak and daily goal are stored on the device.
 
-Labs are short investigations on one database, a story told in five queries: "Did sales drop in 1998?" and "Late
-deliveries" on Northwind close level 2. Each step is an ordinary verified exercise; the lab adds the story around it.
+Labs are short investigations on one database, a story told in four or five queries: "Did sales drop in 1998?" and
+"Late deliveries" on Northwind close level 2, "Is the retention chart right?" on Delivery closes level 3 (a cohort
+retention table, and the data check that shows it cannot be trusted yet). Each step is an ordinary verified exercise;
+the lab adds the story around it.
 
 Lessons can also be taken in MySQL: tap tasks then show the MySQL 8.4 solution, and their wrong options are run on a
 real MySQL during the build, the same way as on PostgreSQL (so the build needs the local MySQL). Full queries are still
@@ -127,5 +129,5 @@ is not on that list.
 
 ## Roadmap
 
-See the plan: 8 datasets, 1,106 exercises across 58 topics and 5 levels, a 188-entry reference, CI verification on GitHub Actions.
+See the plan: 8 datasets, 1,110 exercises across 58 topics and 5 levels, a 188-entry reference, CI verification on GitHub Actions.
 The site is published to GitHub Pages (https://kirill-2112.github.io/sql-playbook/) by the same workflow, only after every check passes.

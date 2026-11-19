@@ -1,5 +1,6 @@
 import type { Exercise } from '../types'
 import { deliveryPractice } from './deliveryPractice'
+import { deliveryLabs } from './deliveryLabs'
 
 const PG = 'https://www.postgresql.org/docs/current/'
 const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
@@ -4222,4 +4223,5 @@ where s1.table_schema = database() and s1.table_name = 'orders'
     docs: [{ label: 'PostgreSQL: Multicolumn indexes', url: PG + 'indexes-multicolumn.html' }],
   },
   ...deliveryPractice,
+  ...deliveryLabs,
 ]

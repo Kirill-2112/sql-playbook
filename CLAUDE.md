@@ -99,7 +99,7 @@ Audit of 2026-10-15:
   AdventureWorks (from Microsoft OLTP install script, every 4th order), Airlines (Postgres Pro demo 2025-09-01 dump,
   every 200th booking), Lahman (SABR CSVs, CC BY-SA, major leagues only, player data from 2010), Delivery (own,
   generated in the browser by src/db/seed.ts; `browserSql` in the build config, MySQL copy git-ignored).
-  1,106 exercises, all 58 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
+  1,110 exercises, all 58 topics (locks/isolation via FOR UPDATE SKIP LOCKED / NOWAIT / REPEATABLE READ).
 - Plan with phases: `docs/plan.html` (published as a claude.ai artifact).
 - Done 2026-10-21: Licenses & credits page; functions & keywords reference (188 entries in 18 groups, `#/reference`);
   practice batches (`*Practice.ts`, `morePractice.ts`): report dates, cleaning, pagination, information_schema,
@@ -155,12 +155,14 @@ Audit of 2026-10-15:
 - Labs (2026-11-01): `src/content/labs.ts` (story, steps with a lead each, conclusion) built from ordinary verified
   exercises (`exercises/northwindLabs.ts`, northwind-195..204). `/labs/:labId` (LabPage) plays them with WriteTask;
   solved steps live in `labs` in the store (merged across devices); LabCard shows labs at the end of their level on
-  the path. The intro shows only step numbers: leads reveal what the previous step found. 1,106 exercises.
+  the path. The intro shows only step numbers: leads reveal what the previous step found.
+  Level 3 lab "Is the retention chart right?" on Delivery (`exercises/deliveryLabs.ts`, delivery-125..128): cohorts,
+  retention, then a data check (orders dated before sign-up). 1,110 exercises.
 - Captcha: Cloudflare Turnstile on the email sign-in form (TurnstileWidget, loaded only there). The site key comes from
   TURNSTILE_SITE_KEY via api/config; with no key the form works without it. Supabase checks the token once the
   owner turns on Attack Protection → captcha with the secret key; the provider there must be "Turnstile" (the
   default hCaptcha rejects Turnstile tokens with invalid-input-response). CSP allows challenges.cloudflare.com.
 - Backups: .github/workflows/backup.yml, weekly pg_dump (postgres:17 image) of public + auth, gpg-encrypted with
   BACKUP_PASSPHRASE, kept 90 days as an artifact. Needs SUPABASE_DB_URL (session pooler) and BACKUP_PASSPHRASE.
-- Next: more labs (levels 3–4: cohorts/retention with window functions), two replacement datasets.
+- Next: more labs (level 4, and level 3 on other datasets), two replacement datasets.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

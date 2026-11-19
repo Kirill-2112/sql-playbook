@@ -50,6 +50,23 @@ export const LABS: Lab[] = [
     conclusion:
       'About one order in twenty-two ships late, spread over all three companies and all employees. Counts point at whoever does the most work; shares, and the number of orders behind them, tell a fairer story. And “how often” and “how late” can rank the same companies differently.',
   },
+  // Level 3, on Delivery: a cohort retention table, and the data check that shows it cannot be trusted yet.
+  {
+    id: 'retention-check',
+    title: 'Is the retention chart right?',
+    level: 3,
+    dataset: 'delivery',
+    story:
+      'Marketing wants a cohort retention table for the board: of the customers who joined in a month, how many come back one, two and three months later. Build it, and before it goes on a slide, make sure it can be trusted.',
+    steps: [
+      { exerciseId: 'delivery-125', lead: 'The usual first try: a cohort is the month of the customer’s first order.' },
+      { exerciseId: 'delivery-126', lead: 'January looks far too big. Who are these “new” customers?' },
+      { exerciseId: 'delivery-127', lead: 'Use the sign-up month as the cohort instead, and build the table.' },
+      { exerciseId: 'delivery-128', lead: 'The curve is perfectly flat. Before reading it, check that orders and customers belong together.' },
+    ],
+    conclusion:
+      'The table cannot go to the board yet. First orders are cut off where the data starts, and up to 83% of a month’s new customers have orders dated before their account existed: the link between orders and customers is broken, so retention measured on it is noise. Report the data problem, not the curve. A flat line and impossible dates are the two checks to run before any cohort chart.',
+  },
 ]
 
 export function findLab(id: string): Lab | undefined {

@@ -25,7 +25,7 @@ export interface ProgressState {
    * Tasks to review, keyed "lessonId#taskIndex" (Leitner boxes): a miss puts the task in box 1, due tomorrow; each
    * right answer in a review moves it up a box and doubles the wait (2, 4, 8 days); after box 4 it is learned.
    */
-  review: Record<string, { box: number; due: string }>
+  review: Record<string, ReviewEntry>
   /** Set once the first-launch questions were answered (or skipped). */
   onboarded: boolean
   /** Datasets already introduced with the "meet the database" card. */
@@ -39,6 +39,19 @@ export interface ProgressState {
 }
 
 export type Dialect = 'postgres' | 'mysql'
+
+/**
+ * A task in review. `at` is when the entry last changed, so that two devices merge to the newer state. A learned task
+ * is kept (box 5, due LEARNED) instead of deleted, so an older copy on another device cannot bring it back.
+ */
+export interface ReviewEntry {
+  box: number
+  due: string
+  at?: string
+}
+
+/** The due date of a learned task: never due again. */
+export const LEARNED = '9999-12-31'
 
 const KEY = 'sql-playbook.progress.v1'
 export const DAILY_GOALS = [
@@ -98,7 +111,8 @@ export function recordLesson(lessonId: string, correct: number, total: number, m
   const today = localDate()
   const previous = state.lessons[lessonId]
   const review = { ...state.review }
-  for (const key of missed) review[key] = { box: 1, due: addDays(1) }
+  const at = new Date().toISOString()
+  for (const key of missed) review[key] = { box: 1, due: addDays(1), at }
   save({
     ...state,
     xp: state.xp + xp,
@@ -118,10 +132,10 @@ export function recordReview(results: { key: string; correct: boolean }[]): numb
   const xp = lessonXp(correct)
   const today = localDate()
   const review = { ...state.review }
+  const at = new Date().toISOString()
   for (const { key, correct: right } of results) {
     const box = right ? (review[key]?.box ?? 1) + 1 : 1
-    if (box > 4) delete review[key]
-    else review[key] = { box, due: addDays(2 ** (box - 1)) }
+    review[key] = box > 4 ? { box: 5, due: LEARNED, at } : { box, due: addDays(2 ** (box - 1)), at }
   }
   save({ ...state, xp: state.xp + xp, days: { ...state.days, [today]: (state.days[today] ?? 0) + xp }, review })
   return xp
@@ -141,7 +155,7 @@ export function recordPractice(correct: number): number {
   return xp
 }
 
-export function dueReviews(review: Record<string, { box: number; due: string }>, today = localDate()): string[] {
+export function dueReviews(review: Record<string, ReviewEntry>, today = localDate()): string[] {
   return Object.entries(review)
     .filter(([, r]) => r.due <= today)
     .sort(([, a], [, b]) => a.due.localeCompare(b.due) || a.box - b.box)

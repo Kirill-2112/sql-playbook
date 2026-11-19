@@ -2,8 +2,9 @@ import { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
-import { findLesson } from '../progress/path'
-import { dueReviews, recordReview, useProgress } from '../progress/store'
+import type { Course } from '../content/types'
+import { dueReviewKeys, reviewTask } from '../progress/path'
+import { recordReview, useProgress } from '../progress/store'
 import { LessonPlayer, Screen, type PlayerTask } from './LessonPlayer'
 
 const SESSION = 8
@@ -11,18 +12,22 @@ const SESSION = 8
 // Tasks missed earlier whose review is due today, up to eight per session.
 export function ReviewPage() {
   const course = useCourse()
-  const progress = useProgress()
-  // Fix the session when it starts: answering changes the due list.
-  const [keys] = useState(() => dueReviews(progress.review).slice(0, SESSION))
   const finish = useCallback((results: { key: string; correct: boolean }[]) => recordReview(results), [])
-
   if (!course) return <Screen>Loading…</Screen>
+  return <ReviewSession course={course} onFinish={finish} />
+}
 
-  const tasks: PlayerTask[] = keys.flatMap((key) => {
-    const [lessonId = '', index = ''] = key.split('#')
-    const task = findLesson(course, lessonId)?.lesson.tasks[Number(index)]
-    return task ? [{ key, task }] : []
-  })
+// Fixed when it starts (answering changes the due list): the first due tasks that still exist in the lessons.
+function ReviewSession({ course, onFinish }: { course: Course; onFinish: (results: { key: string; correct: boolean }[]) => number }) {
+  const progress = useProgress()
+  const [tasks] = useState<PlayerTask[]>(() =>
+    dueReviewKeys(course, progress.review)
+      .slice(0, SESSION)
+      .flatMap((key) => {
+        const task = reviewTask(course, key)
+        return task ? [{ key, task }] : []
+      }),
+  )
 
   if (tasks.length === 0) {
     return (
@@ -36,7 +41,7 @@ export function ReviewPage() {
     )
   }
 
-  return <LessonPlayer title="Review" tasks={tasks} onFinish={finish} />
+  return <LessonPlayer title="Review" tasks={tasks} onFinish={onFinish} />
 }
 
 const Empty = styled.main`

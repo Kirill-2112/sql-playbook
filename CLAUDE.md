@@ -164,5 +164,14 @@ Audit of 2026-10-15:
   default hCaptcha rejects Turnstile tokens with invalid-input-response). CSP allows challenges.cloudflare.com.
 - Backups: .github/workflows/backup.yml, weekly pg_dump (postgres:17 image) of public + auth, gpg-encrypted with
   BACKUP_PASSPHRASE, kept 90 days as an artifact. Needs SUPABASE_DB_URL (session pooler) and BACKUP_PASSPHRASE.
+- Query engine (2026-11-19): PGlite runs in a Web Worker per database (`src/db/pglite.worker.ts` + `engine.ts`,
+  messages in `protocol.ts`); `src/db/database.ts` is the page-side client. Learner queries stop after 20 s
+  (RUN_TIMEOUT_MS) or on the Stop button (`stopDatabase`) by terminating the worker; the next query reloads the
+  dataset. PGlite ignores statement_timeout, so this is the only way to end a runaway query. Learner SQL goes through
+  `straightQuotes` (iPhone smart quotes). Restart `npm run dev` after `npm install` (stale pre-bundled PGlite).
+- Reviews carry `at` (last change) and learned tasks stay as box 5 / due LEARNED, so device merges keep the newer
+  entry (`mergeProgress`). `dueReviewKeys` (path.ts) skips keys whose lesson task no longer exists.
+- QA, design and accessibility reports of 2026-11-19 live in `qa-bug-hunt/` (git-ignored, local only).
+- iCloud Desktop sync can create "<name> 2.ts" copies; delete them, never commit them.
 - Next: more labs (level 4, and level 3 on other datasets), two replacement datasets.
 - Commits are authored as `Kirill-2112 <334980883+Kirill-2112@users.noreply.github.com>` (keeps the personal email private).

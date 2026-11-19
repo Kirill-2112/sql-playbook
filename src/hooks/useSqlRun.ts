@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import type { ExerciseFile } from '../content/types'
 import { runSandboxed, SqlError, type DatabaseId, type QueryResult } from '../db/database'
+import { straightQuotes } from '../utils/straightQuotes'
 
 export type SqlRunState =
   | { kind: 'idle' }
@@ -14,7 +15,7 @@ export function useSqlRun(databaseId: DatabaseId = 'delivery', files?: ExerciseF
   const run = useCallback(async (sql: string): Promise<QueryResult | null> => {
     setState({ kind: 'running' })
     try {
-      const result = await runSandboxed(sql, databaseId, files)
+      const result = await runSandboxed(straightQuotes(sql), databaseId, files)
       setState({ kind: 'done', result })
       return result
     } catch (error) {

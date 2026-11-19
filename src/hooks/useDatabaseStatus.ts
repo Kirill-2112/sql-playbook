@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { getDatabase, type DatabaseId } from '../db/database'
+import { loadDatabase, type DatabaseId } from '../db/database'
 
 export type DatabaseStatus = 'loading' | 'ready' | 'error'
 
@@ -10,7 +10,7 @@ export function useDatabaseStatus(id: DatabaseId = 'delivery'): DatabaseStatus {
   useEffect(() => {
     let active = true
     setStatus('loading')
-    getDatabase(id)
+    loadDatabase(id)
       .then(() => active && setStatus('ready'))
       .catch(() => active && setStatus('error'))
     return () => {

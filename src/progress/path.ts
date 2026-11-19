@@ -1,5 +1,5 @@
-import type { Course, Skill } from '../content/types'
-import type { ProgressState } from './store'
+import type { Course, LessonTask, Skill } from '../content/types'
+import { dueReviews, type ProgressState } from './store'
 
 export type SkillStatus = 'done' | 'current' | 'open' | 'locked'
 
@@ -58,4 +58,15 @@ export function findLesson(course: Course, lessonId: string) {
       if (lesson) return { unit, skill, lesson }
     }
   return null
+}
+
+/** The task a review key ("lessonId#index") points to, or null when the lessons were rebuilt without it. */
+export function reviewTask(course: Course, key: string): LessonTask | null {
+  const [lessonId = '', index = ''] = key.split('#')
+  return findLesson(course, lessonId)?.lesson.tasks[Number(index)] ?? null
+}
+
+/** Due review keys that still point to a task, earliest first. Keys left over from older lessons are skipped. */
+export function dueReviewKeys(course: Course, review: ProgressState['review']): string[] {
+  return dueReviews(review).filter((key) => reviewTask(course, key))
 }

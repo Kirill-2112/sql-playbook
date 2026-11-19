@@ -1,54 +1,19 @@
-import { PGlite, type Results } from '@electric-sql/pglite'
-import type { DatasetId } from '../content/types'
 import type { ExerciseFile } from '../content/types'
-import { emulateTransactions } from '../utils/emulateTransactions'
 import { attachFiles } from '../utils/exerciseFiles'
-import { SEED_SQL } from './seed'
+import type { DatabaseId, EngineError, EngineRequest, EngineResponse, QueryPlan, QueryResult } from './protocol'
 
-// Keep date/time values as the text Postgres prints, so the UI shows exactly
-// what psql would instead of a timezone-shifted JS Date.
-const RAW_TEXT = (value: string) => value
-const DATE_OIDS = [1082, 1083, 1114, 1184, 1266] as const
+export type { CellValue, DatabaseId, QueryPlan, QueryResult } from './protocol'
 
-/** The synthetic food-delivery data used by Situations and the Index Lab, or one of the real datasets. */
-export type DatabaseId = 'delivery' | DatasetId
+/**
+ * PostgreSQL (PGlite) runs in a Web Worker, one per database (src/db/pglite.worker.ts). A long query keeps the page
+ * responsive, and a query that does not finish in time is stopped by terminating its worker: the next request starts
+ * a fresh copy of that database. PGlite has no statement timeout of its own.
+ */
 
-const databases = new Map<DatabaseId, Promise<PGlite>>()
-
-async function createDatabase(id: DatabaseId): Promise<PGlite> {
-  const db = new PGlite({
-    parsers: Object.fromEntries(DATE_OIDS.map((oid) => [oid, RAW_TEXT])),
-  })
-  if (id === 'delivery') {
-    await db.exec(SEED_SQL)
-  } else {
-    // Built by scripts/build-datasets.ts; fetched only when the dataset is first used.
-    const response = await fetch(`${import.meta.env.BASE_URL}datasets/${id}.pg.sql`)
-    if (!response.ok) throw new Error(`Could not download the ${id} dataset (HTTP ${response.status})`)
-    await db.exec(await response.text())
-  }
-  return db
-}
-
-export function getDatabase(id: DatabaseId = 'delivery'): Promise<PGlite> {
-  let db = databases.get(id)
-  if (!db) {
-    db = createDatabase(id)
-    // Let a failed download be retried on the next call.
-    db.catch(() => databases.delete(id))
-    databases.set(id, db)
-  }
-  return db
-}
-
-export type CellValue = string | number | boolean | null | object
-
-export interface QueryResult {
-  columns: string[]
-  rows: CellValue[][]
-  affectedRows: number
-  durationMs: number
-}
+/** A learner's query gets this long before it is stopped. */
+export const RUN_TIMEOUT_MS = 20_000
+/** Index Lab statements (building indexes, EXPLAIN ANALYZE on 200,000 rows) may take longer. */
+const LAB_TIMEOUT_MS = 120_000
 
 export class SqlError extends Error {
   constructor(
@@ -60,17 +25,97 @@ export class SqlError extends Error {
   }
 }
 
-function toSqlError(error: unknown): SqlError {
-  if (error instanceof Error) {
-    const { position, hint } = error as Error & { position?: string; hint?: string }
-    return new SqlError(error.message, position ? Number(position) : undefined, hint)
-  }
-  return new SqlError(String(error))
+interface Pending {
+  resolve: (value: unknown) => void
+  reject: (error: SqlError) => void
+  timer?: ReturnType<typeof setTimeout>
 }
 
-function pickDisplayedResult(results: Results[]): Results | undefined {
-  // With several statements, show the last one that returned columns.
-  return [...results].reverse().find((r) => r.fields.length > 0) ?? results.at(-1)
+interface Connection {
+  worker: Worker
+  pending: Map<number, Pending>
+  ready: Promise<void>
+}
+
+const connections = new Map<DatabaseId, Connection>()
+let nextId = 1
+
+function connect(databaseId: DatabaseId): Connection {
+  const existing = connections.get(databaseId)
+  if (existing) return existing
+  const worker = new Worker(new URL('./pglite.worker.ts', import.meta.url), { type: 'module', name: `pglite-${databaseId}` })
+  const pending = new Map<number, Pending>()
+  worker.onmessage = (event: MessageEvent<EngineResponse>) => {
+    const response = event.data
+    const call = pending.get(response.id)
+    if (!call) return
+    pending.delete(response.id)
+    clearTimeout(call.timer)
+    if (response.ok) call.resolve(response.value)
+    else call.reject(toSqlError(response.error))
+  }
+  worker.onerror = (event) => close(databaseId, new SqlError(event.message || 'The database stopped unexpectedly.'))
+  const connection: Connection = { worker, pending, ready: Promise.resolve() }
+  connections.set(databaseId, connection)
+  connection.ready = request<void>(databaseId, { op: 'open' }).catch((error: unknown) => {
+    // Let a failed download be retried on the next call.
+    close(databaseId)
+    throw error
+  })
+  return connection
+}
+
+/** Terminates the worker of a database and fails every request still waiting on it. */
+function close(databaseId: DatabaseId, reason = new SqlError('Stopped.')) {
+  const connection = connections.get(databaseId)
+  if (!connection) return
+  connections.delete(databaseId)
+  connection.worker.terminate()
+  for (const call of connection.pending.values()) {
+    clearTimeout(call.timer)
+    call.reject(reason)
+  }
+  connection.pending.clear()
+}
+
+function toSqlError(error: EngineError): SqlError {
+  return new SqlError(error.message, error.position, error.hint)
+}
+
+// The request without the fields `request` fills in (distributed over the union, so each op keeps its own fields).
+type Op = EngineRequest extends infer R ? (R extends EngineRequest ? Omit<R, 'id' | 'databaseId' | 'baseUrl'> : never) : never
+
+function request<T>(databaseId: DatabaseId, op: Op, timeoutMs?: number): Promise<T> {
+  const connection = connections.get(databaseId) ?? connect(databaseId)
+  const id = nextId++
+  return new Promise<T>((resolve, reject) => {
+    const call: Pending = { resolve: resolve as (value: unknown) => void, reject }
+    if (timeoutMs) {
+      call.timer = setTimeout(() => {
+        const seconds = Math.round(timeoutMs / 1000)
+        close(
+          databaseId,
+          new SqlError(
+            `Stopped after ${seconds} seconds: the query was still running.`,
+            undefined,
+            'A recursive query needs a condition that ends it, and a join without its ON condition can multiply the rows.',
+          ),
+        )
+      }, timeoutMs)
+    }
+    connection.pending.set(id, call)
+    connection.worker.postMessage({ ...op, id, databaseId, baseUrl: import.meta.env.BASE_URL } as EngineRequest)
+  })
+}
+
+/** Starts loading a database (downloading its dataset) and resolves when it can be queried. */
+export function loadDatabase(id: DatabaseId = 'delivery'): Promise<void> {
+  return connect(id).ready
+}
+
+/** Stops whatever is running on a database. Its next query starts from a fresh copy. */
+export function stopDatabase(id: DatabaseId) {
+  close(id, new SqlError('You stopped the query before it finished.'))
 }
 
 /**
@@ -79,88 +124,32 @@ function pickDisplayedResult(results: Results[]): Results | undefined {
  * Their own BEGIN / COMMIT / ROLLBACK become savepoints of that transaction (see emulateTransactions), and
  * COPY … FROM 'file.csv' reads the exercise's file (see attachFiles).
  */
-export async function runSandboxed(
-  sql: string,
-  databaseId: DatabaseId = 'delivery',
-  files?: ExerciseFile[],
-): Promise<QueryResult> {
-  const db = await getDatabase(databaseId)
-  const started = performance.now()
-  let results: Results[] = []
+export async function runSandboxed(sql: string, databaseId: DatabaseId = 'delivery', files?: ExerciseFile[]): Promise<QueryResult> {
+  await loadDatabase(databaseId)
   const script = attachFiles(sql, files)
-
-  try {
-    await db.transaction(async (tx) => {
-      results = await tx.exec(emulateTransactions(script.sql), { rowMode: 'array', blob: script.blob })
-      await tx.rollback()
-    })
-  } catch (error) {
-    throw toSqlError(error)
-  }
-
-  const shown = pickDisplayedResult(results)
-  return {
-    columns: shown?.fields.map((f) => f.name) ?? [],
-    rows: (shown?.rows as CellValue[][] | undefined) ?? [],
-    affectedRows: shown?.affectedRows ?? 0,
-    durationMs: performance.now() - started,
-  }
+  return request<QueryResult>(databaseId, { op: 'run', sql: script.sql, blob: script.blob }, RUN_TIMEOUT_MS)
 }
 
 /** Runs SQL for real (no rollback). Used by the Index Lab to create and drop indexes. */
 export async function execute(sql: string, databaseId: DatabaseId = 'delivery'): Promise<void> {
-  const db = await getDatabase(databaseId)
-  try {
-    await db.exec(sql)
-  } catch (error) {
-    throw toSqlError(error)
-  }
+  await loadDatabase(databaseId)
+  await request<null>(databaseId, { op: 'exec', sql }, LAB_TIMEOUT_MS)
 }
 
-export interface QueryPlan {
-  lines: string[]
-  executionMs: number
-  usesIndex: boolean
-  topNode: string
-}
-
-const EXECUTION_TIME = /Execution Time: ([\d.]+) ms/
-
-async function explainOnce(db: PGlite, sql: string): Promise<QueryPlan> {
-  const result = await db.query<{ 'QUERY PLAN': string }>(
-    `explain (analyze, costs off, buffers off) ${sql}`,
-  )
-  const lines = result.rows.map((r) => r['QUERY PLAN'])
-  const timeLine = lines.find((l) => EXECUTION_TIME.test(l)) ?? ''
-  return {
-    lines,
-    executionMs: Number(EXECUTION_TIME.exec(timeLine)?.[1] ?? NaN),
-    usesIndex: lines.some((l) => /Index (Only )?Scan/.test(l)),
-    topNode: lines.find((l) => l.trim().length > 0)?.trim() ?? '',
-  }
+/** Rows of a query run for real, as objects. Used by the Index Lab to find what it created. */
+export async function query<T>(sql: string, databaseId: DatabaseId = 'delivery'): Promise<T[]> {
+  await loadDatabase(databaseId)
+  return request<T[]>(databaseId, { op: 'query', sql }, LAB_TIMEOUT_MS)
 }
 
 /** EXPLAIN ANALYZE three times after a warm-up run and keep the median, so one slow run doesn't mislead. */
 export async function explain(sql: string, databaseId: DatabaseId = 'delivery'): Promise<QueryPlan> {
-  const db = await getDatabase(databaseId)
-  try {
-    await explainOnce(db, sql)
-    const runs = [await explainOnce(db, sql), await explainOnce(db, sql), await explainOnce(db, sql)]
-    runs.sort((a, b) => a.executionMs - b.executionMs)
-    return runs[1] as QueryPlan
-  } catch (error) {
-    throw toSqlError(error)
-  }
+  await loadDatabase(databaseId)
+  return request<QueryPlan>(databaseId, { op: 'explain', sql }, LAB_TIMEOUT_MS)
 }
 
 /** Times a statement that is executed for real. */
 export async function timeExecution(sql: string, databaseId: DatabaseId = 'delivery'): Promise<number> {
-  const db = await getDatabase(databaseId)
-  const started = performance.now()
-  try {
-    await db.exec(sql)
-  } catch (error) {
-    throw toSqlError(error)
-  }
-  return performance.now() - started
+  await loadDatabase(databaseId)
+  return request<number>(databaseId, { op: 'time', sql }, LAB_TIMEOUT_MS)
 }

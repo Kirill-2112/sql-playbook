@@ -55,8 +55,8 @@ export function WelcomePage() {
           </Logo>
           <h1>Learn SQL a few minutes a day</h1>
           <p>
-            Short lessons on real databases: a food importer, a music store, an airline. Every answer is checked on
-            PostgreSQL and MySQL, right here in your browser.
+            Short lessons on real databases: a food importer, a music store, an airline. Your queries run on a real
+            PostgreSQL right here in your browser, and every exercise has a MySQL version checked on a real MySQL server.
           </p>
         </Hero>
         <Footer>

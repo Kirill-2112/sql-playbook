@@ -4,9 +4,10 @@ import { DATASETS } from '../content/datasets'
 import { datasetOf, loadExercises } from '../content/exercises'
 import type { Exercise } from '../content/types'
 import type { Dialect } from '../progress/store'
-import { runSandboxed, SqlError, type QueryResult } from '../db/database'
+import { runSandboxed, SqlError, stopDatabase, type QueryResult } from '../db/database'
 import { explainMismatch } from '../utils/compareRows'
 import { exerciseScript } from '../utils/exerciseScript'
+import { straightQuotes } from '../utils/straightQuotes'
 import { CodeBlock } from './CodeBlock'
 import { LessonFooter, type FooterState } from './LessonFooter'
 import { ResultTable } from './ResultTable'
@@ -40,7 +41,7 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
     setBusy(true)
     setError(null)
     try {
-      const actual = await runSandboxed(exerciseScript(exercise, sql), exercise.dataset, exercise.files)
+      const actual = await runSandboxed(exerciseScript(exercise, straightQuotes(sql)), exercise.dataset, exercise.files)
       setResult(actual)
       const expected = await runSandboxed(exerciseScript(exercise, exercise.solutions[0].postgres), exercise.dataset, exercise.files)
       const mismatch = explainMismatch(actual, expected, exercise.orderMatters)
@@ -119,6 +120,10 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
                 </Secondary>
               )}
             </>
+          ) : busy ? (
+            <Secondary type="button" onClick={() => stopDatabase(exercise.dataset)}>
+              Stop
+            </Secondary>
           ) : state === 'idle' ? (
             <Secondary
               type="button"

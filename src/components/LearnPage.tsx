@@ -2,8 +2,8 @@ import { Link, Navigate } from 'react-router-dom'
 import styled from 'styled-components'
 import { LABS } from '../content/labs'
 import { useCourse } from '../hooks/useCourse'
-import { pathProgress } from '../progress/path'
-import { dueReviews, unlockLevel, useProgress } from '../progress/store'
+import { dueReviewKeys, pathProgress } from '../progress/path'
+import { unlockLevel, useProgress } from '../progress/store'
 import { LabCard } from './LabCard'
 import { SkillNode } from './SkillNode'
 import { StatsBar } from './StatsBar'
@@ -13,7 +13,7 @@ export function LearnPage() {
   const course = useCourse()
   const progress = useProgress()
   const units = course ? pathProgress(course, progress) : []
-  const due = dueReviews(progress.review).length
+  const due = course ? dueReviewKeys(course, progress.review).length : 0
   // First visit: a few questions before the path.
   if (!progress.onboarded) return <Navigate to="/welcome" replace />
 

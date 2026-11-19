@@ -1,4 +1,4 @@
-import type { LessonRecord, ProgressState } from './store'
+import type { LessonRecord, ProgressState, ReviewEntry } from './store'
 
 /**
  * Combines progress from two places (this device and the learner's account) so that nothing learned is lost:
@@ -19,12 +19,10 @@ export function mergeProgress(a: ProgressState, b: ProgressState): ProgressState
   const days: Record<string, number> = { ...a.days }
   for (const [day, xp] of Object.entries(b.days)) days[day] = Math.max(days[day] ?? 0, xp)
 
-  // A task due for review on either side stays due; the earlier date wins, so nothing is skipped.
+  // Reviews: the entry changed last wins, so a review done on one device (or a task learned there) is not undone by
+  // an older copy. Entries saved before `at` existed fall back to the earlier due date, so nothing is skipped.
   const review = { ...a.review }
-  for (const [key, r] of Object.entries(b.review)) {
-    const mine = review[key]
-    review[key] = !mine || r.due < mine.due ? r : mine
-  }
+  for (const [key, r] of Object.entries(b.review)) review[key] = newerReview(review[key], r)
 
   // Older saved states have no labs field.
   const labs: Record<string, string[]> = { ...(a.labs ?? {}) }
@@ -46,4 +44,10 @@ export function mergeProgress(a: ProgressState, b: ProgressState): ProgressState
     seenDatasets: [...new Set([...a.seenDatasets, ...b.seenDatasets])].sort(),
     labs,
   }
+}
+
+function newerReview(mine: ReviewEntry | undefined, theirs: ReviewEntry): ReviewEntry {
+  if (!mine) return theirs
+  if (mine.at || theirs.at) return (theirs.at ?? '') > (mine.at ?? '') ? theirs : mine
+  return theirs.due < mine.due ? theirs : mine
 }

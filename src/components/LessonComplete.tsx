@@ -44,7 +44,7 @@ export function LessonComplete({ skillName, xp, correct, total, streak, goal, to
           </strong>
         </Stat>
       </Stats>
-      {correct < total && <p>The tasks you missed came back at the end of the lesson. Practise this skill again from the path any time.</p>}
+      {correct < total && <p>The tasks you missed came back later in the lesson, and they will come back in Review tomorrow.</p>}
       <Primary to="/">Continue</Primary>
     </Wrap>
   )

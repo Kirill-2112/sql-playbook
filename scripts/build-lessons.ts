@@ -84,44 +84,44 @@ const ALTERNATIVES: [string, string[]][] = [
   ['nowait', ['skip locked', 'wait', 'now']],
   ['header', ['heading', 'titles', 'skip']],
   ['csv', ['text', 'json', 'binary']],
-  ['is not null', ['is null', '<> null', '!= null']],
-  ['is null', ['= null', 'is not null', '== null']],
-  ['left join', ['join', 'right join', 'cross join']],
+  ['is not null', ['is null', '<> null', '!= null', 'not null', "<> ''"]],
+  ['is null', ['= null', 'is not null', '== null', 'is empty', "= ''"]],
+  ['left join', ['join', 'right join', 'cross join', 'full join', 'outer join']],
   ['join', ['cross join', 'natural join', 'left join', 'full join', 'right join']],
-  ['count(distinct', ['count(', 'sum(distinct', 'max(distinct']],
-  ['union all', ['union', 'intersect', 'except']],
-  ['not exists', ['exists', 'not in', 'not']],
-  ['group by', ['order by', 'partition by', 'sort by']],
-  ['order by', ['group by', 'sort by', 'where']],
-  ['having', ['where', 'and', 'filter']],
-  ['between', ['in', 'like', 'and']],
-  ['coalesce', ['nullif', 'greatest', 'concat']],
-  ['nullif', ['coalesce', 'greatest', 'least']],
-  ['ilike', ['like', '=', 'in']],
-  ['like', ['=', 'in', 'similar']],
-  ['distinct', ['all', 'unique', 'only']],
-  ['limit', ['top', 'fetch', 'rows']],
-  ['offset', ['skip', 'from', 'after']],
-  ['desc', ['asc', 'down', 'reverse']],
-  ['count', ['sum', 'max', 'avg']],
-  ['sum', ['count', 'avg', 'max']],
-  ['avg', ['sum', 'max', 'median']],
-  ['min', ['max', 'avg', 'first']],
-  ['max', ['min', 'sum', 'last']],
-  ['round', ['trunc', 'ceil', 'floor']],
-  ['upper', ['lower', 'initcap', 'trim']],
-  ['lower', ['upper', 'initcap', 'trim']],
+  ['count(distinct', ['count(', 'sum(distinct', 'max(distinct', 'count(all']],
+  ['union all', ['union', 'intersect', 'except', 'union distinct']],
+  ['not exists', ['exists', 'not in', 'not', 'not any']],
+  ['group by', ['order by', 'partition by', 'sort by', 'distinct on', 'collect by']],
+  ['order by', ['group by', 'sort by', 'where', 'partition by', 'rank by']],
+  ['having', ['where', 'and', 'filter', 'when', 'if']],
+  ['between', ['in', 'like', 'and', 'from', 'within']],
+  ['coalesce', ['nullif', 'greatest', 'concat', 'ifnull', 'nvl']],
+  ['nullif', ['coalesce', 'greatest', 'least', 'ifnull']],
+  ['ilike', ['like', '=', 'in', 'similar to', 'matches']],
+  ['like', ['=', 'in', 'similar', 'ilike', 'contains']],
+  ['distinct', ['all', 'unique', 'only', 'single', 'different']],
+  ['limit', ['top', 'fetch', 'rows', 'max', 'first']],
+  ['offset', ['skip', 'from', 'after', 'start', 'page']],
+  ['desc', ['asc', 'down', 'reverse', 'descending', 'last']],
+  ['count', ['sum', 'max', 'avg', 'min', 'total']],
+  ['sum', ['count', 'avg', 'max', 'total', 'add']],
+  ['avg', ['sum', 'max', 'median', 'mean', 'min']],
+  ['min', ['max', 'avg', 'first', 'least', 'lowest']],
+  ['max', ['min', 'sum', 'last', 'greatest', 'top']],
+  ['round', ['trunc', 'ceil', 'floor', 'abs']],
+  ['upper', ['lower', 'initcap', 'trim', 'ucase', 'capitalize']],
+  ['lower', ['upper', 'initcap', 'trim', 'lcase', 'small']],
   ['length', ['position', 'count', 'size']],
   ['substring', ['replace', 'trim', 'split_part']],
   ['extract', ['date_trunc', 'date_part', 'to_char']],
   ['date_trunc', ['extract', 'date_part', 'to_char']],
-  ['exists', ['in', 'any', 'all']],
-  ['where', ['having', 'when', 'filter']],
-  ['and', ['or', 'xor', ',']],
-  ['or', ['and', 'xor', ',']],
-  ['>=', ['>', '<=', '=']],
-  ['<=', ['<', '>=', '=']],
-  ['<>', ['=', '>', '<']],
+  ['exists', ['in', 'any', 'all', 'some', 'has']],
+  ['where', ['having', 'when', 'filter', 'on', 'if', 'and']],
+  ['and', ['or', 'xor', ',', 'also', 'plus']],
+  ['or', ['and', 'xor', ',', 'either', 'else']],
+  ['>=', ['>', '<=', '=', '=>', '<>']],
+  ['<=', ['<', '>=', '=', '=<', '<>']],
+  ['<>', ['=', '>', '<', '>=', 'not']],
 ]
 
 // Which keywords to prefer for a topic, so a NULL lesson blanks IS NULL rather than ORDER BY.
@@ -198,6 +198,14 @@ function hash(text: string): number {
 }
 
 /** Deterministic shuffle, so rebuilding gives byte-identical lessons. */
+/**
+ * Three of the verified wrong alternatives, chosen per exercise (seeded, so the build stays reproducible): with a pool
+ * of five or six, neighbouring lessons get different options instead of always the first three.
+ */
+function pickWrong(wrong: string[], seed: string): string[] {
+  return shuffle(wrong, seed + 'wrong').slice(0, 3)
+}
+
 function shuffle<T>(items: T[], seed: string): T[] {
   const out = [...items]
   let s = hash(seed)
@@ -324,13 +332,14 @@ async function mysqlGap(ex: Exercise, keyword: string, alternatives: string[]): 
     if (rows === null || !compareRowSets(rows, reference, ex.orderMatters).equal) wrong.push(alt)
   }
   if (wrong.length < 2) return null
-  const options = shuffle([original.toLowerCase(), ...wrong.slice(0, 3)], ex.id + keyword + 'mysql')
+  const picked = pickWrong(wrong, ex.id + keyword)
+  const options = shuffle([original.toLowerCase(), ...picked], ex.id + keyword + 'mysql')
   return {
     code: sql.slice(0, at) + BLANK + sql.slice(at + keyword.length),
     options,
     answer: options.indexOf(original.toLowerCase()),
     note: ex.solutions[0].mysqlNote,
-    bug: bugLines(sql, at, keyword.length, wrong[0]!),
+    bug: bugLines(sql, at, keyword.length, picked[0]!),
   }
 }
 
@@ -361,10 +370,11 @@ async function gapTasks(
     }
     if (wrong.length < 2) continue
     const my = await mysqlGap(ex, keyword, alternatives)
-    const bug = bugTask(ex, sql, at, keyword.length, wrong[0]!)
+    const picked = pickWrong(wrong, ex.id + keyword)
+    const bug = bugTask(ex, sql, at, keyword.length, picked[0]!)
     if (bug && bug.kind === 'bug' && my?.bug) bug.mysql = { ...my.bug, note: my.note }
     if (bug) bugs.push(bug)
-    const options = shuffle([original.toLowerCase(), ...wrong.slice(0, 3)], ex.id + keyword)
+    const options = shuffle([original.toLowerCase(), ...picked], ex.id + keyword)
     tasks.push({
       kind: 'gap',
       exerciseId: ex.id,

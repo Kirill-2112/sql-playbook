@@ -12,6 +12,8 @@ import { CodeBlock } from './CodeBlock'
 import { LessonFooter, type FooterState } from './LessonFooter'
 import { ResultTable } from './ResultTable'
 import { SqlEditor } from './SqlEditor'
+import { TablesSheet } from './TablesSheet'
+import { insertWord, placeCursor } from '../utils/insertText'
 import { SqlErrorMessage } from './SqlErrorMessage'
 
 // The last step of a lesson: the real exercise, written in full and checked against the verified solution.
@@ -25,6 +27,7 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
   const [error, setError] = useState<SqlError | null>(null)
   const [reason, setReason] = useState('')
   const [revealed, setRevealed] = useState(false)
+  const [tablesOpen, setTablesOpen] = useState(false)
 
   useEffect(() => {
     const dataset = datasetOf(exerciseId)
@@ -35,6 +38,8 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
       setSql(found?.checkSql ? '-- Write your statements here\n' : '-- Write your query here\nselect\n')
     })
   }, [exerciseId])
+
+  const editor = () => document.getElementById(id) as HTMLTextAreaElement | null
 
   async function check() {
     if (!exercise) return
@@ -86,7 +91,37 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
             <CodeBlock sql={file.content} />
           </Extra>
         ))}
+        <Tools>
+          <Tool type="button" onClick={() => setTablesOpen(true)} aria-haspopup="dialog">
+            Tables
+          </Tool>
+        </Tools>
         <SqlEditor id={id} label="Your query" value={sql} onChange={setSql} onRun={() => void check()} />
+        <TablesSheet
+          open={tablesOpen}
+          dataset={exercise.dataset}
+          solution={exercise.solutions[0].postgres}
+          sql={sql}
+          onInsert={(word, column) => {
+            const field = editor()
+            // A cursor still at the very start means the learner has not placed one yet: add to the end instead.
+            const placed = field && (field.selectionStart > 0 || field.selectionEnd > 0)
+            const [start, end] = placed ? [field.selectionStart, field.selectionEnd] : [sql.trimEnd().length, sql.length]
+            const next = insertWord(sql, start, end, word, column)
+            setSql(next.sql)
+            placeCursor(field, next.cursor)
+          }}
+          onClose={() => {
+            setTablesOpen(false)
+            // Back to the editor, cursor after the last insert (focus right away so phones open the keyboard).
+            const field = editor()
+            if (field) {
+              const cursor = field.selectionEnd
+              field.focus({ preventScroll: true })
+              field.selectionStart = field.selectionEnd = cursor
+            }
+          }}
+        />
         {error && <SqlErrorMessage error={error} />}
         {result && !error && <ResultTable result={result} />}
         {revealed && (
@@ -171,6 +206,26 @@ const Question = styled.h1`
 const Hint = styled.p`
   font-size: ${({ theme }) => theme.size.sm};
   color: ${({ theme }) => theme.color.muted};
+`
+
+const Tools = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: ${({ theme }) => theme.space.sm};
+  margin-bottom: -${({ theme }) => theme.space.sm};
+`
+
+const Tool = styled.button`
+  min-height: 44px;
+  padding: 0 ${({ theme }) => theme.space.md};
+  border: 1px solid ${({ theme }) => theme.color.line};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.color.surface};
+  color: ${({ theme }) => theme.color.accentStrong};
+  font: inherit;
+  font-size: ${({ theme }) => theme.size.sm};
+  font-weight: 600;
+  cursor: pointer;
 `
 
 const Secondary = styled.button`

@@ -171,6 +171,15 @@ Audit of 2026-10-15:
   `straightQuotes` (iPhone smart quotes). Restart `npm run dev` after `npm install` (stale pre-bundled PGlite).
 - Reviews carry `at` (last change) and learned tasks stay as box 5 / due LEARNED, so device merges keep the newer
   entry (`mergeProgress`). `dueReviewKeys` (path.ts) skips keys whose lesson task no longer exists.
+- Phone writing aids (2026-11-20), all on the shared `BottomSheet` (native <dialog>) and `ToolButton`:
+  `TablesSheet` (write tasks: the exercise's tables first, tap a table/column to insert at the cursor; a column after
+  another name gets a comma), `DataSheet` ("Peek at the data" in rows tasks: up to 100 rows, only the columns the
+  query mentions plus the key; after checking, the rows of solution A are shown), `SqlKeyBar` (keywords and symbol
+  pairs, only on `(pointer: coarse)`; pointerdown preventDefault keeps the keyboard open). Inserts use
+  `insertWord`/`setCursor` (src/utils/insertText.ts) with flushSync, or React moves the cursor to the end.
+- Lesson player: missed tap tasks return before the final write task; the bar counts answers; "2/3" is a separate
+  `step` prop; LessonComplete celebrates crossing the daily goal. A11y: focus goes to each task's h1 (TaskFocus),
+  the verdict is announced from an always-mounted status region, radio groups use arrow keys (utils/radioGroup.ts).
 - QA, design and accessibility reports of 2026-11-19 live in `qa-bug-hunt/` (git-ignored, local only).
 - iCloud Desktop sync can create "<name> 2.ts" copies; delete them, never commit them.
 - Next: more labs (level 4, and level 3 on other datasets), two replacement datasets.

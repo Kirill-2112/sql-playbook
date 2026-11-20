@@ -1,8 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import styled, { css } from 'styled-components'
 import type { LessonTask } from '../content/types'
 import { useLessonKeys } from '../hooks/useLessonKeys'
 import { LessonFooter, type FooterState } from './LessonFooter'
+import { DataSheet } from './DataSheet'
+import { ResultTable } from './ResultTable'
+import { tablesIn } from './TablesSheet'
+import { ToolButton } from './ToolButton'
+import { SCHEMAS } from '../content/schemas'
+import { runSandboxed, type QueryResult } from '../db/database'
+import { useExercise } from '../hooks/useExercise'
+import { exerciseScript } from '../utils/exerciseScript'
 import { onRadioGroupKeyDown, radioTabIndex } from '../utils/radioGroup'
 
 type Choice = Extract<LessonTask, { kind: 'gap' | 'rows' }>
@@ -13,6 +21,23 @@ const BLANK = '⟦?⟧'
 export function ChoiceTask({ task, onDone }: { task: Choice; onDone: (correct: boolean) => void }) {
   const [picked, setPicked] = useState<number | null>(null)
   const [state, setState] = useState<FooterState>('idle')
+  // "How many rows?": the data can be looked at before answering, and the rows themselves are shown after.
+  const rows = task.kind === 'rows'
+  const exercise = useExercise(task.exerciseId)
+  const [peek, setPeek] = useState(false)
+  const [answerRows, setAnswerRows] = useState<QueryResult | null>(null)
+  const tables = exercise ? tablesIn(task.code, SCHEMAS[exercise.dataset]) : []
+  useEffect(() => {
+    if (!rows || state === 'idle' || !exercise) return
+    let active = true
+    // Solution A returns the same rows as the query shown (verified), in PostgreSQL even in MySQL mode.
+    runSandboxed(exerciseScript(exercise, exercise.solutions[0].postgres), exercise.dataset, exercise.files)
+      .then((r) => active && setAnswerRows(r))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [rows, state, exercise])
   useLessonKeys(
     task.options.length,
     (i) => state === 'idle' && setPicked(i),
@@ -44,6 +69,13 @@ export function ChoiceTask({ task, onDone }: { task: Choice; onDone: (correct: b
             task.code
           )}
         </Code>
+        {rows && exercise && tables.length > 0 && state === 'idle' && (
+          <Tools>
+            <ToolButton type="button" aria-haspopup="dialog" onClick={() => setPeek(true)}>
+              Peek at the data
+            </ToolButton>
+          </Tools>
+        )}
         <Options role="radiogroup" aria-label="Answers" $numeric={task.kind === 'rows'} onKeyDown={onRadioGroupKeyDown}>
           {task.options.map((option, i) => (
             <Option
@@ -61,6 +93,13 @@ export function ChoiceTask({ task, onDone }: { task: Choice; onDone: (correct: b
             </Option>
           ))}
         </Options>
+        {rows && answerRows && (
+          <Result>
+            <Kind as="h2">The rows it returns</Kind>
+            <ResultTable result={answerRows} />
+          </Result>
+        )}
+        {exercise && tables.length > 0 && <DataSheet open={peek} dataset={exercise.dataset} tables={tables} query={task.code} onClose={() => setPeek(false)} />}
       </Body>
       <LessonFooter
         state={state}
@@ -108,6 +147,18 @@ const Question = styled.h1`
 const Context = styled.p`
   font-size: ${({ theme }) => theme.size.sm};
   color: ${({ theme }) => theme.color.muted};
+`
+
+const Tools = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  margin: -${({ theme }) => theme.space.sm} 0;
+`
+
+const Result = styled.section`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space.xs};
 `
 
 const Code = styled.pre`

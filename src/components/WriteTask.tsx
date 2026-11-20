@@ -13,6 +13,7 @@ import { LessonFooter, type FooterState } from './LessonFooter'
 import { ResultTable } from './ResultTable'
 import { SqlEditor } from './SqlEditor'
 import { TablesSheet } from './TablesSheet'
+import { ToolButton } from './ToolButton'
 import { insertWord, placeCursor } from '../utils/insertText'
 import { SqlErrorMessage } from './SqlErrorMessage'
 
@@ -92,9 +93,9 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
           </Extra>
         ))}
         <Tools>
-          <Tool type="button" onClick={() => setTablesOpen(true)} aria-haspopup="dialog">
+          <ToolButton type="button" onClick={() => setTablesOpen(true)} aria-haspopup="dialog">
             Tables
-          </Tool>
+          </ToolButton>
         </Tools>
         <SqlEditor id={id} label="Your query" value={sql} onChange={setSql} onRun={() => void check()} />
         <TablesSheet
@@ -213,19 +214,6 @@ const Tools = styled.div`
   justify-content: flex-end;
   gap: ${({ theme }) => theme.space.sm};
   margin-bottom: -${({ theme }) => theme.space.sm};
-`
-
-const Tool = styled.button`
-  min-height: 44px;
-  padding: 0 ${({ theme }) => theme.space.md};
-  border: 1px solid ${({ theme }) => theme.color.line};
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.surface};
-  color: ${({ theme }) => theme.color.accentStrong};
-  font: inherit;
-  font-size: ${({ theme }) => theme.size.sm};
-  font-weight: 600;
-  cursor: pointer;
 `
 
 const Secondary = styled.button`

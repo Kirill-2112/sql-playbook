@@ -29,11 +29,13 @@ export function insertWord(sql: string, start: number, end: number, word: string
   return { sql: before + text + after, cursor: before.length + text.length }
 }
 
-/** Puts the cursor of a text field at a position on the next frame, after React has written the new value. */
-export function placeCursor(field: HTMLTextAreaElement | null, cursor: number, focus = false) {
-  requestAnimationFrame(() => {
-    if (!field) return
-    if (focus) field.focus({ preventScroll: true })
-    field.selectionStart = field.selectionEnd = cursor
-  })
+/**
+ * Applies an edit to a controlled text field and puts its cursor right away: `commit` must write the new value
+ * synchronously (flushSync), so the cursor is set on the new text within the same tap and the next keystroke lands
+ * where the learner expects. Focus stays (or returns) in the field so a phone keeps its keyboard open.
+ */
+export function setCursor(field: HTMLTextAreaElement | null, cursor: number, focus = false) {
+  if (!field) return
+  if (focus && document.activeElement !== field) field.focus({ preventScroll: true })
+  field.selectionStart = field.selectionEnd = cursor
 }

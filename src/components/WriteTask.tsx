@@ -14,7 +14,9 @@ import { ResultTable } from './ResultTable'
 import { SqlEditor } from './SqlEditor'
 import { TablesSheet } from './TablesSheet'
 import { ToolButton } from './ToolButton'
-import { insertWord, placeCursor } from '../utils/insertText'
+import { SqlKeyBar } from './SqlKeyBar'
+import { flushSync } from 'react-dom'
+import { insertWord, setCursor } from '../utils/insertText'
 import { SqlErrorMessage } from './SqlErrorMessage'
 
 // The last step of a lesson: the real exercise, written in full and checked against the verified solution.
@@ -98,6 +100,7 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
           </ToolButton>
         </Tools>
         <SqlEditor id={id} label="Your query" value={sql} onChange={setSql} onRun={() => void check()} />
+        <SqlKeyBar editorId={id} value={sql} onChange={setSql} />
         <TablesSheet
           open={tablesOpen}
           dataset={exercise.dataset}
@@ -109,8 +112,8 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
             const placed = field && (field.selectionStart > 0 || field.selectionEnd > 0)
             const [start, end] = placed ? [field.selectionStart, field.selectionEnd] : [sql.trimEnd().length, sql.length]
             const next = insertWord(sql, start, end, word, column)
-            setSql(next.sql)
-            placeCursor(field, next.cursor)
+            flushSync(() => setSql(next.sql))
+            setCursor(field, next.cursor)
           }}
           onClose={() => {
             setTablesOpen(false)

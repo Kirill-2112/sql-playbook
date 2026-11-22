@@ -3,24 +3,32 @@ import type { SchemaTable } from '../content/schemas'
 
 interface Props {
   table: SchemaTable
-  /** When set (a query is being written), tapping the table or a column inserts its name. */
+  /** Open at first (the task's tables); a tap on the name folds and unfolds it either way. */
+  open?: boolean
+  /** When set (a query is being written), tapping the table's name chip or a column inserts the name. */
   onInsert?: (word: string, column: boolean) => void
 }
 
-/** One table's columns with type, primary key and references: tappable names while writing a query. */
-export function TableColumns({ table, onInsert }: Props) {
+/** One table, folded or open: its columns with type, primary key and references; tappable names while writing. */
+export function TableColumns({ table, open = false, onInsert }: Props) {
   return (
-    <Table>
-      <Head as={onInsert ? 'button' : 'div'} type={onInsert ? 'button' : undefined} onClick={onInsert && (() => onInsert(table.name, false))}>
+    <Table open={open}>
+      <summary>
         <code>{table.name}</code>
-        <small>{table.rows.toLocaleString('en-US')} rows</small>
-      </Head>
+        <small>{table.columns.length} columns</small>
+      </summary>
       <Columns>
+        {onInsert && (
+          <Chip type="button" $table onClick={() => onInsert(table.name, false)} aria-label={`Insert the table name ${table.name}`}>
+            <code>{table.name}</code>
+            <small>table name</small>
+          </Chip>
+        )}
         {table.columns.map((c) => {
           const ref = table.foreignKeys.find((fk) => fk.columns.length === 1 && fk.columns[0] === c.name)
           const key = table.primaryKey.includes(c.name)
           return (
-            <Column
+            <Chip
               key={c.name}
               as={onInsert ? 'button' : 'div'}
               type={onInsert ? 'button' : undefined}
@@ -33,7 +41,7 @@ export function TableColumns({ table, onInsert }: Props) {
                 {ref && <b>FK → {ref.refTable} </b>}
                 {c.type}
               </small>
-            </Column>
+            </Chip>
           )
         })}
       </Columns>
@@ -41,42 +49,58 @@ export function TableColumns({ table, onInsert }: Props) {
   )
 }
 
-const Table = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.space.xs};
+const Table = styled.details`
+  /* In the sheet's scrolling column: keep the natural height instead of being squeezed to fit. */
+  flex: none;
+  border: 1px solid ${({ theme }) => theme.color.line};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.color.surface};
+  overflow: hidden;
 
   code {
     background: none;
     padding: 0;
   }
-`
 
-const Head = styled.button`
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: ${({ theme }) => theme.space.sm};
-  min-height: 44px;
-  padding: 0 ${({ theme }) => theme.space.sm};
-  border: 1px solid ${({ theme }) => theme.color.accent};
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.accentSoft};
-  color: ${({ theme }) => theme.color.accentStrong};
-  font: inherit;
-  text-align: left;
-
-  &:is(button) {
+  summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: ${({ theme }) => theme.space.sm};
+    min-height: 48px;
+    padding: 0 ${({ theme }) => theme.space.md};
+    background: ${({ theme }) => theme.color.accentSoft};
+    color: ${({ theme }) => theme.color.accentStrong};
     cursor: pointer;
+    list-style: none;
   }
 
-  code {
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  /* A chevron that turns when the table opens. */
+  summary::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-right: 2px solid currentColor;
+    border-bottom: 2px solid currentColor;
+    transform: rotate(45deg);
+    margin-left: auto;
+  }
+
+  &[open] summary::after {
+    transform: rotate(-135deg);
+  }
+
+  summary code {
     font-weight: 600;
   }
 
-  small {
-    color: ${({ theme }) => theme.color.muted};
+  summary small {
     font-size: ${({ theme }) => theme.size.xs};
+    color: ${({ theme }) => theme.color.muted};
   }
 `
 
@@ -84,22 +108,23 @@ const Columns = styled.div`
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
+  padding: ${({ theme }) => theme.space.sm};
 `
 
-const Column = styled.button<{ $tappable: boolean }>`
+const Chip = styled.button<{ $tappable?: boolean; $table?: boolean }>`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
   min-height: 44px;
   padding: 2px ${({ theme }) => theme.space.sm};
-  border: 1px solid ${({ theme }) => theme.color.line};
+  border: 1px solid ${({ theme, $table }) => ($table ? theme.color.accent : theme.color.line)};
   border-radius: ${({ theme }) => theme.radius.sm};
-  background: ${({ theme }) => theme.color.surface};
-  color: ${({ theme }) => theme.color.ink};
+  background: ${({ theme, $table }) => ($table ? theme.color.accentSoft : theme.color.surface)};
+  color: ${({ theme, $table }) => ($table ? theme.color.accentStrong : theme.color.ink)};
   font: inherit;
   text-align: left;
-  cursor: ${({ $tappable }) => ($tappable ? 'pointer' : 'default')};
+  cursor: ${({ $tappable, $table }) => ($tappable || $table ? 'pointer' : 'default')};
 
   code {
     font-size: ${({ theme }) => theme.size.sm};

@@ -36,14 +36,7 @@ export function TableData({ dataset, table, query }: Props) {
   }, [dataset, table, select])
 
   return (
-    <>
-      <Note>
-        <code>{table.name}</code> has {table.rows.toLocaleString('en-US')} rows
-        {table.rows > PEEK_ROWS ? `; here are the first ${PEEK_ROWS}` : '; here they all are'}
-        {select === '*' ? '.' : ', with the columns this task uses.'}
-      </Note>
-      {error ? <Note>{error}</Note> : result ? <ResultTable result={result} /> : <Note>Loading the data…</Note>}
-    </>
+    <>{error ? <Note>{error}</Note> : result ? <ResultTable result={result} meta={false} /> : <Note>Loading the data…</Note>}</>
   )
 }
 

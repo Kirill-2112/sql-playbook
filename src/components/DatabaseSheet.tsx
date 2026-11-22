@@ -53,6 +53,8 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
     : undefined
   const table = tables.find((t) => t.name === picked) ?? tables[0]!
   const first = picked ? [picked, ...used.filter((u) => u !== picked)] : used
+  // Tables tab: the picked table and the task's tables first (open), the rest after them (folded).
+  const rank = (name: string) => (first.includes(name) ? first.indexOf(name) : first.length + tables.findIndex((t) => t.name === name))
 
   return (
     <BottomSheet
@@ -91,23 +93,10 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
 
       {tab === 'tables' && (
         <>
-          {tables
-            .filter((t) => first.includes(t.name))
-            .sort((a, b) => first.indexOf(a.name) - first.indexOf(b.name))
+          {[...tables]
+            .sort((a, b) => rank(a.name) - rank(b.name))
             .map((t) => (
-              <TableColumns key={t.name} table={t} onInsert={insert} />
-            ))}
-          <Group>{first.length > 0 ? 'Other tables' : 'All tables'}</Group>
-          {tables
-            .filter((t) => !first.includes(t.name))
-            .map((t) => (
-              <Fold key={t.name}>
-                <summary>
-                  <code>{t.name}</code>
-                  <small>{t.columns.length} columns</small>
-                </summary>
-                <TableColumns table={t} onInsert={insert} />
-              </Fold>
+              <TableColumns key={t.name} table={t} open={first.includes(t.name)} onInsert={insert} />
             ))}
         </>
       )}
@@ -165,42 +154,6 @@ const Preview = styled.pre`
 const Hint = styled.p`
   font-size: ${({ theme }) => theme.size.xs};
   color: ${({ theme }) => theme.color.muted};
-`
-
-const Group = styled.h3`
-  margin-top: ${({ theme }) => theme.space.sm};
-  font-size: ${({ theme }) => theme.size.xs};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: ${({ theme }) => theme.color.muted};
-`
-
-const Fold = styled.details`
-  border-top: 1px solid ${({ theme }) => theme.color.line};
-  padding-top: ${({ theme }) => theme.space.xs};
-
-  summary {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    min-height: 44px;
-    cursor: pointer;
-  }
-
-  summary code {
-    background: none;
-    padding: 0;
-  }
-
-  summary small {
-    font-size: ${({ theme }) => theme.size.xs};
-    color: ${({ theme }) => theme.color.muted};
-  }
-
-  &[open] > section {
-    padding-bottom: ${({ theme }) => theme.space.sm};
-  }
 `
 
 const Picker = styled.label`

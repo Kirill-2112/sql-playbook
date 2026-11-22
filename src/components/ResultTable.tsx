@@ -9,7 +9,8 @@ function formatCell(value: CellValue): string {
   return String(value)
 }
 
-export function ResultTable({ result }: { result: QueryResult }) {
+/** `meta` false hides the "N rows · time" line (the Database sheet's data view). */
+export function ResultTable({ result, meta = true }: { result: QueryResult; meta?: boolean }) {
   const { columns, rows, affectedRows, durationMs } = result
   const time = `${durationMs < 10 ? durationMs.toFixed(1) : Math.round(durationMs)} ms`
 
@@ -25,10 +26,12 @@ export function ResultTable({ result }: { result: QueryResult }) {
 
   return (
     <Wrapper>
-      <Meta>
-        {rows.length.toLocaleString('en-US')} {rows.length === 1 ? 'row' : 'rows'} · {time}
-        {rows.length > MAX_ROWS_SHOWN && ` · showing the first ${MAX_ROWS_SHOWN}`}
-      </Meta>
+      {meta && (
+        <Meta>
+          {rows.length.toLocaleString('en-US')} {rows.length === 1 ? 'row' : 'rows'} · {time}
+          {rows.length > MAX_ROWS_SHOWN && ` · showing the first ${MAX_ROWS_SHOWN}`}
+        </Meta>
+      )}
       <Scroll>
         <Table>
           <thead>

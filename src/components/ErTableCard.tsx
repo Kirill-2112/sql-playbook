@@ -21,8 +21,17 @@ export function ErTableCard({ table, keysOnly, marked = false, narrow = false, s
   const hidden = table.columns.length - columns.length
 
   return (
-    <Card data-er-table={table.name} $state={state} $marked={marked} $narrow={narrow}>
-      <Header type="button" aria-pressed={state === 'selected'} onClick={onSelect} title="Show this table's relationships">
+    // A tap anywhere on the card selects it; the header stays a button for the keyboard (and does not toggle twice).
+    <Card data-er-table={table.name} $state={state} $marked={marked} $narrow={narrow} onClick={onSelect}>
+      <Header
+        type="button"
+        aria-pressed={state === 'selected'}
+        onClick={(e) => {
+          e.stopPropagation()
+          onSelect()
+        }}
+        title="Show this table's relationships"
+      >
         <span>{table.name}</span>
         {!narrow && <small>{table.rows.toLocaleString('en-US')} rows</small>}
       </Header>
@@ -63,6 +72,7 @@ const Card = styled.div<{ $state: CardState; $marked: boolean; $narrow: boolean 
   opacity: ${({ $state }) => ($state === 'dimmed' ? 0.35 : 1)};
   transition: opacity 0.15s;
   position: relative;
+  cursor: pointer;
   z-index: 1;
 
   @media (prefers-reduced-motion: reduce) {

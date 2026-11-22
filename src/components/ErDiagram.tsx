@@ -27,7 +27,7 @@ interface Props {
   only?: string[]
   /** Tables to mark (the ones a task reads). */
   marked?: string[]
-  /** Inside a sheet on a phone: no full-screen button, the diagram takes the sheet's height. */
+  /** Narrow cards and gaps (the phone sheet's canvas). */
   compact?: boolean
   /**
    * Only the board (cards and lines), for a pan-and-zoom canvas that positions it with `boardStyle` and needs its
@@ -40,12 +40,10 @@ interface Props {
     /** On a wide screen: split taller columns so the diagram spreads across the width. */
     maxPerColumn?: number
   }
-  /** Opens the diagram full screen (the phone sheet passes its own full-screen canvas). */
-  onFullScreen?: () => void
 }
 
 /** Interactive ER diagram: tables in columns (referenced tables on the left), lines for foreign keys. */
-export function ErDiagram({ dataset, only, marked = [], compact = false, bare, onFullScreen }: Props) {
+export function ErDiagram({ dataset, only, marked = [], compact = false, bare }: Props) {
   const all = SCHEMAS[dataset]
   const onlyKey = only?.join(',') ?? ''
   const tables = useMemo(() => (only ? all.filter((t) => only.includes(t.name)) : all), [all, onlyKey])
@@ -293,11 +291,7 @@ export function ErDiagram({ dataset, only, marked = [], compact = false, bare, o
               {fullScreen ? 'Close (Esc)' : 'Full screen'}
             </FullScreenButton>
           )}
-          {compact && onFullScreen && (
-            <FullScreenButton type="button" onClick={onFullScreen}>
-              Full screen
-            </FullScreenButton>
-          )}
+
         </Toolbar>
 
         <Info aria-live="polite">

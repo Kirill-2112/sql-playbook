@@ -24,7 +24,7 @@ export function ErTableCard({ table, keysOnly, marked = false, narrow = false, s
     <Card data-er-table={table.name} $state={state} $marked={marked} $narrow={narrow}>
       <Header type="button" aria-pressed={state === 'selected'} onClick={onSelect} title="Show this table's relationships">
         <span>{table.name}</span>
-        <small>{table.rows.toLocaleString('en-US')} rows</small>
+        {!narrow && <small>{table.rows.toLocaleString('en-US')} rows</small>}
       </Header>
       <Rows>
         {columns.map((c) => {
@@ -109,7 +109,8 @@ const Rows = styled.div`
 
 const Row = styled.div<{ $fk: boolean }>`
   display: grid;
-  grid-template-columns: 30px 1fr auto;
+  /* A key column wide enough for both badges (a column that is PK and FK), so they never cover the name. */
+  grid-template-columns: minmax(30px, auto) minmax(0, 1fr) auto;
   align-items: center;
   gap: 4px;
   padding: 2px 10px;

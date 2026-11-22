@@ -83,14 +83,15 @@ export function usePanZoom(toLocal: (clientX: number, clientY: number) => { x: n
   }
 
   /**
-   * Fits content of the given size into a frame of the given size, centred, never above 100%. `top` keeps a band free
+   * Fits content of the given size into a frame of the given size, never above 100%. `top` keeps a band free
    * at the top (for buttons floating over the canvas).
    */
   const fit = useCallback((content: { width: number; height: number }, frame: { width: number; height: number }, top = 0) => {
     if (!content.width || !content.height) return
     const height = frame.height - top
     const scale = clamp(Math.min(1, frame.width / content.width, height / content.height))
-    setView({ scale, x: (frame.width - content.width * scale) / 2, y: top + Math.max(0, (height - content.height * scale) / 2) })
+    // Centred across, from the top down: a diagram narrower than tall reads from its first tables.
+    setView({ scale, x: (frame.width - content.width * scale) / 2, y: top })
   }, [])
 
   return {

@@ -46,7 +46,7 @@ export function SchemaBoard({ dataset, only, marked, keysOnly, compact = false, 
     const r = area.current?.getBoundingClientRect()
     return r ? { x: clientX - r.left, y: clientY - r.top } : { x: clientX, y: clientY }
   }, [])
-  const { view, zoomAt, fit, handlers } = usePanZoom(toLocal)
+  const { view, zoomAt, fit, focus, handlers } = usePanZoom(toLocal)
 
   const fitAll = useCallback(() => {
     const r = area.current?.getBoundingClientRect()
@@ -55,6 +55,30 @@ export function SchemaBoard({ dataset, only, marked, keysOnly, compact = false, 
     const top = (tools.current?.getBoundingClientRect().bottom ?? r.top) - r.top
     fit(boardRef.current, { width: r.width, height: r.height }, top)
   }, [fit])
+
+  /**
+   * The first view: the whole schema when it is readable that way. A big database would come out too small, so then
+   * the task's tables are shown large instead, with the neighbouring tables running off the edges (there is more to
+   * see; the fit button shows everything).
+   */
+  const firstView = useCallback(() => {
+    const r = area.current?.getBoundingClientRect()
+    const b = boardRef.current
+    if (!r || !b.width) return
+    const top = (tools.current?.getBoundingClientRect().bottom ?? r.top) - r.top
+    const whole = Math.min(1, r.width / b.width, (r.height - top) / b.height)
+    const cards = [...(area.current?.querySelectorAll<HTMLElement>('[data-er-table]') ?? [])].filter((c) => marked.includes(c.dataset.erTable ?? ''))
+    if (whole >= READABLE || cards.length === 0) {
+      fitAll()
+      return
+    }
+    const pad = 24
+    const left = Math.min(...cards.map((c) => c.offsetLeft)) - pad
+    const topEdge = Math.min(...cards.map((c) => c.offsetTop)) - pad
+    const right = Math.max(...cards.map((c) => c.offsetLeft + c.offsetWidth)) + pad
+    const bottom = Math.max(...cards.map((c) => c.offsetTop + c.offsetHeight)) + pad
+    focus({ x: left, y: topEdge, width: right - left, height: bottom - topEdge }, { width: r.width, height: r.height }, top)
+  }, [fitAll, focus, marked])
 
   // The box's size: the layout depends on it, and the diagram is fitted again when it changes.
   useEffect(() => {
@@ -65,8 +89,8 @@ export function SchemaBoard({ dataset, only, marked, keysOnly, compact = false, 
     return () => observer.disconnect()
   }, [])
   useEffect(() => {
-    if (board.width && box.width) fitAll()
-  }, [board, box, fitAll])
+    if (board.width && box.width) firstView()
+  }, [board, box])
 
   useEffect(() => {
     if (!onClose) return
@@ -120,9 +144,16 @@ export function SchemaBoard({ dataset, only, marked, keysOnly, compact = false, 
           </>
         )}
         {onExpand && (
+          <Tool type="button" aria-label="Fit the whole database" onClick={fitAll}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5" />
+            </svg>
+          </Tool>
+        )}
+        {onExpand && (
           <Tool type="button" aria-label="Whole database, full screen" onClick={onExpand}>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" />
+              <path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7" />
             </svg>
           </Tool>
         )}
@@ -130,6 +161,9 @@ export function SchemaBoard({ dataset, only, marked, keysOnly, compact = false, 
     </Wrap>
   )
 }
+
+// Below this scale the whole schema is too small to read on a phone: the first view shows the task's tables instead.
+const READABLE = 0.5
 
 /**
  * The tables-per-column limit (undefined: none) that lets the schema be drawn largest in a box of this size: tall

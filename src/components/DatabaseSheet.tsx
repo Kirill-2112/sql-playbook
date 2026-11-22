@@ -4,7 +4,7 @@ import { DATASETS } from '../content/datasets'
 import { SCHEMAS } from '../content/schemas'
 import type { Exercise } from '../content/types'
 import { activeEditor, subscribeEditor } from '../utils/editorBridge'
-import { neighbourhood, tablesIn } from '../utils/schemaTables'
+import { tablesIn } from '../utils/schemaTables'
 import { SchemaBoard } from './SchemaBoard'
 import { SchemaCanvas } from './SchemaCanvas'
 import { BottomSheet } from './BottomSheet'
@@ -29,10 +29,8 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
   const tables = SCHEMAS[exercise.dataset]
   const used = tablesIn(exercise.solutions[0].postgres, tables)
   const [tab, setTab] = useState<Tab>('schema')
-  // Schema: the task's tables and their neighbours, keys only; the whole database full screen.
+  // Schema: the whole database, keys only, the task's tables marked; full screen adds every column.
   const [canvas, setCanvas] = useState(false)
-  const near = neighbourhood(used, tables)
-  const shown = near.size === 0 ? undefined : tables.filter((t) => near.has(t.name)).map((t) => t.name)
   const [picked, setPicked] = useState(used[0] ?? tables[0]?.name ?? '')
   const editor = useSyncExternalStore(subscribeEditor, activeEditor, activeEditor)
   const [, redraw] = useState(0)
@@ -86,7 +84,7 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
     >
       {tab === 'schema' && (
         <SchemaBox>
-          <SchemaBoard dataset={exercise.dataset} only={shown} marked={used} keysOnly compact onExpand={() => setCanvas(true)} />
+          <SchemaBoard dataset={exercise.dataset} marked={used} keysOnly compact onExpand={() => setCanvas(true)} />
           {canvas && <SchemaCanvas dataset={exercise.dataset} title={DATASETS[exercise.dataset].name} marked={used} onClose={() => setCanvas(false)} />}
         </SchemaBox>
       )}

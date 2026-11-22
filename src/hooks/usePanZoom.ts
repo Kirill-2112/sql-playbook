@@ -94,10 +94,25 @@ export function usePanZoom(toLocal: (clientX: number, clientY: number) => { x: n
     setView({ scale, x: (frame.width - content.width * scale) / 2, y: top })
   }, [])
 
+  /** Shows one region of the content (e.g. a few tables) centred in the frame, as large as fits, at most 100%. */
+  const focus = useCallback(
+    (region: { x: number; y: number; width: number; height: number }, frame: { width: number; height: number }, top = 0) => {
+      const height = frame.height - top
+      const scale = clamp(Math.min(1, frame.width / region.width, height / region.height))
+      setView({
+        scale,
+        x: frame.width / 2 - (region.x + region.width / 2) * scale,
+        y: top + height / 2 - (region.y + region.height / 2) * scale,
+      })
+    },
+    [],
+  )
+
   return {
     view,
     zoomAt,
     fit,
+    focus,
     handlers: { onPointerDown, onPointerMove, onPointerUp, onPointerCancel: onPointerUp, onWheel },
   }
 }

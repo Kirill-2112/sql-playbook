@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import styled from 'styled-components'
 import { SCHEMAS } from '../content/schemas'
 import type { DatasetId } from '../content/types'
@@ -29,14 +29,22 @@ interface Props {
   marked?: string[]
   /** Inside a sheet on a phone: no full-screen button, the diagram takes the sheet's height. */
   compact?: boolean
+  /**
+   * Only the board (cards and lines), for a pan-and-zoom canvas that positions it with `boardStyle` and needs its
+   * natural size (`onBoardSize`). `keysOnly` then comes from the canvas.
+   */
+  bare?: { keysOnly: boolean; style: CSSProperties; onSize: (size: { width: number; height: number }) => void }
+  /** Opens the diagram full screen (the phone sheet passes its own full-screen canvas). */
+  onFullScreen?: () => void
 }
 
 /** Interactive ER diagram: tables in columns (referenced tables on the left), lines for foreign keys. */
-export function ErDiagram({ dataset, only, marked = [], compact = false }: Props) {
+export function ErDiagram({ dataset, only, marked = [], compact = false, bare, onFullScreen }: Props) {
   const all = SCHEMAS[dataset]
   const onlyKey = only?.join(',') ?? ''
   const tables = useMemo(() => (only ? all.filter((t) => only.includes(t.name)) : all), [all, onlyKey])
-  const [columns, setColumns] = useStoredState<Columns>('er-columns', 'keys', ['keys', 'all'])
+  const [storedColumns, setColumns] = useStoredState<Columns>('er-columns', 'keys', ['keys', 'all'])
+  const columns: Columns = bare ? (bare.keysOnly ? 'keys' : 'all') : storedColumns
   const [selected, setSelected] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
   const [lines, setLines] = useState<Line[]>([])
@@ -148,6 +156,7 @@ export function ErDiagram({ dataset, only, marked = [], compact = false }: Props
     }
     setLines(next)
     setSize({ width: el.offsetWidth, height: el.offsetHeight })
+    bare?.onSize({ width: el.offsetWidth, height: el.offsetHeight })
     const available = scroll.current?.clientWidth ?? el.offsetWidth
     setFitScale(Math.min(1, available / el.offsetWidth))
   }, [relations])
@@ -184,6 +193,57 @@ export function ErDiagram({ dataset, only, marked = [], compact = false }: Props
   const referencedBy = selected ? relations.filter((r) => r.parent === selected) : []
   const describe = (cols: string[]) => cols.join(', ')
 
+  const boardElement = (
+            <Board ref={board} $compact={compact} style={bare ? bare.style : scale < 1 ? { transform: `scale(${scale})` } : undefined}>
+              <svg width={size.width} height={size.height} aria-hidden="true">
+                {lines
+                  .slice()
+                  .sort((a, b) => Number(isActive(a)) - Number(isActive(b)))
+                  .map((l) => {
+                    const active = isActive(l)
+                    const tone = active ? 'var(--er-active)' : 'var(--er-line)'
+                    const faded = selected !== null && !active
+                    const fx = l.end.x - 9 * l.endDirection
+                    return (
+                      <g key={l.key} opacity={faded ? 0.15 : 1}>
+                        <path d={l.d} fill="none" stroke={tone} strokeWidth={active ? 2 : 1.2} />
+                        <circle cx={l.start.x} cy={l.start.y} r={3} fill={tone} />
+                        {/* crow's foot at the "many" end */}
+                        <path
+                          d={`M ${fx} ${l.end.y} L ${l.end.x} ${l.end.y - 5} M ${fx} ${l.end.y} L ${l.end.x} ${l.end.y} M ${fx} ${l.end.y} L ${l.end.x} ${l.end.y + 5}`}
+                          fill="none"
+                          stroke={tone}
+                          strokeWidth={active ? 2 : 1.2}
+                        />
+                      </g>
+                    )
+                  })}
+              </svg>
+              {layout.map((col, i) => (
+                <Column key={i}>
+                  {col.map((name) => {
+                    const table = byName.get(name)
+                    if (!table) return null
+                    return (
+                      <ErTableCard
+                        key={name}
+                        table={table}
+                        keysOnly={columns === 'keys'}
+                        marked={marked.includes(name)}
+                        narrow={compact}
+                        state={cardState(name)}
+                        onSelect={() => setSelected((s) => (s === name ? null : name))}
+                        onHoverForeignKey={(column) => setHovered(column ? `${name}.${column}` : null)}
+                      />
+                    )
+                  })}
+                </Column>
+              ))}
+            </Board>
+  )
+
+  if (bare) return boardElement
+
   return (
     <>
       {fullScreen && <Backdrop onClick={closeFullScreen} aria-hidden="true" />}
@@ -219,6 +279,11 @@ export function ErDiagram({ dataset, only, marked = [], compact = false }: Props
           {!compact && (
             <FullScreenButton type="button" onClick={fullScreen ? closeFullScreen : openFullScreen}>
               {fullScreen ? 'Close (Esc)' : 'Full screen'}
+            </FullScreenButton>
+          )}
+          {compact && onFullScreen && (
+            <FullScreenButton type="button" onClick={onFullScreen}>
+              Full screen
             </FullScreenButton>
           )}
         </Toolbar>
@@ -284,52 +349,7 @@ export function ErDiagram({ dataset, only, marked = [], compact = false }: Props
               scale < 1 ? { width: size.width * scale, height: size.height * scale, overflow: 'hidden' } : undefined
             }
           >
-            <Board ref={board} $compact={compact} style={scale < 1 ? { transform: `scale(${scale})` } : undefined}>
-              <svg width={size.width} height={size.height} aria-hidden="true">
-                {lines
-                  .slice()
-                  .sort((a, b) => Number(isActive(a)) - Number(isActive(b)))
-                  .map((l) => {
-                    const active = isActive(l)
-                    const tone = active ? 'var(--er-active)' : 'var(--er-line)'
-                    const faded = selected !== null && !active
-                    const fx = l.end.x - 9 * l.endDirection
-                    return (
-                      <g key={l.key} opacity={faded ? 0.15 : 1}>
-                        <path d={l.d} fill="none" stroke={tone} strokeWidth={active ? 2 : 1.2} />
-                        <circle cx={l.start.x} cy={l.start.y} r={3} fill={tone} />
-                        {/* crow's foot at the "many" end */}
-                        <path
-                          d={`M ${fx} ${l.end.y} L ${l.end.x} ${l.end.y - 5} M ${fx} ${l.end.y} L ${l.end.x} ${l.end.y} M ${fx} ${l.end.y} L ${l.end.x} ${l.end.y + 5}`}
-                          fill="none"
-                          stroke={tone}
-                          strokeWidth={active ? 2 : 1.2}
-                        />
-                      </g>
-                    )
-                  })}
-              </svg>
-              {layout.map((col, i) => (
-                <Column key={i}>
-                  {col.map((name) => {
-                    const table = byName.get(name)
-                    if (!table) return null
-                    return (
-                      <ErTableCard
-                        key={name}
-                        table={table}
-                        keysOnly={columns === 'keys'}
-                        marked={marked.includes(name)}
-                        narrow={compact}
-                        state={cardState(name)}
-                        onSelect={() => setSelected((s) => (s === name ? null : name))}
-                        onHoverForeignKey={(column) => setHovered(column ? `${name}.${column}` : null)}
-                      />
-                    )
-                  })}
-                </Column>
-              ))}
-            </Board>
+            {boardElement}
           </Scaled>
         </Scroll>
       </Panel>

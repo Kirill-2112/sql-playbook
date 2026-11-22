@@ -6,6 +6,7 @@ import type { Exercise } from '../content/types'
 import { activeEditor, subscribeEditor } from '../utils/editorBridge'
 import { neighbourhood, tablesIn } from '../utils/schemaTables'
 import { ErDiagram } from './ErDiagram'
+import { SchemaCanvas } from './SchemaCanvas'
 import { BottomSheet } from './BottomSheet'
 import { SchemaMap } from './SchemaMap'
 import { SegmentedControl } from './SegmentedControl'
@@ -32,6 +33,7 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
   // Schema: a connected diagram (lines between keys) or a list of cards; the task's tables and their neighbours
   // first, all tables on request.
   const [view, setView] = useState<'diagram' | 'list'>('diagram')
+  const [canvas, setCanvas] = useState(false)
   const near = neighbourhood(used, tables)
   const [everything, setEverything] = useState(near.size === 0 || near.size >= tables.length)
   const shown = everything ? tables : tables.filter((t) => near.has(t.name))
@@ -96,7 +98,7 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
             onChange={setView}
           />
           {view === 'diagram' ? (
-            <ErDiagram dataset={exercise.dataset} only={shown.map((t) => t.name)} marked={used} compact />
+            <ErDiagram dataset={exercise.dataset} only={shown.map((t) => t.name)} marked={used} compact onFullScreen={() => setCanvas(true)} />
           ) : (
             <SchemaMap
               tables={shown}
@@ -105,6 +107,15 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
                 setPicked(name)
                 setTab('tables')
               }}
+            />
+          )}
+          {canvas && (
+            <SchemaCanvas
+              dataset={exercise.dataset}
+              title={DATASETS[exercise.dataset].name}
+              only={shown.map((t) => t.name)}
+              marked={used}
+              onClose={() => setCanvas(false)}
             />
           )}
           {!everything && (

@@ -12,6 +12,7 @@ import { MeetDatabase } from './MeetDatabase'
 import { OrderTask } from './OrderTask'
 import { PlanTask } from './PlanTask'
 import { WriteTask } from './WriteTask'
+import { DatabaseButton } from './DatabaseButton'
 
 export interface PlayerTask {
   /** Stable id of the task, used for reviews: "lessonId#index". */
@@ -101,6 +102,8 @@ export function LessonPlayer({ title, step: lessonStep, tasks, onFinish }: Props
             {lessonStep && <b>{lessonStep}</b>}
             <span>{title}</span>
           </Count>
+          {/* The database of the current task: schema, tables and rows, one tap away in every task. */}
+          {!meet && current && <DatabaseButton exerciseId={current.task.exerciseId} />}
         </Top>
         {!meet && fallback && <Fallback>No MySQL version of this task yet, so it is in PostgreSQL.</Fallback>}
         {meet ? (
@@ -176,7 +179,8 @@ const Top = styled.header`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.space.sm};
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
+  /* The notch and status bar of a phone (the app runs full screen when installed). */
+  padding: calc(${({ theme }) => theme.space.sm} + env(safe-area-inset-top)) ${({ theme }) => theme.space.md} ${({ theme }) => theme.space.sm};
   background: ${({ theme }) => theme.color.surface};
   max-width: 672px;
   width: 100%;
@@ -213,7 +217,7 @@ const Count = styled.span`
   gap: 6px;
   font-size: ${({ theme }) => theme.size.xs};
   color: ${({ theme }) => theme.color.muted};
-  max-width: 45%;
+  max-width: 35%;
   white-space: nowrap;
 
   b {

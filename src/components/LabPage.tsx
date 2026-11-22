@@ -6,6 +6,7 @@ import { findLab } from '../content/labs'
 import { recordLabStep, recordPractice, useProgress } from '../progress/store'
 import { Screen } from './LessonPlayer'
 import { WriteTask } from './WriteTask'
+import { DatabaseButton } from './DatabaseButton'
 
 // A lab: the story, then one query per step with a short lead, then what we learned. Solved steps are remembered,
 // so a lab can be left and resumed; XP is given at the end, like a practice drill.
@@ -81,6 +82,7 @@ export function LabPage() {
         <Count>
           Step {step + 1} of {total}
         </Count>
+        <DatabaseButton exerciseId={current.exerciseId} />
       </Top>
       <Lead>{current.lead}</Lead>
       <WriteTask

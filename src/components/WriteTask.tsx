@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { DATASETS } from '../content/datasets'
 import { datasetOf, loadExercises } from '../content/exercises'
@@ -12,11 +12,10 @@ import { CodeBlock } from './CodeBlock'
 import { LessonFooter, type FooterState } from './LessonFooter'
 import { ResultTable } from './ResultTable'
 import { SqlEditor } from './SqlEditor'
-import { TablesSheet } from './TablesSheet'
-import { ToolButton } from './ToolButton'
 import { SqlKeyBar } from './SqlKeyBar'
 import { flushSync } from 'react-dom'
 import { insertWord, setCursor } from '../utils/insertText'
+import { registerEditor } from '../utils/editorBridge'
 import { SqlErrorMessage } from './SqlErrorMessage'
 
 // The last step of a lesson: the real exercise, written in full and checked against the verified solution.
@@ -30,7 +29,8 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
   const [error, setError] = useState<SqlError | null>(null)
   const [reason, setReason] = useState('')
   const [revealed, setRevealed] = useState(false)
-  const [tablesOpen, setTablesOpen] = useState(false)
+  const sqlRef = useRef(sql)
+  sqlRef.current = sql
 
   useEffect(() => {
     const dataset = datasetOf(exerciseId)
@@ -43,6 +43,32 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
   }, [exerciseId])
 
   const editor = () => document.getElementById(id) as HTMLTextAreaElement | null
+
+  // The Database sheet (lesson header) inserts table and column names here while this task is on screen.
+  useEffect(() => {
+    if (!exercise) return
+    return registerEditor({
+      sql: () => sqlRef.current,
+      insert: (word, column) => {
+        const field = editor()
+        const current = sqlRef.current
+        // A cursor still at the very start means the learner has not placed one yet: add to the end instead.
+        const placed = field && (field.selectionStart > 0 || field.selectionEnd > 0)
+        const [start, end] = placed ? [field.selectionStart, field.selectionEnd] : [current.trimEnd().length, current.length]
+        const next = insertWord(current, start, end, word, column)
+        flushSync(() => setSql(next.sql))
+        setCursor(field, next.cursor)
+      },
+      // Back to the editor after the sheet closes, cursor after the last insert (inside the tap: the keyboard opens).
+      focus: () => {
+        const field = editor()
+        if (!field) return
+        const cursor = field.selectionEnd
+        field.focus({ preventScroll: true })
+        field.selectionStart = field.selectionEnd = cursor
+      },
+    })
+  }, [exercise, id])
 
   async function check() {
     if (!exercise) return
@@ -94,38 +120,8 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
             <CodeBlock sql={file.content} />
           </Extra>
         ))}
-        <Tools>
-          <ToolButton type="button" onClick={() => setTablesOpen(true)} aria-haspopup="dialog">
-            Tables
-          </ToolButton>
-        </Tools>
         <SqlEditor id={id} label="Your query" value={sql} onChange={setSql} onRun={() => void check()} />
         <SqlKeyBar editorId={id} value={sql} onChange={setSql} />
-        <TablesSheet
-          open={tablesOpen}
-          dataset={exercise.dataset}
-          solution={exercise.solutions[0].postgres}
-          sql={sql}
-          onInsert={(word, column) => {
-            const field = editor()
-            // A cursor still at the very start means the learner has not placed one yet: add to the end instead.
-            const placed = field && (field.selectionStart > 0 || field.selectionEnd > 0)
-            const [start, end] = placed ? [field.selectionStart, field.selectionEnd] : [sql.trimEnd().length, sql.length]
-            const next = insertWord(sql, start, end, word, column)
-            flushSync(() => setSql(next.sql))
-            setCursor(field, next.cursor)
-          }}
-          onClose={() => {
-            setTablesOpen(false)
-            // Back to the editor, cursor after the last insert (focus right away so phones open the keyboard).
-            const field = editor()
-            if (field) {
-              const cursor = field.selectionEnd
-              field.focus({ preventScroll: true })
-              field.selectionStart = field.selectionEnd = cursor
-            }
-          }}
-        />
         {error && <SqlErrorMessage error={error} />}
         {result && !error && <ResultTable result={result} />}
         {revealed && (
@@ -210,13 +206,6 @@ const Question = styled.h1`
 const Hint = styled.p`
   font-size: ${({ theme }) => theme.size.sm};
   color: ${({ theme }) => theme.color.muted};
-`
-
-const Tools = styled.div`
-  display: flex;
-  justify-content: flex-end;
-  gap: ${({ theme }) => theme.space.sm};
-  margin-bottom: -${({ theme }) => theme.space.sm};
 `
 
 const Secondary = styled.button`

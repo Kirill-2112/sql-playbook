@@ -3,10 +3,11 @@ import styled from 'styled-components'
 import { DATASETS } from '../content/datasets'
 import { datasetOf, loadExercises } from '../content/exercises'
 import type { Exercise } from '../content/types'
-import type { Dialect } from '../progress/store'
+import { setDialect, type Dialect } from '../progress/store'
 import { runSandboxed, SqlError, stopDatabase, type QueryResult } from '../db/database'
+import { runMysql, runsOnMysql, stopMysql, whyNotMysql } from '../db/mysqlRemote'
 import { explainMismatch } from '../utils/compareRows'
-import { exerciseScript } from '../utils/exerciseScript'
+import { changesDatabase, exerciseScript } from '../utils/exerciseScript'
 import { straightQuotes } from '../utils/straightQuotes'
 import { CodeBlock } from './CodeBlock'
 import { LessonFooter, type FooterState } from './LessonFooter'
@@ -17,6 +18,7 @@ import { flushSync } from 'react-dom'
 import { insertWord, setCursor } from '../utils/insertText'
 import { registerEditor } from '../utils/editorBridge'
 import { SqlErrorMessage } from './SqlErrorMessage'
+import { DialectSwitch } from './DialectSwitch'
 
 // The last step of a lesson: the real exercise, written in full and checked against the verified solution.
 export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerciseId: string; dialect?: Dialect; onDone: (correct: boolean) => void }) {
@@ -29,6 +31,8 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
   const [error, setError] = useState<SqlError | null>(null)
   const [reason, setReason] = useState('')
   const [revealed, setRevealed] = useState(false)
+  // The language picked above the editor; it becomes the learner's setting for the next tasks too.
+  const [mode, setMode] = useState<Dialect>(dialect)
   const sqlRef = useRef(sql)
   sqlRef.current = sql
 
@@ -70,12 +74,19 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
     })
   }, [exercise, id])
 
+  // MySQL mode checks on the MySQL server, unless the exercise has no MySQL version it can run.
+  const onMysql = mode === 'mysql' && !!exercise && runsOnMysql(exercise)
+
   async function check() {
     if (!exercise) return
     setBusy(true)
     setError(null)
     try {
-      const actual = await runSandboxed(exerciseScript(exercise, straightQuotes(sql)), exercise.dataset, exercise.files)
+      const learner = straightQuotes(sql)
+      // MySQL runs on the server; the expected rows come from PostgreSQL either way (verify checks both agree).
+      const actual = onMysql
+        ? await runMysql(exerciseScript(exercise, learner, 'mysql'), exercise.dataset, { write: changesDatabase(exercise), files: exercise.files })
+        : await runSandboxed(exerciseScript(exercise, learner), exercise.dataset, exercise.files)
       setResult(actual)
       const expected = await runSandboxed(exerciseScript(exercise, exercise.solutions[0].postgres), exercise.dataset, exercise.files)
       const mismatch = explainMismatch(actual, expected, exercise.orderMatters)
@@ -93,33 +104,47 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
 
   if (!exercise) return <Body>Loading the exercise…</Body>
 
+  const answer = onMysql ? (exercise.solutions[0].mysql ?? exercise.solutions.find((s) => s.mysql)?.mysql ?? '') : exercise.solutions[0].postgres
+  const other = onMysql ? exercise.solutions[0].postgres : mode === 'mysql' ? exercise.solutions[0].mysql : null
+
   return (
     <>
       <Body>
         <Kind>Write the query · {DATASETS[exercise.dataset].name}</Kind>
         <Question>{exercise.prompt}</Question>
         {exercise.hint && <Hint>{exercise.hint}</Hint>}
-        {dialect === 'mysql' && (
-          <Hint>
-            Your query runs on PostgreSQL in your browser: there is no MySQL here. Standard SQL works in both; MySQL-only
-            syntax (backticks, IFNULL, DATE_FORMAT, LIMIT 10, 5) will not run. The answer shows the MySQL version too.
-          </Hint>
-        )}
-        {exercise.setupSql && (
+        {mode === 'mysql' && !onMysql && <Hint>{whyNotMysql(exercise)}</Hint>}
+        {(onMysql ? (exercise.setupSqlMysql ?? exercise.setupSql) : exercise.setupSql) && (
           <Extra open>
             <summary>Set up for you first</summary>
-            <CodeBlock sql={exercise.setupSql} />
+            <CodeBlock sql={(onMysql ? (exercise.setupSqlMysql ?? exercise.setupSql) : exercise.setupSql) ?? ''} />
           </Extra>
         )}
         {exercise.files?.map((file) => (
           <Extra key={file.name} open>
             <summary>File {file.name}</summary>
             <Hint>
-              Load it with <code>copy … from '{file.name}' with (format csv, header)</code>.
+              Load it with{' '}
+              {onMysql ? (
+                <code>load data local infile '{file.name}' into table … fields terminated by ',' ignore 1 lines</code>
+              ) : (
+                <code>copy … from '{file.name}' with (format csv, header)</code>
+              )}
+              .
             </Hint>
             <CodeBlock sql={file.content} />
           </Extra>
         ))}
+        <DialectSwitch
+          value={mode}
+          onChange={(next) => {
+            setMode(next)
+            setDialect(next)
+            setResult(null)
+            setError(null)
+            if (state === 'wrong') setState('idle')
+          }}
+        />
         <SqlEditor id={id} label="Your query" value={sql} onChange={setSql} onRun={() => void check()} />
         <SqlKeyBar editorId={id} value={sql} onChange={setSql} />
         {error && <SqlErrorMessage error={error} />}
@@ -127,11 +152,11 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
         {revealed && (
           <>
             <Kind>One correct answer</Kind>
-            <CodeBlock sql={exercise.solutions[0].postgres} />
-            {dialect === 'mysql' && exercise.solutions[0].mysql && exercise.solutions[0].mysql !== exercise.solutions[0].postgres && (
+            <CodeBlock sql={answer} />
+            {other && other !== answer && (
               <>
-                <Kind>The same in MySQL</Kind>
-                <CodeBlock sql={exercise.solutions[0].mysql} />
+                <Kind>The same in {onMysql ? 'PostgreSQL' : 'MySQL'}</Kind>
+                <CodeBlock sql={other} />
               </>
             )}
           </>
@@ -156,7 +181,7 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
               )}
             </>
           ) : busy ? (
-            <Secondary type="button" onClick={() => stopDatabase(exercise.dataset)}>
+            <Secondary type="button" onClick={() => (onMysql ? stopMysql() : stopDatabase(exercise.dataset))}>
               Stop
             </Secondary>
           ) : state === 'idle' ? (

@@ -1,0 +1,11 @@
+# HTTPS in front of the runner (a Let's Encrypt certificate for RUNNER_HOST). Only /run and /health exist.
+{$RUNNER_HOST} {
+	request_body {
+		max_size 600KB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+	reverse_proxy 127.0.0.1:8080
+}

@@ -130,7 +130,7 @@ Audit of 2026-10-15:
 - MySQL mode (2026-10-24): `dialect` in the store (Progress page, "Learn in"). build:lessons now needs the local MySQL:
   for plain-query exercises whose first solution is verified on MySQL, gap/rows/bug/order tasks get a `mysql` version
   whose wrong options are run on MySQL (`pb_<dataset>`, max_execution_time 10 s). `src/progress/dialect.ts` swaps it
-  in; tasks without one stay in PostgreSQL with a notice. Write tasks still run on PGlite (they show the MySQL answer).
+  in; tasks without one stay in PostgreSQL with a notice. Write tasks run on the MySQL runner in MySQL mode (below).
   Script exercises (checkSql/setupSql) run each MySQL variant on a fresh copy (`pb_lessons`) of only the tables the
   script mentions (`mysqlRowsOnCopy` in scripts/lib/mysql.ts, shared with verify). 524 of 671 tap tasks have a MySQL
   version. build:lessons takes ~15 min; the CI timeout is 75 min.
@@ -180,6 +180,13 @@ Audit of 2026-10-15:
 - Lesson player: missed tap tasks return before the final write task; the bar counts answers; "2/3" is a separate
   `step` prop; LessonComplete celebrates crossing the daily goal. A11y: focus goes to each task's h1 (TaskFocus),
   the verdict is announced from an always-mounted status region, radio groups use arrow keys (utils/radioGroup.ts).
+- MySQL runner (2026-11-22): write tasks in MySQL mode run on real MySQL 8.4 on an Oracle Cloud Always Free VM
+  (129.159.152.119, https://129-159-152-119.sslip.io; Docker: mysql + `server/runner/runner.ts` + Caddy). See
+  `server/README.md` for the safety model and `server/deploy.sh [--datasets]`. Client: `src/db/mysqlRemote.ts`
+  (`runMysql`, `runsOnMysql`: exercises creating users/roles/GRANT stay in PostgreSQL), `DialectSwitch` above the
+  editor in WriteTask (sets the stored dialect). Expected rows still come from PostgreSQL. After rebuilding datasets,
+  redeploy with --datasets. `scripts/check-runner.ts` compares the server with the local MySQL (through an SSH tunnel).
+  Privacy Policy mentions it (Oracle, Israel; SQL not stored). The runner's origin is in vercel.json connect-src.
 - QA, design and accessibility reports of 2026-11-19 live in `qa-bug-hunt/` (git-ignored, local only).
 - iCloud Desktop sync can create "<name> 2.ts" copies; delete them, never commit them.
 - Next: more labs (level 4, and level 3 on other datasets), two replacement datasets.

@@ -6,3 +6,5 @@ datasets/raw/
 # Delivery is generated in the browser; its MySQL copy (~18 MB) is rebuilt from the generator, not committed.
 datasets/build/delivery.mysql.sql
 *.tsbuildinfo
+# The bundled MySQL runner (server/deploy.sh builds it).
+server/dist

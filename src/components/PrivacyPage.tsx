@@ -27,7 +27,7 @@ export function PrivacyPage() {
         <li>
           <strong>On your device.</strong> Your progress (finished lessons, XP, streak, review schedule) and settings (daily
           goal, SQL dialect, reminder time) are saved in your browser’s local storage so the app works without an account.
-          The queries you run execute in your browser and are not sent anywhere.
+          The queries you run execute in your browser and are not sent anywhere, except in MySQL mode (below).
         </li>
         <li>
           <strong>Account.</strong> Your email address, and if you sign in with Google, the name and profile picture Google
@@ -38,6 +38,12 @@ export function PrivacyPage() {
           <strong>Reminders.</strong> If you turn them on: the push address your browser creates for this site and its
           encryption keys, the reminder time and your time zone, and the last day you practised with your streak, so a
           reminder is skipped on days you already studied.
+        </li>
+        <li>
+          <strong>MySQL mode.</strong> There is no MySQL in the browser, so when you check a query in MySQL, its text and
+          the exercise’s sample data files are sent to my MySQL server, run on a copy of the sample database, and
+          discarded. They are not stored or logged. To stop abuse, the server counts requests from each visitor for up to a
+          day, in memory, keyed by a one-way hash of the IP address.
         </li>
         <li>
           <strong>Hosting.</strong> Like any website, the hosting provider processes your IP address and basic request
@@ -59,6 +65,9 @@ export function PrivacyPage() {
         <li>
           <strong>Supabase Inc.</strong> stores accounts, progress and reminder settings on servers in Ireland (EU), and
           sends the sign-in emails.
+        </li>
+        <li>
+          <strong>Oracle</strong> (Oracle Cloud, Israel) hosts the MySQL server used in MySQL mode.
         </li>
         <li>
           <strong>Google</strong>, if you choose “Continue with Google”, confirms who you are.

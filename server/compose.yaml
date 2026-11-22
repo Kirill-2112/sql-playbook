@@ -1,0 +1,54 @@
+# The MySQL runner on the Oracle Cloud server (see server/README.md). Secrets live in .env on the server only.
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    # No binary log (stored functions and triggers need no extra rights, less disk); no event scheduler (an event
+    # created by a learner never runs); LOAD DATA LOCAL for the CSV exercises (the runner serves only their files).
+    command: --skip-log-bin --event-scheduler=OFF --local-infile=1 --max-connections=60 --innodb-buffer-pool-size=2G
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    # Reachable from the runner only: no published port.
+
+  runner:
+    image: node:22-alpine
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    command: ["node", "--max-old-space-size=512", "/app/runner.mjs"]
+    volumes:
+      - ./runner.mjs:/app/runner.mjs:ro
+    user: node
+    read_only: true
+    mem_limit: 768m
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    # Host network: Oracle's firewall rules (iptables) stay in charge of what is reachable.
+    network_mode: host
+    environment:
+      RUNNER_HOST: ${RUNNER_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  mysql-data:
+  caddy-data:
+  caddy-config:

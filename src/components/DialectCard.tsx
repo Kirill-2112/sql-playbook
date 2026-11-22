@@ -5,7 +5,7 @@ import { setDialect, useProgress, type Dialect } from '../progress/store'
 const ABOUT: Record<Dialect, string> = {
   postgres: 'Lessons show PostgreSQL. Queries you write run on PostgreSQL in your browser.',
   mysql:
-    'Tap tasks show MySQL 8.4, with every wrong option checked on a real MySQL. Queries you write still run on PostgreSQL in your browser, and the answers show the MySQL version.',
+    'Tap tasks show MySQL 8.4, with every wrong option checked on a real MySQL. Queries you write are checked on a real MySQL 8.4 server (it needs the internet).',
 }
 
 // Which SQL dialect the lessons are shown in.

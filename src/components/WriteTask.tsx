@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { DATASETS } from '../content/datasets'
 import { datasetOf, loadExercises } from '../content/exercises'
@@ -19,6 +19,10 @@ import { insertWord, setCursor } from '../utils/insertText'
 import { registerEditor } from '../utils/editorBridge'
 import { SqlErrorMessage } from './SqlErrorMessage'
 import { DialectSwitch } from './DialectSwitch'
+import { PromptWords } from './PromptWords'
+import { SCHEMAS } from '../content/schemas'
+import { tablesIn } from '../utils/schemaTables'
+import type { SuggestContext } from '../utils/sqlSuggest'
 
 // The last step of a lesson: the real exercise, written in full and checked against the verified solution.
 export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerciseId: string; dialect?: Dialect; onDone: (correct: boolean) => void }) {
@@ -48,21 +52,37 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
 
   const editor = () => document.getElementById(id) as HTMLTextAreaElement | null
 
+  /** Puts a table or column name in at the cursor (from the Database sheet or a name tapped in the task's text). */
+  const insertName = (word: string, column: boolean, focus = false) => {
+    const field = editor()
+    const current = sqlRef.current
+    // A cursor still at the very start means the learner has not placed one yet: add to the end instead.
+    const placed = field && (field.selectionStart > 0 || field.selectionEnd > 0)
+    const [start, end] = placed ? [field.selectionStart, field.selectionEnd] : [current.trimEnd().length, current.length]
+    const next = insertWord(current, start, end, word, column)
+    flushSync(() => setSql(next.sql))
+    setCursor(field, next.cursor, focus)
+  }
+
+  // What the suggestions are made of: the dataset's tables, the task's own first.
+  const context = useMemo<SuggestContext | null>(() => {
+    if (!exercise) return null
+    const tables = SCHEMAS[exercise.dataset]
+    const solution = exercise.solutions[0]
+    return { tables, taskTables: tablesIn(`${solution.postgres}\n${solution.mysql ?? ''}\n${exercise.checkSql ?? ''}`, tables) }
+  }, [exercise])
+  const promptNames = useMemo(() => {
+    if (!context) return { all: [] as string[], tables: new Set<string>() }
+    const own = context.tables.filter((t) => context.taskTables.includes(t.name))
+    return { all: [...own.map((t) => t.name), ...own.flatMap((t) => t.columns.map((c) => c.name))], tables: new Set(own.map((t) => t.name)) }
+  }, [context])
+
   // The Database sheet (lesson header) inserts table and column names here while this task is on screen.
   useEffect(() => {
     if (!exercise) return
     return registerEditor({
       sql: () => sqlRef.current,
-      insert: (word, column) => {
-        const field = editor()
-        const current = sqlRef.current
-        // A cursor still at the very start means the learner has not placed one yet: add to the end instead.
-        const placed = field && (field.selectionStart > 0 || field.selectionEnd > 0)
-        const [start, end] = placed ? [field.selectionStart, field.selectionEnd] : [current.trimEnd().length, current.length]
-        const next = insertWord(current, start, end, word, column)
-        flushSync(() => setSql(next.sql))
-        setCursor(field, next.cursor)
-      },
+      insert: (word, column) => insertName(word, column),
       // Back to the editor after the sheet closes, cursor after the last insert (inside the tap: the keyboard opens).
       focus: () => {
         const field = editor()
@@ -111,7 +131,9 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
     <>
       <Body>
         <Kind>Write the query · {DATASETS[exercise.dataset].name}</Kind>
-        <Question>{exercise.prompt}</Question>
+        <Question>
+          <PromptWords text={exercise.prompt} names={promptNames.all} onInsert={(name) => insertName(name, !promptNames.tables.has(name), true)} />
+        </Question>
         {exercise.hint && <Hint>{exercise.hint}</Hint>}
         {mode === 'mysql' && !onMysql && <Hint>{whyNotMysql(exercise)}</Hint>}
         {(onMysql ? (exercise.setupSqlMysql ?? exercise.setupSql) : exercise.setupSql) && (
@@ -145,8 +167,8 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
             if (state === 'wrong') setState('idle')
           }}
         />
-        <SqlEditor id={id} label="Your query" value={sql} onChange={setSql} onRun={() => void check()} />
-        <SqlKeyBar editorId={id} value={sql} onChange={setSql} />
+        <SqlEditor id={id} label="Your query" value={sql} onChange={setSql} onRun={() => void check()} completion={context ?? undefined} />
+        {context && <SqlKeyBar editorId={id} value={sql} onChange={setSql} context={context} />}
         {error && <SqlErrorMessage error={error} />}
         {result && !error && <ResultTable result={result} />}
         {revealed && (

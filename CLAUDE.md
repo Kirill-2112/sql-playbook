@@ -174,9 +174,17 @@ Audit of 2026-10-15:
 - Phone writing aids (2026-11-20), all on the shared `BottomSheet` (native <dialog>) and `ToolButton`:
   `TablesSheet` (write tasks: the exercise's tables first, tap a table/column to insert at the cursor; a column after
   another name gets a comma), `DataSheet` ("Peek at the data" in rows tasks: up to 100 rows, only the columns the
-  query mentions plus the key; after checking, the rows of solution A are shown), `SqlKeyBar` (keywords and symbol
-  pairs, only on `(pointer: coarse)`; pointerdown preventDefault keeps the keyboard open). Inserts use
+  query mentions plus the key; after checking, the rows of solution A are shown). Inserts use
   `insertWord`/`setCursor` (src/utils/insertText.ts) with flushSync, or React moves the cursor to the end.
+  (TablesSheet/DataSheet were later merged into `DatabaseSheet`.)
+- Suggestions while writing (2026-11-22): `src/utils/sqlSuggest.ts` (`suggest` reads the SQL up to the cursor: task
+  columns after SELECT/WHERE/comma, tables after FROM/JOIN (FK-linked ones first), `p.` → p's columns via aliases,
+  the usual next keywords after a finished expression, all narrowed by the typed prefix; a finished word also gets
+  what follows, with `start` = cursor; `applySuggestion` adds commas in SELECT/GROUP/ORDER lists and a space after
+  keywords only). Touch: `SqlKeyBar` row 1 = suggestions, row 2 = symbols (comma trims the space before it). Mouse:
+  `SqlEditor` `completion` prop shows a list under the caret (`caretPosition`, mirror div): ↑↓, Tab/Enter, Esc,
+  Ctrl+Space; it closes when the typed word is already whole, so Enter still makes a new line. `PromptWords`
+  underlines the task's table/column names in the prompt; a tap inserts them.
 - Lesson player: missed tap tasks return before the final write task; the bar counts answers; "2/3" is a separate
   `step` prop; LessonComplete celebrates crossing the daily goal. A11y: focus goes to each task's h1 (TaskFocus),
   the verdict is announced from an always-mounted status region, radio groups use arrow keys (utils/radioGroup.ts).

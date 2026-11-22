@@ -113,7 +113,6 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
             <SchemaCanvas
               dataset={exercise.dataset}
               title={DATASETS[exercise.dataset].name}
-              only={shown.map((t) => t.name)}
               marked={used}
               onClose={() => setCanvas(false)}
             />

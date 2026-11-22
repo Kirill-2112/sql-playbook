@@ -82,11 +82,15 @@ export function usePanZoom(toLocal: (clientX: number, clientY: number) => { x: n
     else setView((v) => ({ ...v, x: v.x - e.deltaX, y: v.y - e.deltaY }))
   }
 
-  /** Fits content of the given size into a frame of the given size, centred, never above 100%. */
-  const fit = useCallback((content: { width: number; height: number }, frame: { width: number; height: number }) => {
+  /**
+   * Fits content of the given size into a frame of the given size, centred, never above 100%. `top` keeps a band free
+   * at the top (for buttons floating over the canvas).
+   */
+  const fit = useCallback((content: { width: number; height: number }, frame: { width: number; height: number }, top = 0) => {
     if (!content.width || !content.height) return
-    const scale = clamp(Math.min(1, frame.width / content.width, frame.height / content.height))
-    setView({ scale, x: (frame.width - content.width * scale) / 2, y: Math.max(0, (frame.height - content.height * scale) / 2) })
+    const height = frame.height - top
+    const scale = clamp(Math.min(1, frame.width / content.width, height / content.height))
+    setView({ scale, x: (frame.width - content.width * scale) / 2, y: top + Math.max(0, (height - content.height * scale) / 2) })
   }, [])
 
   return {

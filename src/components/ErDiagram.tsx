@@ -33,7 +33,13 @@ interface Props {
    * Only the board (cards and lines), for a pan-and-zoom canvas that positions it with `boardStyle` and needs its
    * natural size (`onBoardSize`). `keysOnly` then comes from the canvas.
    */
-  bare?: { keysOnly: boolean; style: CSSProperties; onSize: (size: { width: number; height: number }) => void }
+  bare?: {
+    keysOnly: boolean
+    style: CSSProperties
+    onSize: (size: { width: number; height: number }) => void
+    /** On a wide screen: split taller columns so the diagram spreads across the width. */
+    maxPerColumn?: number
+  }
   /** Opens the diagram full screen (the phone sheet passes its own full-screen canvas). */
   onFullScreen?: () => void
 }
@@ -57,7 +63,13 @@ export function ErDiagram({ dataset, only, marked = [], compact = false, bare, o
   const scroll = useRef<HTMLDivElement>(null)
   const dragging = useDragToPan(scroll)
 
-  const layout = useMemo(() => layoutColumns(tables), [tables])
+  const maxPerColumn = bare?.maxPerColumn
+  const layout = useMemo(() => {
+    const columns = layoutColumns(tables)
+    if (!maxPerColumn) return columns
+    // Same order, references still point left: a level with too many tables becomes several columns side by side.
+    return columns.flatMap((col) => Array.from({ length: Math.ceil(col.length / maxPerColumn) }, (_, i) => col.slice(i * maxPerColumn, (i + 1) * maxPerColumn)))
+  }, [tables, maxPerColumn])
   const relations = useMemo(() => relationsOf(tables), [tables])
   const byName = useMemo(() => new Map(tables.map((t) => [t.name, t])), [tables])
 
@@ -163,7 +175,7 @@ export function ErDiagram({ dataset, only, marked = [], compact = false, bare, o
 
   useLayoutEffect(() => {
     measure()
-  }, [measure, columns, dataset, fullScreen])
+  }, [measure, columns, dataset, fullScreen, layout])
 
   useEffect(() => {
     const el = board.current

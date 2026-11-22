@@ -4,7 +4,8 @@ import { DATASETS } from '../content/datasets'
 import { SCHEMAS } from '../content/schemas'
 import type { Exercise } from '../content/types'
 import { activeEditor, subscribeEditor } from '../utils/editorBridge'
-import { tablesIn } from '../utils/schemaTables'
+import { neighbourhood, tablesIn } from '../utils/schemaTables'
+import { ErDiagram } from './ErDiagram'
 import { BottomSheet } from './BottomSheet'
 import { SchemaMap } from './SchemaMap'
 import { SegmentedControl } from './SegmentedControl'
@@ -28,6 +29,12 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
   const tables = SCHEMAS[exercise.dataset]
   const used = tablesIn(exercise.solutions[0].postgres, tables)
   const [tab, setTab] = useState<Tab>('schema')
+  // Schema: a connected diagram (lines between keys) or a list of cards; the task's tables and their neighbours
+  // first, all tables on request.
+  const [view, setView] = useState<'diagram' | 'list'>('diagram')
+  const near = neighbourhood(used, tables)
+  const [everything, setEverything] = useState(near.size === 0 || near.size >= tables.length)
+  const shown = everything ? tables : tables.filter((t) => near.has(t.name))
   const [picked, setPicked] = useState(used[0] ?? tables[0]?.name ?? '')
   const editor = useSyncExternalStore(subscribeEditor, activeEditor, activeEditor)
   const [, redraw] = useState(0)
@@ -78,14 +85,34 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
       }
     >
       {tab === 'schema' && (
-        <SchemaMap
-          tables={tables}
-          used={used}
-          onPick={(name) => {
-            setPicked(name)
-            setTab('tables')
-          }}
-        />
+        <>
+          <SegmentedControl
+            label="Schema view"
+            options={[
+              { value: 'diagram', label: 'Diagram' },
+              { value: 'list', label: 'List' },
+            ]}
+            value={view}
+            onChange={setView}
+          />
+          {view === 'diagram' ? (
+            <ErDiagram dataset={exercise.dataset} only={shown.map((t) => t.name)} marked={used} compact />
+          ) : (
+            <SchemaMap
+              tables={shown}
+              used={used}
+              onPick={(name) => {
+                setPicked(name)
+                setTab('tables')
+              }}
+            />
+          )}
+          {!everything && (
+            <ShowAll type="button" onClick={() => setEverything(true)}>
+              Show all {tables.length} tables
+            </ShowAll>
+          )}
+        </>
       )}
 
       {tab === 'tables' && (
@@ -129,6 +156,17 @@ export function DatabaseSheet({ open, exercise, onClose }: Props) {
     </BottomSheet>
   )
 }
+
+const ShowAll = styled.button`
+  min-height: 44px;
+  border: 1px solid ${({ theme }) => theme.color.line};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.color.surface};
+  color: ${({ theme }) => theme.color.accentStrong};
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+`
 
 const Top = styled.div`
   display: flex;

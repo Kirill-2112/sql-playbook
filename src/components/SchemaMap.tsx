@@ -1,10 +1,9 @@
-import { useState } from 'react'
 import styled from 'styled-components'
 import type { SchemaTable } from '../content/schemas'
 import { layoutColumns } from '../utils/erLayout'
-import { neighbourhood } from '../utils/schemaTables'
 
 interface Props {
+  /** The tables to show (the sheet passes the task's neighbourhood, or all of them). */
   tables: SchemaTable[]
   /** Tables the current task reads: highlighted, and with their neighbours shown first. */
   used: string[]
@@ -16,13 +15,10 @@ const OTHER_COLUMNS = 3
 
 /**
  * The schema on a phone: tables in layers, the referenced ones above the tables that point to them, each card with its
- * primary key, its foreign keys (column → table) and a few other columns. Starts with the task's tables and their
- * direct neighbours; "Show all" brings in the rest.
+ * primary key, its foreign keys (column → table) and a few other columns: the list view of the Database sheet.
  */
 export function SchemaMap({ tables, used, onPick }: Props) {
-  const near = neighbourhood(used, tables)
-  const [all, setAll] = useState(near.size === 0 || near.size >= tables.length)
-  const shown = all ? tables : tables.filter((t) => near.has(t.name))
+  const shown = tables
   // The task's tables first inside each layer, so they are not hidden among their neighbours.
   const layers = layoutColumns(shown).map((names) => [...names].sort((a, b) => Number(used.includes(b)) - Number(used.includes(a))))
   const byName = new Map(tables.map((t) => [t.name, t]))
@@ -71,11 +67,6 @@ export function SchemaMap({ tables, used, onPick }: Props) {
           })}
         </Layer>
       ))}
-      {!all && (
-        <More type="button" onClick={() => setAll(true)}>
-          Show all {tables.length} tables
-        </More>
-      )}
     </Wrap>
   )
 }
@@ -172,13 +163,3 @@ const Muted = styled.span`
   color: ${({ theme }) => theme.color.muted};
 `
 
-const More = styled.button`
-  min-height: 44px;
-  border: 1px solid ${({ theme }) => theme.color.line};
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.surface};
-  color: ${({ theme }) => theme.color.accentStrong};
-  font: inherit;
-  font-weight: 600;
-  cursor: pointer;
-`

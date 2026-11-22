@@ -21,9 +21,21 @@ interface Line {
 
 const relationKey = (r: Relation) => `${r.child}.${r.childColumns.join(',')}`
 
+interface Props {
+  dataset: DatasetId
+  /** Only these tables (e.g. a task's tables and their neighbours); all of them when omitted. */
+  only?: string[]
+  /** Tables to mark (the ones a task reads). */
+  marked?: string[]
+  /** Inside a sheet on a phone: no full-screen button, the diagram takes the sheet's height. */
+  compact?: boolean
+}
+
 /** Interactive ER diagram: tables in columns (referenced tables on the left), lines for foreign keys. */
-export function ErDiagram({ dataset }: { dataset: DatasetId }) {
-  const tables = SCHEMAS[dataset]
+export function ErDiagram({ dataset, only, marked = [], compact = false }: Props) {
+  const all = SCHEMAS[dataset]
+  const onlyKey = only?.join(',') ?? ''
+  const tables = useMemo(() => (only ? all.filter((t) => only.includes(t.name)) : all), [all, onlyKey])
   const [columns, setColumns] = useStoredState<Columns>('er-columns', 'keys', ['keys', 'all'])
   const [selected, setSelected] = useState<string | null>(null)
   const [hovered, setHovered] = useState<string | null>(null)
@@ -193,6 +205,7 @@ export function ErDiagram({ dataset }: { dataset: DatasetId }) {
           <Legend>
             <Key $kind="pk">PK</Key> primary key <Key $kind="fk">FK</Key> foreign key · line: ● one ⟶ ⋔ many
           </Legend>
+          {!compact && (
           <SegmentedControl
             label="Diagram zoom"
             options={[
@@ -202,9 +215,12 @@ export function ErDiagram({ dataset }: { dataset: DatasetId }) {
             value={zoom}
             onChange={setZoom}
           />
-          <FullScreenButton type="button" onClick={fullScreen ? closeFullScreen : openFullScreen}>
-            {fullScreen ? 'Close (Esc)' : 'Full screen'}
-          </FullScreenButton>
+          )}
+          {!compact && (
+            <FullScreenButton type="button" onClick={fullScreen ? closeFullScreen : openFullScreen}>
+              {fullScreen ? 'Close (Esc)' : 'Full screen'}
+            </FullScreenButton>
+          )}
         </Toolbar>
 
         <Info aria-live="polite">
@@ -254,19 +270,21 @@ export function ErDiagram({ dataset }: { dataset: DatasetId }) {
             </>
           ) : (
             <span>
-              Click a table to highlight its relationships. Hover a <Key $kind="fk">FK</Key> column to see where it
-              points. Drag to move around.
+              {compact
+                ? 'Tap a table to highlight its links. Drag to move around.'
+                : <>Click a table to highlight its relationships. Hover a <Key $kind="fk">FK</Key> column to see where it
+              points. Drag to move around.</>}
             </span>
           )}
         </Info>
 
-        <Scroll ref={scroll} $dragging={dragging} $fullScreen={fullScreen}>
+        <Scroll ref={scroll} $dragging={dragging} $fullScreen={fullScreen || compact}>
           <Scaled
             style={
               scale < 1 ? { width: size.width * scale, height: size.height * scale, overflow: 'hidden' } : undefined
             }
           >
-            <Board ref={board} style={scale < 1 ? { transform: `scale(${scale})` } : undefined}>
+            <Board ref={board} $compact={compact} style={scale < 1 ? { transform: `scale(${scale})` } : undefined}>
               <svg width={size.width} height={size.height} aria-hidden="true">
                 {lines
                   .slice()
@@ -301,6 +319,8 @@ export function ErDiagram({ dataset }: { dataset: DatasetId }) {
                         key={name}
                         table={table}
                         keysOnly={columns === 'keys'}
+                        marked={marked.includes(name)}
+                        narrow={compact}
                         state={cardState(name)}
                         onSelect={() => setSelected((s) => (s === name ? null : name))}
                         onHoverForeignKey={(column) => setHovered(column ? `${name}.${column}` : null)}
@@ -431,14 +451,15 @@ const Scaled = styled.div`
   width: max-content;
 `
 
-const Board = styled.div`
+const Board = styled.div<{ $compact: boolean }>`
   transform-origin: top left;
   position: relative;
   display: flex;
-  gap: 64px;
+  /* Compact (phone sheet): two narrow columns fit the screen, the lines still have room between them. */
+  gap: ${({ theme, $compact }) => ($compact ? theme.space.md : '64px')};
   align-items: flex-start;
   width: max-content;
-  padding: ${({ theme }) => theme.space.lg};
+  padding: ${({ theme, $compact }) => ($compact ? theme.space.sm : theme.space.lg)};
 
   > svg {
     position: absolute;

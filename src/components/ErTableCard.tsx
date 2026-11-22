@@ -6,18 +6,22 @@ export type CardState = 'normal' | 'selected' | 'related' | 'dimmed'
 interface ErTableCardProps {
   table: SchemaTable
   keysOnly: boolean
+  /** One of the tables the current task reads. */
+  marked?: boolean
+  /** Phone width: a narrower card without the type column (lines show where foreign keys point). */
+  narrow?: boolean
   state: CardState
   onSelect: () => void
   onHoverForeignKey: (column: string | null) => void
 }
 
-export function ErTableCard({ table, keysOnly, state, onSelect, onHoverForeignKey }: ErTableCardProps) {
+export function ErTableCard({ table, keysOnly, marked = false, narrow = false, state, onSelect, onHoverForeignKey }: ErTableCardProps) {
   const fkTarget = new Map(table.foreignKeys.flatMap((fk) => fk.columns.map((c) => [c, fk.refTable])))
   const columns = table.columns.filter((c) => !keysOnly || table.primaryKey.includes(c.name) || fkTarget.has(c.name))
   const hidden = table.columns.length - columns.length
 
   return (
-    <Card data-er-table={table.name} $state={state}>
+    <Card data-er-table={table.name} $state={state} $marked={marked} $narrow={narrow}>
       <Header type="button" aria-pressed={state === 'selected'} onClick={onSelect} title="Show this table's relationships">
         <span>{table.name}</span>
         <small>{table.rows.toLocaleString('en-US')} rows</small>
@@ -39,7 +43,7 @@ export function ErTableCard({ table, keysOnly, state, onSelect, onHoverForeignKe
                 {target && <Key $kind="fk">FK</Key>}
               </Keys>
               <Name $pk={pk}>{c.name}</Name>
-              <Type>{target ? `→ ${target}` : c.type.replace(/\(.*\)/, '')}</Type>
+              {!narrow && <Type>{target ? `→ ${target}` : c.type.replace(/\(.*\)/, '')}</Type>}
             </Row>
           )
         })}
@@ -49,11 +53,12 @@ export function ErTableCard({ table, keysOnly, state, onSelect, onHoverForeignKe
   )
 }
 
-const Card = styled.div<{ $state: CardState }>`
-  width: 210px;
+const Card = styled.div<{ $state: CardState; $marked: boolean; $narrow: boolean }>`
+  width: ${({ $narrow }) => ($narrow ? 150 : 210)}px;
   border-radius: ${({ theme }) => theme.radius.sm};
   background: ${({ theme }) => theme.color.surface};
-  border: 1px solid ${({ theme, $state }) => ($state === 'selected' ? theme.color.accent : theme.color.line)};
+  border: ${({ $marked }) => ($marked ? 2 : 1)}px solid
+    ${({ theme, $state, $marked }) => ($state === 'selected' || $marked ? theme.color.accent : theme.color.line)};
   box-shadow: ${({ theme, $state }) => ($state === 'selected' ? `0 0 0 2px ${theme.color.accentSoft}` : 'none')};
   opacity: ${({ $state }) => ($state === 'dimmed' ? 0.35 : 1)};
   transition: opacity 0.15s;

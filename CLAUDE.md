@@ -55,8 +55,8 @@ Audit of 2026-10-15:
   MySQL `->`/`->>` work only on columns; use json_extract/json_unquote on expressions. Run `-- --links` after adding docs.
 - The learning app: `/` is the path (`LearnPage`), `/learn/:lessonId` a full-screen lesson, `/progress` stats; the old
   home is `/overview`. `npm run build:lessons` (scripts/build-lessons.ts) builds `generated/lessons.json` from the
-  exercises: levels 1–2, one skill per topic, 3 lessons per skill (gap, rows, "find the bug" or "put the lines in order",
-  gap, then "write the query"). "Find the bug" reuses a verified wrong gap variant; "order" uses clause-per-line solutions. Every wrong gap option is run on PGlite and kept only if it changes the result or fails. Deterministic;
+  exercises: levels 1–2, one skill per topic, 3 lessons per skill (gap, "which result is right", "find the bug" or "put the
+  lines in order", "build the query" (else a gap), then "write the query"). "Find the bug" reuses a verified wrong gap variant; "order" uses clause-per-line solutions. Every wrong gap option is run on PGlite and kept only if it changes the result or fails. Deterministic;
   CI checks it is current, so rerun it after changing exercises. Progress lives in localStorage (`src/progress/store.ts`).
 - `src/content/topics.ts` — the 58-topic curriculum (5 levels). `src/content/datasets.ts` — dataset metadata and attribution.
 - UI: React + TypeScript strict + styled-components; one component per file in `src/components/`; colours/spacing only from
@@ -200,9 +200,14 @@ Audit of 2026-10-15:
   query lines ≤ 36 chars to fit a 375 px phone, text ≤ 200 chars) and writes `generated/explanations.json` (CI checks it
   is current). The skill's first lesson starts with them (`intro` in LessonPlayer, ExplainCardView, ExplainTable);
   "I know this" skips. `mysqlText`/`mysqlTip` replace text that names PostgreSQL-only syntax in MySQL mode.
+- Which result is right (2026-11-23): lesson task kind `predict` (PredictTask) replaced "how many rows" (the owner
+  found counting rows in the data pointless). Three small results (≤ 3 columns, first 3 rows, row count): the
+  solution's and two near-miss variants (opposite comparison, ALTERNATIVES keywords) whose preview visibly differs.
+  The old `rows` kind stays in the types but is no longer generated. SQL errors get a plain-words line first
+  (`src/utils/explainError.ts`, SqlErrorMessage `sql` prop).
 - Build the query (2026-11-23): lesson task kind `build` (BuildTask). `src/utils/buildQuery.ts` cuts a plain SELECT
   into pieces (clause keywords, list items with their comma, conditions and AND/OR, FROM/JOIN tables; ≤ 14 pieces of
-  ≤ 36 chars) and compares answers with `canonical` (AND-conditions and GROUP BY items in any order). build-lessons adds
+  ≤ 36 chars) and compares answers with `canonical` (conditions joined only by AND, or only by OR, and GROUP BY items in any order). build-lessons adds
   up to 3 wrong pieces (ALTERNATIVES keywords, the opposite comparison, unused columns of the same tables), each
   run in place of the piece it imitates on PGlite (and MySQL for the mysql version) and kept only if the result
   changes. It takes the 4th slot of a lesson and never uses the lesson's write exercise.

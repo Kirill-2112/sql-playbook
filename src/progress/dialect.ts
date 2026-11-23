@@ -15,6 +15,7 @@ export function inDialect(task: LessonTask, dialect: Dialect): { task: LessonTas
     case 'gap':
       return { task: { ...task, code: task.mysql.code, options: task.mysql.options, answer: task.mysql.answer, explanation: task.explanation + note }, fallback: false }
     case 'rows':
+    case 'predict':
       return { task: { ...task, code: task.mysql.code, explanation: task.explanation + note }, fallback: false }
     case 'bug':
       return { task: { ...task, lines: task.mysql.lines, answer: task.mysql.answer, fixed: task.mysql.fixed, explanation: task.explanation + note }, fallback: false }

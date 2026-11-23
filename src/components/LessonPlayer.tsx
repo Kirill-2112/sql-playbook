@@ -12,6 +12,7 @@ import { LessonComplete } from './LessonComplete'
 import { MeetDatabase } from './MeetDatabase'
 import { OrderTask } from './OrderTask'
 import { PlanTask } from './PlanTask'
+import { PredictTask } from './PredictTask'
 import { WriteTask } from './WriteTask'
 import { DatabaseButton } from './DatabaseButton'
 import { ExplainCardView } from './ExplainCardView'
@@ -157,6 +158,8 @@ export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro }
           <BugTask key={key} task={task} onDone={done} />
         ) : task.kind === 'plan' ? (
           <PlanTask key={key} task={task} onDone={done} />
+        ) : task.kind === 'predict' ? (
+          <PredictTask key={key} task={task} onDone={done} />
         ) : task.kind === 'build' ? (
           <BuildTask key={key} task={task} onDone={done} />
         ) : task.kind === 'order' ? (

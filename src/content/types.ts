@@ -160,6 +160,19 @@ export type LessonTask =
       mysql?: { code: string; note?: string }
     }
   | {
+      /** Which of three results does this query return? Two come from near-miss variants and differ visibly. */
+      kind: 'predict'
+      exerciseId: string
+      prompt: string
+      code: string
+      /** The first rows of each result and its row count. */
+      options: { columns: string[]; rows: (string | null)[][]; total: number }[]
+      answer: number
+      explanation: string
+      /** The MySQL solution, verified to return the same rows. */
+      mysql?: { code: string; note?: string }
+    }
+  | {
       /** One line was changed so the query gives a wrong result or fails; tap it. */
       kind: 'bug'
       exerciseId: string

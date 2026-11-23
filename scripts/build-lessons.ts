@@ -4,7 +4,8 @@
  *
  *   gap   — the reference solution with one keyword blanked out, and options. Every wrong option is run on PGlite and
  *           kept only if it really changes the result (or fails): a "wrong" answer that also works is never offered.
- *   rows  — "how many rows does this query return?", with distractors taken from what the wrong variants return.
+ *   predict — "which result is right?": the query and three small results, two of them from near-miss variants
+ *           (the opposite comparison, asc for desc…) whose first rows visibly differ. Read the query, no counting.
  *   build — the solution cut into pieces to tap in order, plus a few wrong pieces (another keyword, the opposite
  *           comparison, a column the query does not use). Each wrong piece is put in place of the piece it imitates
  *           and run: it is kept only if the result changes (or the query fails).
@@ -439,41 +440,87 @@ function orderLines(sql: string, seed: string): { lines: string[]; answer: numbe
   return { lines: order.map((i) => lines[i]!), answer: lines.map((_, i) => order.indexOf(i)) }
 }
 
-async function rowsTask(db: PGlite, ex: Exercise, reference: unknown[][]): Promise<LessonTask | null> {
+const PREVIEW_ROWS = 3
+const PREVIEW_COLUMNS = 3
+const PREVIEW_CELL = 24
+
+type Preview = { columns: string[]; rows: (string | null)[][]; total: number }
+
+const previews = new Map<string, Preview | null>()
+
+/** The first rows of a query's result, as shown in a "which result is right?" option. */
+async function previewOf(db: PGlite, dataset: DatasetId, sql: string): Promise<Preview | null> {
+  const memo = dataset + '\u0000' + sql
+  if (previews.has(memo)) return previews.get(memo)!
+  let preview: Preview | null = null
+  try {
+    const r = await db.query<unknown[]>(sql, [], { rowMode: 'array' })
+    const cell = (v: unknown) => (v === null || v === undefined ? null : typeof v === 'object' ? JSON.stringify(v) : String(v))
+    preview = { columns: r.fields.map((f) => f.name), rows: r.rows.slice(0, PREVIEW_ROWS).map((row) => row.map(cell)), total: r.rows.length }
+  } catch {
+    preview = null
+  }
+  previews.set(memo, preview)
+  return preview
+}
+
+/** Small enough to read three of them on a phone: few columns, short values, some rows. */
+const readable = (p: Preview) =>
+  p.rows.length > 0 && p.columns.length <= PREVIEW_COLUMNS && p.rows.every((r) => r.every((v) => (v ?? 'NULL').length <= PREVIEW_CELL))
+
+/**
+ * "Which result is right?": the solution's first rows and those of two near-miss variants. A variant is used only
+ * when what is shown differs (rows, their order, the columns or the count), so the answer can be read off the query.
+ */
+async function predictTask(db: PGlite, ex: Exercise): Promise<LessonTask | null> {
   if (ex.checkSql || ex.setupSql || ex.files) return null
-  const n = reference.length
-  // Plausible mistakes: what near-miss variants of the query would return.
-  const seen = new Set<number>([n])
   const sql = ex.solutions[0].postgres
+  if (!/^\s*select\b/i.test(sql) || LOOPS.test(sql)) return null
+  const right = await previewOf(db, ex.dataset, sql)
+  if (!right || !readable(right)) return null
+  const variants: string[] = []
+  // The opposite comparison first: the mistake a reader should catch.
+  const pieces = splitPieces(sql)
+  if (pieces) {
+    pieces.forEach((piece, at) => {
+      const opposite = OPPOSITES.find(([re]) => re.test(piece))
+      if (opposite && !isClauseKeyword(piece)) variants.push(piecesToSql(pieces.map((p, i) => (i === at ? p.replace(opposite[0], opposite[1]) : p))))
+    })
+  }
+  const keywordVariants: string[] = []
   for (const [keyword, alternatives] of ALTERNATIVES) {
-    if (seen.size >= 4) break
-    if (!mayVary(sql, keyword)) continue
     const at = findKeyword(sql, keyword)
     if (at < 0) continue
-    for (const alt of alternatives) {
-      const rows = await rowsOf(db, ex, sql.slice(0, at) + alt + sql.slice(at + keyword.length))
-      if (rows && rows.length !== n) seen.add(rows.length)
-      if (seen.size >= 4) break
-    }
+    for (const alt of alternatives.slice(0, 2)) keywordVariants.push(sql.slice(0, at) + alt + sql.slice(at + keyword.length))
   }
-  for (const delta of [1, 2, -1, 3, 5, -2, 10]) {
-    if (seen.size >= 4) break
-    if (n + delta >= 0) seen.add(n + delta)
+  variants.push(...shuffle(keywordVariants, ex.id + 'predict'))
+  const key = (p: Preview) => JSON.stringify(p)
+  const seen = new Set([key(right)])
+  const wrong: Preview[] = []
+  for (const variant of variants) {
+    if (wrong.length >= 2) break
+    const p = await previewOf(db, ex.dataset, variant)
+    if (!p || !readable(p) || seen.has(key(p))) continue
+    seen.add(key(p))
+    wrong.push(p)
   }
-  const options = shuffle([...seen].slice(0, 4), ex.id + 'rows')
+  if (wrong.length < 2) return null
+  const options = shuffle([right, ...wrong], ex.id + 'predict-options')
   const mysqlSql = mysqlSolution(ex)
   return {
-    kind: 'rows',
+    kind: 'predict',
     exerciseId: ex.id,
     prompt: ex.prompt,
     code: sql,
-    options: options.map(String),
-    answer: options.indexOf(n),
-    explanation: `It returns ${n} row${n === 1 ? '' : 's'}. ${ex.solutions[0].explanation}`,
+    options,
+    answer: options.indexOf(right),
+    explanation: ex.solutions[0].explanation,
     // Verification already showed the MySQL solution returns the same rows.
     ...(mysqlSql && { mysql: { code: mysqlSql, note: ex.solutions[0].mysqlNote } }),
   }
 }
+
+const isClauseKeyword = (piece: string) => /^(select|from|where|group by|having|order by|limit|offset|and|or)$/i.test(piece)
 
 /** The opposite comparison for a condition piece: the first one that applies. */
 const OPPOSITES: [RegExp, string][] = [
@@ -694,7 +741,7 @@ async function main() {
       for (const onlyTopicKeywords of [true, false]) {
         for (const ex of pool) {
           const haveGaps = quick.filter((t) => t.kind === 'gap').length
-          const haveRows = quick.filter((t) => t.kind === 'rows').length
+          const haveRows = quick.filter((t) => t.kind === 'predict').length
           if (haveGaps >= LESSONS_PER_SKILL * 3 && haveRows >= LESSONS_PER_SKILL) break
           const d = await db(ex.dataset)
           const reference = await rowsOf(d, ex, ex.solutions[0].postgres)
@@ -718,20 +765,20 @@ async function main() {
               builds.push(build)
             }
           }
-          if (onlyTopicKeywords && !used.has('rows:' + ex.id) && quick.filter((t) => t.kind === 'rows').length < LESSONS_PER_SKILL * 2) {
-            const rows = await rowsTask(d, ex, reference)
-            if (rows) {
-              used.add('rows:' + ex.id)
-              quick.push(rows)
+          if (onlyTopicKeywords && !used.has('predict:' + ex.id) && quick.filter((t) => t.kind === 'predict').length < LESSONS_PER_SKILL * 2) {
+            const predict = await predictTask(d, ex)
+            if (predict) {
+              used.add('predict:' + ex.id)
+              quick.push(predict)
             }
           }
         }
       }
-      // Each lesson: gap, rows, a third kind (find the bug or put in order), build the query (or another gap), then
+      // Each lesson: gap, which result is right, a third kind (find the bug or put in order), build the query (or another gap), then
       // the full query to write. A bug task never comes from the same exercise and keyword as a gap in the same
       // lesson, and a build task never from the exercise to write (either would give the answer away).
       const gaps: LessonTask[] = quick.filter((t) => t.kind === 'gap')
-      const counts: LessonTask[] = quick.filter((t) => t.kind === 'rows')
+      const counts: LessonTask[] = quick.filter((t) => t.kind === 'predict')
       // Index topics: plan questions first, since a changed keyword never changes their results.
       const extras = PLAN_TOPICS.includes(topic.id)
         ? [...plans.filter((_, i) => i % PLAN_TOPICS.length === PLAN_TOPICS.indexOf(topic.id)), ...interleave(bugs, orders)]
@@ -776,15 +823,15 @@ async function main() {
     for (const skill of unit.skills)
       for (const lesson of skill.lessons)
         for (const task of lesson.tasks)
-          if ((task.kind === 'gap' || task.kind === 'rows') && splitStatements(task.code).length === 0) throw new Error(`${lesson.id}: empty code`)
+          if ((task.kind === 'gap' || task.kind === 'predict') && splitStatements(task.code).length === 0) throw new Error(`${lesson.id}: empty code`)
 
   writeFileSync(OUT, `${JSON.stringify(course, null, 2)}\n`)
   const lessons = course.units.flatMap((u) => u.skills.flatMap((s) => s.lessons))
   const tasks = lessons.flatMap((l) => l.tasks)
-  const tappable = tasks.filter((t) => t.kind === 'gap' || t.kind === 'rows' || t.kind === 'bug' || t.kind === 'order' || t.kind === 'build')
+  const tappable = tasks.filter((t) => t.kind === 'gap' || t.kind === 'predict' || t.kind === 'bug' || t.kind === 'order' || t.kind === 'build')
   console.log(`\n${lessons.length} lessons, ${tasks.length} tasks → ${OUT.replace(ROOT + '/', '')}`)
-  console.log(`Build the query: ${tasks.filter((t) => t.kind === 'build').length} tasks`)
-  console.log(`MySQL versions: ${tappable.filter((t) => 'mysql' in t && t.mysql).length} of ${tappable.length} gap/rows/bug/order/build tasks`)
+  console.log(`Build the query: ${tasks.filter((t) => t.kind === 'build').length} tasks, which result is right: ${tasks.filter((t) => t.kind === 'predict').length}`)
+  console.log(`MySQL versions: ${tappable.filter((t) => 'mysql' in t && t.mysql).length} of ${tappable.length} gap/predict/bug/order/build tasks`)
 }
 
 await main()

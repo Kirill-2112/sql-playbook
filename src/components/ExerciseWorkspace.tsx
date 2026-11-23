@@ -95,7 +95,7 @@ export function ExerciseWorkspace({ exercise, onSolved }: ExerciseWorkspaceProps
               {verdict.correct ? 'Correct. Compare your query with the solutions below.' : verdict.reason}
             </Feedback>
           )}
-          {state.kind === 'error' && <SqlErrorMessage error={state.error} />}
+          {state.kind === 'error' && <SqlErrorMessage error={state.error} sql={sql} />}
           {state.kind === 'done' && <ResultTable result={state.result} />}
         </Output>
       )}

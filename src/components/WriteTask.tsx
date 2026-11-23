@@ -34,6 +34,8 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<QueryResult | null>(null)
   const [error, setError] = useState<SqlError | null>(null)
+  // The query as it was when checked: the error is explained for that text, not for later edits.
+  const [checked, setChecked] = useState('')
   const [reason, setReason] = useState('')
   const [revealed, setRevealed] = useState(false)
   // The language picked above the editor; it becomes the learner's setting for the next tasks too.
@@ -104,8 +106,11 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
     if (!exercise) return
     setBusy(true)
     setError(null)
+    setChecked(sql)
     try {
       const learner = straightQuotes(sql)
+      // Nothing but the starter comment: say so instead of showing a database error.
+      if (!learner.replace(/--.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim()) throw new SqlError('No query to run.')
       // MySQL runs on the server; the expected rows come from PostgreSQL either way (verify checks both agree).
       const actual = onMysql
         ? await runMysql(exerciseScript(exercise, learner, 'mysql'), exercise.dataset, { write: changesDatabase(exercise), files: exercise.files })
@@ -182,7 +187,7 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
           />
           {context && <SqlKeyBar editorId={id} value={sql} onChange={setSql} context={context} />}
         </Writing>
-        {error && <SqlErrorMessage error={error} />}
+        {error && <SqlErrorMessage error={error} sql={checked} />}
         {result && !error && <ResultTable result={result} />}
         {revealed && (
           <>

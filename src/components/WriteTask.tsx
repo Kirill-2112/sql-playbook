@@ -20,6 +20,7 @@ import { registerEditor } from '../utils/editorBridge'
 import { SqlErrorMessage } from './SqlErrorMessage'
 import { DialectSwitch } from './DialectSwitch'
 import { PromptWords } from './PromptWords'
+import { showWhileTyping } from '../utils/showWhileTyping'
 import { SCHEMAS } from '../content/schemas'
 import { tablesIn } from '../utils/schemaTables'
 import type { SuggestContext } from '../utils/sqlSuggest'
@@ -38,6 +39,8 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
   // The language picked above the editor; it becomes the learner's setting for the next tasks too.
   const [mode, setMode] = useState<Dialect>(dialect)
   const sqlRef = useRef(sql)
+  const questionRef = useRef<HTMLHeadingElement>(null)
+  const writingRef = useRef<HTMLDivElement>(null)
   sqlRef.current = sql
 
   useEffect(() => {
@@ -131,7 +134,17 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
     <>
       <Body>
         <Kind>Write the query · {DATASETS[exercise.dataset].name}</Kind>
-        <Question>
+        <DialectSwitch
+          value={mode}
+          onChange={(next) => {
+            setMode(next)
+            setDialect(next)
+            setResult(null)
+            setError(null)
+            if (state === 'wrong') setState('idle')
+          }}
+        />
+        <Question ref={questionRef}>
           <PromptWords text={exercise.prompt} names={promptNames.all} onInsert={(name) => insertName(name, !promptNames.tables.has(name), true)} />
         </Question>
         {exercise.hint && <Hint>{exercise.hint}</Hint>}
@@ -157,18 +170,18 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
             <CodeBlock sql={file.content} />
           </Extra>
         ))}
-        <DialectSwitch
-          value={mode}
-          onChange={(next) => {
-            setMode(next)
-            setDialect(next)
-            setResult(null)
-            setError(null)
-            if (state === 'wrong') setState('idle')
-          }}
-        />
-        <SqlEditor id={id} label="Your query" value={sql} onChange={setSql} onRun={() => void check()} completion={context ?? undefined} />
-        {context && <SqlKeyBar editorId={id} value={sql} onChange={setSql} context={context} />}
+        <Writing ref={writingRef}>
+          <SqlEditor
+            id={id}
+            label="Your query"
+            value={sql}
+            onChange={setSql}
+            onRun={() => void check()}
+            completion={context ?? undefined}
+            onFocus={() => questionRef.current && writingRef.current && showWhileTyping(questionRef.current, writingRef.current)}
+          />
+          {context && <SqlKeyBar editorId={id} value={sql} onChange={setSql} context={context} />}
+        </Writing>
         {error && <SqlErrorMessage error={error} />}
         {result && !error && <ResultTable result={result} />}
         {revealed && (
@@ -235,6 +248,13 @@ const Body = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.space.md};
+`
+
+// The editor and its key bar: what has to stay in sight above a phone's keyboard.
+const Writing = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space.sm};
 `
 
 const Kind = styled.span`

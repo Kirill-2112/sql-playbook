@@ -15,6 +15,7 @@ interface SqlEditorProps {
    * Ctrl+Space opens it anywhere). Touch screens get SqlKeyBar instead.
    */
   completion?: SuggestContext
+  onFocus?: () => void
 }
 
 const INDENT = '  '
@@ -29,7 +30,7 @@ interface Popup {
 
 const finePointer = () => typeof matchMedia === 'function' && matchMedia('(pointer: fine)').matches
 
-export function SqlEditor({ id, value, onChange, onRun, label, completion }: SqlEditorProps) {
+export function SqlEditor({ id, value, onChange, onRun, label, completion, onFocus }: SqlEditorProps) {
   const lineCount = value.split('\n').length
   const listId = useId()
   const [popup, setPopup] = useState<Popup | null>(null)
@@ -132,6 +133,7 @@ export function SqlEditor({ id, value, onChange, onRun, label, completion }: Sql
         onKeyDown={handleKeyDown}
         // Moving the cursor elsewhere (a click, the arrow keys with no list) closes the list.
         onClick={() => setPopup(null)}
+        onFocus={onFocus}
         onBlur={() => setPopup(null)}
         onScroll={() => setPopup(null)}
       />

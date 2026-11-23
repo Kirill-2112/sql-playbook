@@ -29,6 +29,12 @@ export const GlobalStyle = createGlobalStyle`
     border-radius: 4px;
   }
 
+  /* iPhone zooms the page into any field whose text is under 16px, and stays zoomed: the task and the suggestions
+     then fall off the screen. Touch screens get 16px in every field. */
+  @media (pointer: coarse) {
+    input, textarea, select { font-size: max(${({ theme }) => theme.size.md}, 1em) !important; }
+  }
+
   :focus-visible {
     outline: 2px solid ${({ theme }) => theme.color.accent};
     outline-offset: 2px;

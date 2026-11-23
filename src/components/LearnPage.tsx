@@ -3,7 +3,8 @@ import styled from 'styled-components'
 import { LABS } from '../content/labs'
 import { useCourse } from '../hooks/useCourse'
 import { dueReviewKeys, pathProgress } from '../progress/path'
-import { unlockLevel, useProgress } from '../progress/store'
+import { setDialect, unlockLevel, useProgress } from '../progress/store'
+import { DialectSwitch } from './DialectSwitch'
 import { LabCard } from './LabCard'
 import { SkillNode } from './SkillNode'
 import { StatsBar } from './StatsBar'
@@ -21,6 +22,11 @@ export function LearnPage() {
     <Page>
       <HiddenTitle>Your learning path</HiddenTitle>
       <StatsBar />
+      {/* The language of every explanation, task and error message: visible, and switched in one tap. */}
+      <Language>
+        <span id="learn-in">Learning in</span>
+        <DialectSwitch value={progress.dialect} onChange={setDialect} labelledBy="learn-in" />
+      </Language>
       {due > 0 && (
         <Review to="/review">
           <span>
@@ -71,6 +77,15 @@ const Page = styled.div`
   gap: ${({ theme }) => theme.space.xl};
   max-width: 560px;
   margin: 0 auto;
+`
+
+const Language = styled.div`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.sm};
+  margin-top: -${({ theme }) => theme.space.md};
+  font-size: ${({ theme }) => theme.size.sm};
+  color: ${({ theme }) => theme.color.muted};
 `
 
 const Unit = styled.section`

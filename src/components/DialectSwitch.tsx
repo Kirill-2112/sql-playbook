@@ -8,13 +8,15 @@ const DIALECTS: Dialect[] = ['postgres', 'mysql']
 interface Props {
   value: Dialect
   onChange: (dialect: Dialect) => void
+  /** The id of a visible label; otherwise the group is called "SQL language". */
+  labelledBy?: string
 }
 
-/** PostgreSQL | MySQL above the editor: the language the query is written and checked in. */
-export function DialectSwitch({ value, onChange }: Props) {
+/** PostgreSQL | MySQL: the language lessons are shown in (on the path) or a query is written and checked in. */
+export function DialectSwitch({ value, onChange, labelledBy }: Props) {
   const picked = DIALECTS.indexOf(value)
   return (
-    <Group role="radiogroup" aria-label="SQL language" onKeyDown={onRadioGroupKeyDown}>
+    <Group role="radiogroup" aria-label={labelledBy ? undefined : 'SQL language'} aria-labelledby={labelledBy} onKeyDown={onRadioGroupKeyDown}>
       {DIALECTS.map((dialect, i) => (
         <Option
           key={dialect}

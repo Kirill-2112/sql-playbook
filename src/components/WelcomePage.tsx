@@ -19,8 +19,9 @@ const LEVEL = [
 ] as const
 
 const DIALECT: readonly (readonly [string, string, Dialect])[] = [
-  ['PostgreSQL', 'The most popular open-source database for new projects.', 'postgres'],
-  ['MySQL', 'Common in web apps and many workplaces. Lessons show MySQL 8.4 where they can.', 'mysql'],
+  ['PostgreSQL', 'The most popular open-source database for new projects. Your queries run right here in the browser.', 'postgres'],
+  ['MySQL', 'Common in web apps and many workplaces. Explanations, tasks and error messages in MySQL 8.4, checked on a real MySQL server.', 'mysql'],
+  ['Not sure yet', 'Start with PostgreSQL: the basics are the same in both, and you can switch at any time.', 'postgres'],
 ]
 
 type Step = 0 | 1 | 2 | 3 | 4
@@ -110,7 +111,7 @@ export function WelcomePage() {
           ))}
         </Options>
         {step === 2 && <Note>You can open any level later from the path, too.</Note>}
-        {step === 3 && <Note>The SQL you learn works in both. You can switch any time on the Progress page.</Note>}
+        {step === 3 && <Note>Most SQL is the same in both. Where they differ, every lesson shows your choice. You can switch at the top of the path.</Note>}
       </Body>
       <Footer>
         <Primary type="button" disabled={question.value === null} onClick={() => (step === LAST ? finish() : setStep((step + 1) as Step))}>

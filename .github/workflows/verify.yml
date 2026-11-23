@@ -73,6 +73,9 @@ jobs:
       - name: Reference examples give the same rows on PostgreSQL and MySQL, and the stored results are current
         run: npm run build:reference && git diff --exit-code -- src/content/generated/reference.json
 
+      - name: Explanation cards give the same rows on PostgreSQL and MySQL, and the stored ones are current
+        run: npm run build:explanations && git diff --exit-code -- src/content/generated/explanations.json
+
       - name: Lessons are rebuilt from the verified exercises and the stored ones are current
         run: npm run build:lessons && git diff --exit-code -- src/content/generated/lessons.json
 

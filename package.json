@@ -12,7 +12,8 @@
     "verify": "tsx scripts/verify.ts",
     "licenses": "tsx scripts/licenses.ts",
     "build:reference": "tsx scripts/build-reference.ts",
-    "build:lessons": "tsx scripts/build-lessons.ts"
+    "build:lessons": "tsx scripts/build-lessons.ts",
+    "build:explanations": "tsx scripts/build-explanations.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.16",

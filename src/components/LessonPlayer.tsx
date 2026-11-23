@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
-import type { LessonTask } from '../content/types'
+import type { ExplainCard, LessonTask } from '../content/types'
 import { datasetOf } from '../content/exercises'
 import { inDialect } from '../progress/dialect'
 import { localDate, markDatasetSeen, streak, useProgress } from '../progress/store'
@@ -13,6 +13,7 @@ import { OrderTask } from './OrderTask'
 import { PlanTask } from './PlanTask'
 import { WriteTask } from './WriteTask'
 import { DatabaseButton } from './DatabaseButton'
+import { ExplainCardView } from './ExplainCardView'
 
 export interface PlayerTask {
   /** Stable id of the task, used for reviews: "lessonId#index". */
@@ -27,14 +28,17 @@ interface Props {
   tasks: PlayerTask[]
   /** Called once at the end with what was right the first time; returns the XP to show. */
   onFinish: (results: { key: string; correct: boolean }[]) => number
+  /** Cards that explain the skill before its first lesson; "I know this" skips them. `kind`: "Level 1 · NULL". */
+  intro?: { cards: ExplainCard[]; kind: string }
 }
 
 /**
  * Plays a list of tasks full screen: lessons, reviews and practice drills. A task answered wrongly comes back once
  * at the end (except a full query, which offers its own retry), so a session always ends on a right answer.
  */
-export function LessonPlayer({ title, step: lessonStep, tasks, onFinish }: Props) {
+export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro }: Props) {
   const progress = useProgress()
+  const [introStep, setIntroStep] = useState<number | null>(intro?.cards.length ? 0 : null)
   const [queue, setQueue] = useState<number[]>(() => tasks.map((_, i) => i))
   const [step, setStep] = useState(0)
   const [firstTry, setFirstTry] = useState<Set<number>>(new Set())
@@ -53,6 +57,44 @@ export function LessonPlayer({ title, step: lessonStep, tasks, onFinish }: Props
       setEarned(onFinish(tasks.map((t, i) => ({ key: t.key, correct: firstTry.has(i) }))))
     }
   }, [finished, onFinish, tasks, firstTry])
+
+  if (intro && introStep !== null) {
+    const count = intro.cards.length
+    return (
+      <TaskFocus taskKey={`intro-${introStep}`}>
+        <Screen>
+          <Top>
+            <Close to="/" aria-label="Leave">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </Close>
+            <Bar role="progressbar" aria-label="Explanation" aria-valuemin={0} aria-valuemax={count} aria-valuenow={introStep + 1}>
+              <Fill style={{ width: `${(100 * (introStep + 1)) / count}%` }} />
+            </Bar>
+            <Count>
+              <b>
+                {introStep + 1}/{count}
+              </b>
+              <span>Explanation</span>
+            </Count>
+            <Skip type="button" onClick={() => setIntroStep(null)}>
+              I know this
+            </Skip>
+          </Top>
+          <ExplainCardView
+            key={introStep}
+            card={intro.cards[introStep]!}
+            kind={intro.kind}
+            dialect={progress.dialect}
+            onBack={introStep > 0 ? () => setIntroStep(introStep - 1) : undefined}
+            onNext={() => setIntroStep(introStep + 1 < count ? introStep + 1 : null)}
+            last={introStep + 1 === count}
+          />
+        </Screen>
+      </TaskFocus>
+    )
+  }
 
   if (finished) {
     return (
@@ -229,6 +271,19 @@ const Count = styled.span`
     overflow: hidden;
     text-overflow: ellipsis;
   }
+`
+
+const Skip = styled.button`
+  flex: none;
+  min-height: 44px;
+  padding: 0 ${({ theme }) => theme.space.sm};
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: ${({ theme }) => theme.size.sm};
+  font-weight: 600;
+  color: ${({ theme }) => theme.color.accentStrong};
+  cursor: pointer;
 `
 
 const Fallback = styled.p`

@@ -221,3 +221,45 @@ export interface Skill {
 export interface Course {
   units: { level: Level; name: string; skills: Skill[] }[]
 }
+
+/**
+ * A short explanation shown before the first lesson of a skill (src/content/explanations.ts): one idea per card,
+ * shown on real rows. Text may use `code` and **bold**; in `after`, {rows} is the number of rows the query returns.
+ */
+export interface ExplainCardSource {
+  title: string
+  text: string
+  /** A table to look at: its first rows; a tap on a column name says what the column holds. */
+  table?: { name: string; orderBy: string; columns: { name: string; about: string }[] }
+  /** A query to run (PostgreSQL); `mysql` when MySQL needs other text. Both must return the same rows. */
+  query?: string
+  mysql?: string
+  /** Rows of the result to show (default 4). */
+  shown?: number
+  /** Shown under the result. */
+  after?: string
+  tip?: string
+  /** In MySQL mode, when the card's text or tip speaks of PostgreSQL-only syntax. */
+  mysqlText?: string
+  mysqlTip?: string
+}
+
+export interface TopicExplanation {
+  topic: string
+  dataset: DatasetId
+  cards: ExplainCardSource[]
+}
+
+/** A card as the app shows it, with its rows (built by scripts/build-explanations.ts). */
+export interface ExplainCard {
+  title: string
+  text: string
+  table?: { name: string; columns: { name: string; about: string }[]; rows: (string | null)[][]; total: number }
+  query?: { postgres: string; mysql?: string; columns: string[]; rows: (string | null)[][]; total: number }
+  after?: string
+  tip?: string
+  mysqlText?: string
+  mysqlTip?: string
+}
+
+export type Explanations = Record<string, { dataset: DatasetId; cards: ExplainCard[] }>

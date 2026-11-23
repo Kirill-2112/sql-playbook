@@ -1,11 +1,13 @@
 import styled from 'styled-components'
-import type { ReferenceGenerated } from '../content/types'
 
-// The stored PostgreSQL result of a reference example (values already formatted by scripts/build-reference.ts).
-export function ExampleResult({ result }: { result: ReferenceGenerated }) {
+/**
+ * A stored PostgreSQL result: a reference example or an explanation card (values already formatted by the build).
+ * `compact`: small type, and long text wraps, so a few columns fit a phone's width.
+ */
+export function ExampleResult({ result, compact = false }: { result: { columns: string[]; rows: string[][] }; compact?: boolean }) {
   return (
     <Scroll>
-      <Table>
+      <Table $compact={compact}>
         <thead>
           <tr>
             {result.columns.map((c, i) => (
@@ -36,17 +38,19 @@ const Scroll = styled.div`
   background: ${({ theme }) => theme.color.surface};
 `
 
-const Table = styled.table`
+const Table = styled.table<{ $compact: boolean }>`
   border-collapse: collapse;
   min-width: 100%;
   font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.size.sm};
+  font-size: ${({ theme, $compact }) => ($compact ? theme.size.xs : theme.size.sm)};
 
   th,
   td {
-    padding: 6px ${({ theme }) => theme.space.md};
+    padding: 6px ${({ theme, $compact }) => ($compact ? theme.space.sm : theme.space.md)};
     text-align: left;
-    white-space: pre;
+    vertical-align: top;
+    white-space: ${({ $compact }) => ($compact ? 'pre-line' : 'pre')};
+    overflow-wrap: ${({ $compact }) => ($compact ? 'break-word' : 'normal')};
     border-top: 1px solid ${({ theme }) => theme.color.line};
   }
 

@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { useCourse } from '../hooks/useCourse'
+import { useExplanations } from '../hooks/useExplanations'
 import { findLesson } from '../progress/path'
 import { recordLesson } from '../progress/store'
 import { LessonPlayer, Screen, type PlayerTask } from './LessonPlayer'
@@ -9,6 +10,7 @@ import { LessonPlayer, Screen, type PlayerTask } from './LessonPlayer'
 export function LessonPage() {
   const { lessonId = '' } = useParams()
   const course = useCourse()
+  const explanations = useExplanations()
   const found = course ? findLesson(course, lessonId) : null
 
   const tasks = useMemo<PlayerTask[]>(
@@ -27,8 +29,19 @@ export function LessonPage() {
   )
 
   if (course && !found) return <Navigate to="/" replace />
-  if (!found) return <Screen>Loading the lesson…</Screen>
+  if (!found || !explanations) return <Screen>Loading the lesson…</Screen>
 
   const { lesson, skill } = found
-  return <LessonPlayer key={lesson.id} title={skill.name} step={`${lesson.index}/${skill.lessons.length}`} tasks={tasks} onFinish={finish} />
+  // The skill's first lesson starts with its explanation, when it has one.
+  const cards = lesson.index === 1 ? explanations[skill.topic]?.cards : undefined
+  return (
+    <LessonPlayer
+      key={lesson.id}
+      title={skill.name}
+      step={`${lesson.index}/${skill.lessons.length}`}
+      tasks={tasks}
+      onFinish={finish}
+      intro={cards?.length ? { cards, kind: `Level ${lesson.level} · ${skill.name}` } : undefined}
+    />
+  )
 }

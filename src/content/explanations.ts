@@ -487,4 +487,198 @@ export const EXPLANATIONS: TopicExplanation[] = [
       },
     ],
   },
+  {
+    topic: 'cte',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'WITH gives a step a name',
+        text: '`with` names a query, and the next query uses it like a table. A hard query becomes steps you read from the top. Here: first the big orders, then count them per customer.',
+        query:
+          'with big_orders as (\n  select order_id, customer_id\n  from orders\n  where freight > 500\n)\nselect customer_id,\n  count(*) as big\nfrom big_orders\ngroup by customer_id\norder by customer_id;',
+        after: '{rows} customers, each with their number of big orders.',
+        tip: 'The name exists only inside this one query.',
+      },
+      {
+        title: 'Several steps',
+        text: 'Steps are separated by commas, and each step can use the ones before it. Here: customers per country first, then only the countries with 5 or more.',
+        query:
+          'with per_country as (\n  select country,\n    count(*) as customers\n  from customers\n  group by country\n),\nbig as (\n  select * from per_country\n  where customers >= 5\n)\nselect * from big\norder by country;',
+        after: '{rows} countries.',
+      },
+    ],
+  },
+  {
+    topic: 'ranking',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'ROW_NUMBER numbers the rows',
+        text: '`row_number() over (order by …)` numbers the rows in that order: 1, 2, 3… The rows themselves stay. Here: products from the most expensive.',
+        query:
+          'select product_name, unit_price,\n  row_number() over (\n    order by unit_price desc,\n      product_id\n  ) as place\nfrom products\norder by place;',
+        after: 'Every product keeps its row and gets a place.',
+      },
+      {
+        title: 'Places inside each group',
+        text: '`partition by category_id` starts the numbering again in each category. `rank()` gives equal prices the same place.',
+        query:
+          'select category_id, product_name,\n  rank() over (\n    partition by category_id\n    order by unit_price desc\n  ) as place\nfrom products\norder by category_id, place,\n  product_id;',
+        shown: 5,
+        after: 'Each category has its own 1st place.',
+        tip: '`dense_rank()` is like `rank()` but leaves no gaps after a tie: 1, 1, 2 instead of 1, 1, 3.',
+      },
+    ],
+  },
+  {
+    topic: 'lag-lead',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'The previous row',
+        text: '`lag(x)` takes x from the previous row, `lead(x)` from the next one, in the order of `over (order by …)`. The first row has no previous one, so it gets NULL.',
+        query:
+          'select order_id, freight,\n  lag(freight) over (\n    order by order_id\n  ) as previous\nfrom orders\norder by order_id;',
+      },
+      {
+        title: 'The previous order of the same customer',
+        text: 'With `partition by customer_id`, each customer gets their own chain: `lag` looks only at the earlier orders of the same customer.',
+        query:
+          'select customer_id, order_date,\n  lag(order_date) over (\n    partition by customer_id\n    order by order_id\n  ) as previous\nfrom orders\norder by customer_id, order_id;',
+        shown: 5,
+        after: 'Now you can see how long each customer waited between orders.',
+      },
+    ],
+  },
+  {
+    topic: 'window-frames',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'A running total',
+        text: '`sum(x) over (order by …)` adds up the rows so far: each row shows the total up to and including itself.',
+        query:
+          'select order_id, freight,\n  sum(freight) over (\n    order by order_id\n  ) as running\nfrom orders\norder by order_id;',
+        after: 'The total grows with every order.',
+      },
+      {
+        title: 'A moving window',
+        text: '`rows between 2 preceding and current row` looks at this row and the two before it. Here: the average freight of the last 3 orders.',
+        query:
+          'select order_id, freight,\n  round(avg(freight) over (\n    order by order_id\n    rows between 2 preceding\n      and current row\n  ), 2) as avg3\nfrom orders\norder by order_id;',
+        tip: 'Without `rows between …`, the window runs from the first row to this one: a running total.',
+      },
+    ],
+  },
+  {
+    topic: 'subtotals',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'ROLLUP adds a total',
+        text: '`rollup` adds a total row after the groups. In that row the grouped column is NULL: there it means "all".',
+        query:
+          'select category_id,\n  count(*) as products\nfrom products\nwhere category_id <= 3\ngroup by rollup (category_id)\norder by grouping(category_id),\n  category_id;',
+        mysql:
+          'select category_id,\n  count(*) as products\nfrom products\nwhere category_id <= 3\ngroup by category_id with rollup\norder by grouping(category_id),\n  category_id;',
+        after: 'The last row counts all three categories together.',
+        tip: 'MySQL writes it `group by category_id with rollup`.',
+        mysqlText: '`with rollup` adds a total row after the groups. In that row the grouped column is NULL: there it means "all".',
+        mysqlTip: 'PostgreSQL writes it `group by rollup (category_id)`, and also has `cube` and `grouping sets`.',
+      },
+    ],
+  },
+  {
+    topic: 'lateral',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'A small query for each row',
+        text: '`lateral` lets a subquery in `from` use the columns of the row next to it. Here: for each category, its 2 most expensive products.',
+        query:
+          'select c.category_name,\n  p.product_name, p.unit_price\nfrom categories c\ncross join lateral (\n  select product_id, product_name,\n    unit_price\n  from products\n  where category_id = c.category_id\n  order by unit_price desc,\n    product_id\n  limit 2\n) p\norder by c.category_id,\n  p.unit_price desc, p.product_id;',
+        shown: 4,
+        after: 'Two rows for each category.',
+      },
+    ],
+  },
+  {
+    topic: 'date-series',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Every day, also the empty ones',
+        text: 'A day without orders is not in `group by` at all. `generate_series` makes every day of a range, and `left join` adds the orders: empty days get 0.',
+        query:
+          "select d::date as day,\n  count(o.order_id) as orders\nfrom generate_series(\n  date '1996-07-01',\n  date '1996-07-10',\n  interval '1 day') d\nleft join orders o\n  on o.order_date::date = d::date\ngroup by d\norder by d;",
+        mysql:
+          "with recursive days as (\n  select date '1996-07-01' as day\n  union all\n  select day + interval 1 day\n  from days\n  where day < '1996-07-10'\n)\nselect days.day,\n  count(o.order_id) as orders\nfrom days\nleft join orders o\n  on date(o.order_date) = days.day\ngroup by days.day\norder by days.day;",
+        shown: 6,
+        after: 'The first order came on 4 July; the days before it are there too, with 0.',
+        tip: 'MySQL has no `generate_series`: a recursive `with` makes the days there.',
+        mysqlText: 'A day without orders is not in `group by` at all. MySQL has no `generate_series`, so a recursive `with` makes every day of the range, and `left join` adds the orders.',
+        mysqlTip: 'PostgreSQL makes the days in one go: `generate_series(start, end, interval \'1 day\')`.',
+      },
+    ],
+  },
+  {
+    topic: 'pivot',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Values into columns',
+        text: 'A pivot turns values into columns. Write one `sum(case …)` per value: here a column for each shipping company (ship_via 1, 2, 3) and a row for each employee.',
+        query:
+          'select employee_id,\n  sum(case when ship_via = 1\n      then 1 else 0 end) as ship1,\n  sum(case when ship_via = 2\n      then 1 else 0 end) as ship2,\n  sum(case when ship_via = 3\n      then 1 else 0 end) as ship3\nfrom orders\ngroup by employee_id\norder by employee_id;',
+        after: 'A small table: employees down, shipping companies across.',
+      },
+    ],
+  },
+  {
+    topic: 'recursive',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Walking down a hierarchy',
+        text: 'A recursive `with` repeats its second part on the rows it found the time before, until nothing new comes. Here: the boss, then their staff, then the staff of those.',
+        query:
+          'with recursive chain as (\n  select employee_id, last_name,\n    1 as depth\n  from employees\n  where reports_to is null\n  union all\n  select e.employee_id, e.last_name,\n    c.depth + 1\n  from employees e\n  join chain c\n    on e.reports_to = c.employee_id\n)\nselect * from chain\norder by depth, employee_id;',
+        shown: 5,
+        after: 'depth 1 is the boss, depth 2 reports to the boss, and so on.',
+      },
+    ],
+  },
+  {
+    topic: 'gaps-islands',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Runs of days in a row',
+        text: 'An island is a run without gaps: here, days with orders one after another. Take away the row number from the date: inside a run the result stays the same.',
+        query:
+          "with days as (\n  select distinct\n    order_date::date as day\n  from orders\n  where order_date < '1996-08-01'\n),\nmarked as (\n  select day, day - cast(\n    row_number() over (order by day)\n    as int) as grp\n  from days\n)\nselect min(day) as first_day,\n  max(day) as last_day,\n  count(*) as n_days\nfrom marked\ngroup by grp\norder by first_day;",
+        mysql:
+          "with days as (\n  select distinct\n    cast(order_date as date) as day\n  from orders\n  where order_date < '1996-08-01'\n),\nmarked as (\n  select day, date_sub(day,\n    interval row_number() over\n    (order by day) day) as grp\n  from days\n)\nselect min(day) as first_day,\n  max(day) as last_day,\n  count(*) as n_days\nfrom marked\ngroup by grp\norder by first_day;",
+        after: 'Each row is one run of days with orders in July 1996: Monday to Friday, with the weekends as gaps.',
+      },
+    ],
+  },
+  {
+    topic: 'dates-advanced',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Cutting dates to the month',
+        text: "`date_trunc('month', d)` turns a date into the first day of its month, so all the orders of one month fall into one group.",
+        query:
+          "select\n  date_trunc('month', order_date)\n    ::date as month,\n  count(*) as orders\nfrom orders\ngroup by 1\norder by 1;",
+        mysql:
+          "select\n  cast(date_format(order_date,\n    '%Y-%m-01') as date) as month,\n  count(*) as orders\nfrom orders\ngroup by 1\norder by 1;",
+        after: 'One row for each month of orders.',
+        tip: "`group by 1` means: group by the first column of `select`.",
+        mysqlText: "MySQL has no `date_trunc`: `date_format(d, '%Y-%m-01')` writes the first day of the month, and `cast` turns that text back into a date.",
+        mysqlTip: "PostgreSQL does it in one step: `date_trunc('month', order_date)`.",
+      },
+    ],
+  },
 ]

@@ -4,7 +4,7 @@ import type { ExplainCard } from '../content/types'
 import type { Dialect } from '../progress/store'
 import { CodeBlock } from './CodeBlock'
 import { ExampleResult } from './ExampleResult'
-import { ExplainTable } from './ExplainTable'
+import { ExplainTable, type PickedColumn } from './ExplainTable'
 import { RichText } from './RichText'
 
 interface Props {
@@ -23,6 +23,7 @@ interface Props {
  */
 export function ExplainCardView({ card, kind, dialect, onBack, onNext, last }: Props) {
   const [ran, setRan] = useState(!card.query)
+  const [picked, setPicked] = useState<PickedColumn>(null)
   const query = card.query
   const mysql = dialect === 'mysql'
   const sql = query && (mysql ? (query.mysql ?? query.postgres) : query.postgres)
@@ -36,7 +37,8 @@ export function ExplainCardView({ card, kind, dialect, onBack, onNext, last }: P
         <Text>
           <RichText text={text} />
         </Text>
-        {card.table && <ExplainTable table={card.table} />}
+        {card.tables?.map((table) => <ExplainTable key={table.name} table={table} picked={picked} onPick={setPicked} />)}
+        {card.tables && !picked && <TapHint>Tap a column name to see what it holds.</TapHint>}
         {query && sql && (
           <>
             <CodeBlock sql={sql} />
@@ -108,6 +110,14 @@ const Kind = styled.span`
 const Text = styled.p`
   font-size: ${({ theme }) => theme.size.md};
   line-height: 1.55;
+`
+
+const TapHint = styled.p`
+  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.color.bg};
+  color: ${({ theme }) => theme.color.muted};
+  font-size: ${({ theme }) => theme.size.sm};
 `
 
 const Meta = styled.span`

@@ -57,7 +57,7 @@ async function main() {
   }
 
   /** Runs on both databases; the PostgreSQL rows, or null when they differ or fail. */
-  async function run(where: string, dataset: DatasetId, postgres: string, mysqlSql = postgres) {
+  async function run(where: string, dataset: DatasetId, postgres: string, mysqlSql = postgres, ordered = true) {
     let pgResult: { columns: string[]; rows: unknown[][] }
     try {
       const r = await (await pg(dataset)).query<unknown[]>(postgres, [], { rowMode: 'array' })
@@ -68,7 +68,7 @@ async function main() {
     }
     try {
       const rows = await mysqlRows(await my(dataset), mysqlSql)
-      const same = compareRowSets(rows, pgResult.rows, true)
+      const same = compareRowSets(rows, pgResult.rows, ordered)
       if (!same.equal) problems.push(`${where}: MySQL returns other rows (${same.reason})`)
     } catch (e) {
       problems.push(`${where}: MySQL fails: ${(e as Error).message}`)
@@ -93,23 +93,29 @@ async function main() {
     for (const [field, text] of [['text', s.text], ['after', s.after], ['tip', s.tip], ['mysqlText', s.mysqlText], ['mysqlTip', s.mysqlTip]] as const) {
       if (text && text.replace(/\{rows\}/g, '0000').length > MAX_TEXT) problems.push(`${where}: ${field} is longer than ${MAX_TEXT} characters`)
     }
-    if (!s.table && !s.query) problems.push(`${where}: shows no table and no query`)
+    if (!s.tables?.length && !s.query) problems.push(`${where}: shows no table and no query`)
     if (s.text.includes('{rows}') || s.tip?.includes('{rows}')) problems.push(`${where}: {rows} only works in "after"`)
     const card: ExplainCard = { title: s.title, text: s.text }
     let total: number | null = null
-    if (s.table) {
-      const sql = `select ${s.table.columns.map((c) => c.name).join(', ')} from ${s.table.name} order by ${s.table.orderBy}`
-      const result = await run(`${where} (table)`, dataset, sql)
-      if (!result) return null
-      total = result.rows.length
-      card.table = { name: s.table.name, columns: s.table.columns, rows: result.rows.slice(0, TABLE_ROWS).map((r) => r.map(cell)), total }
+    for (const table of s.tables ?? []) {
+      const cols = table.columns.map((c) => c.name).join(', ')
+      const sql = `select ${cols} from ${table.name}${table.where ? ` where ${table.where}` : ''} order by ${table.orderBy}`
+      const result = await run(`${where} (table ${table.name})`, dataset, sql)
+      const all = await run(`${where} (table ${table.name}, count)`, dataset, `select count(*) from ${table.name}`)
+      if (!result || !all) return null
+      // "… N rows in all" is the whole table's size, also when only some rows are shown.
+      total = Number(all.rows[0]![0])
+      card.tables = [
+        ...(card.tables ?? []),
+        { name: table.name, columns: table.columns, rows: result.rows.slice(0, table.rows ?? TABLE_ROWS).map((r) => r.map(cell)), total },
+      ]
     }
     if (s.query) {
       for (const line of [...s.query.split('\n'), ...(s.mysql ?? '').split('\n')]) {
         if (line.length > MAX_LINE) problems.push(`${where}: "${line}" is longer than ${MAX_LINE} characters (a phone shows ${MAX_LINE})`)
       }
       if (s.mysql === s.query) problems.push(`${where}: the MySQL text is the same; leave it out`)
-      const result = await run(`${where} (query)`, dataset, s.query, s.mysql)
+      const result = await run(`${where} (query)`, dataset, s.query, s.mysql, !s.unordered)
       if (!result) return null
       total = result.rows.length
       card.query = {

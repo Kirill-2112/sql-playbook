@@ -255,13 +255,18 @@ export interface Course {
 export interface ExplainCardSource {
   title: string
   text: string
-  /** A table to look at: its first rows; a tap on a column name says what the column holds. */
-  table?: { name: string; orderBy: string; columns: { name: string; about: string }[] }
+  /**
+   * Tables to look at (two side by side to show how they link): their first rows, or the rows `where` picks; a tap on
+   * a column name says what the column holds.
+   */
+  tables?: { name: string; orderBy: string; columns: { name: string; about: string }[]; where?: string; rows?: number }[]
   /** A query to run (PostgreSQL); `mysql` when MySQL needs other text. Both must return the same rows. */
   query?: string
   mysql?: string
   /** Rows of the result to show (default 4). */
   shown?: number
+  /** The query has no ORDER BY that both databases follow (e.g. MySQL needs a UNION instead): compare as sets. */
+  unordered?: boolean
   /** Shown under the result. */
   after?: string
   tip?: string
@@ -280,7 +285,7 @@ export interface TopicExplanation {
 export interface ExplainCard {
   title: string
   text: string
-  table?: { name: string; columns: { name: string; about: string }[]; rows: (string | null)[][]; total: number }
+  tables?: { name: string; columns: { name: string; about: string }[]; rows: (string | null)[][]; total: number }[]
   query?: { postgres: string; mysql?: string; columns: string[]; rows: (string | null)[][]; total: number }
   after?: string
   tip?: string

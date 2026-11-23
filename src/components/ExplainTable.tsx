@@ -1,14 +1,18 @@
-import { useState } from 'react'
 import styled from 'styled-components'
 import type { ExplainCard } from '../content/types'
 import { RichText } from './RichText'
 
-type Table = NonNullable<ExplainCard['table']>
+type Table = NonNullable<ExplainCard['tables']>[number]
 
-/** The first rows of a table; a tap on a column name highlights the column and says what it holds. */
-export function ExplainTable({ table }: { table: Table }) {
-  const [picked, setPicked] = useState<number | null>(null)
-  const column = picked === null ? null : table.columns[picked]
+export type PickedColumn = { table: string; column: string } | null
+
+/**
+ * The first rows of a table; a tap on a column name highlights the column and says what it holds. With two tables on
+ * a card, the picked column is highlighted in both where the name matches (category_id ↔ category_id): the link.
+ */
+export function ExplainTable({ table, picked, onPick }: { table: Table; picked: PickedColumn; onPick: (picked: PickedColumn) => void }) {
+  const on = (name: string) => picked?.column === name
+  const column = picked?.table === table.name ? table.columns.find((c) => c.name === picked.column) : undefined
   return (
     <>
       <Box>
@@ -17,9 +21,9 @@ export function ExplainTable({ table }: { table: Table }) {
           <Grid>
             <thead>
               <tr>
-                {table.columns.map((c, i) => (
-                  <Head key={c.name} $on={i === picked}>
-                    <button type="button" aria-pressed={i === picked} onClick={() => setPicked(i)}>
+                {table.columns.map((c) => (
+                  <Head key={c.name} $on={on(c.name)}>
+                    <button type="button" aria-pressed={on(c.name)} onClick={() => onPick({ table: table.name, column: c.name })}>
                       {/* Long names break only after an underscore: product_ / id, never produc / t_id. */}
                       {c.name.split('_').map((part, k, all) => (
                         <span key={k}>
@@ -40,7 +44,7 @@ export function ExplainTable({ table }: { table: Table }) {
               {table.rows.map((row, r) => (
                 <tr key={r}>
                   {row.map((value, i) => (
-                    <Cell key={i} $on={i === picked} $null={value === null}>
+                    <Cell key={i} $on={on(table.columns[i]!.name)} $null={value === null}>
                       {value ?? 'NULL'}
                     </Cell>
                   ))}
@@ -51,15 +55,11 @@ export function ExplainTable({ table }: { table: Table }) {
         </Scroll>
         <More>… {table.total.toLocaleString('en-US')} rows in all</More>
       </Box>
-      <About role="status" $on={column !== null}>
-        {column ? (
-          <>
-            <code>{column.name}</code>: <RichText text={column.about} />
-          </>
-        ) : (
-          'Tap a column name to see what it holds.'
-        )}
-      </About>
+      {column && (
+        <About role="status">
+          <code>{column.name}</code>: <RichText text={column.about} />
+        </About>
+      )}
     </>
   )
 }
@@ -130,11 +130,10 @@ const More = styled.div`
   color: ${({ theme }) => theme.color.muted};
 `
 
-const About = styled.p<{ $on: boolean }>`
+const About = styled.p`
   padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
   border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme, $on }) => ($on ? theme.color.accentSoft : theme.color.bg)};
-  color: ${({ theme, $on }) => ($on ? theme.color.ink : theme.color.muted)};
+  background: ${({ theme }) => theme.color.accentSoft};
   font-size: ${({ theme }) => theme.size.sm};
   line-height: 1.5;
 `

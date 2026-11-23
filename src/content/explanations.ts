@@ -17,16 +17,18 @@ export const EXPLANATIONS: TopicExplanation[] = [
       {
         title: 'Data lives in tables',
         text: 'A database keeps its data in tables, like sheets in Excel. Northwind is a small food company; its table **products** lists what it sells, one product per row.',
-        table: {
-          name: 'products',
-          orderBy: 'product_id',
-          columns: [
-            { name: 'product_id', about: 'the number of the product. Every product has its own.' },
-            { name: 'product_name', about: 'the name of the product.' },
-            { name: 'unit_price', about: 'the price of one unit.' },
-            { name: 'units_in_stock', about: 'how many units are in the warehouse.' },
-          ],
-        },
+        tables: [
+          {
+            name: 'products',
+            orderBy: 'product_id',
+            columns: [
+              { name: 'product_id', about: 'the number of the product. Every product has its own.' },
+              { name: 'product_name', about: 'the name of the product.' },
+              { name: 'unit_price', about: 'the price of one unit.' },
+              { name: 'units_in_stock', about: 'how many units are in the warehouse.' },
+            ],
+          },
+        ],
         after: 'Each column has a name. In a query you ask for data by these names.',
       },
       {
@@ -234,6 +236,254 @@ export const EXPLANATIONS: TopicExplanation[] = [
         tip: 'MySQL writes it `date_add(order_date, interval 7 day)`.',
         mysqlText: '`date_add` moves a date. Here `date_add(order_date, interval 7 day)` gives the date one week after the order.',
         mysqlTip: "PostgreSQL writes it `order_date + interval '7 days'`.",
+      },
+    ],
+  },
+  {
+    topic: 'joins',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Tables are linked',
+        text: 'Data is split across tables. Each product has a **category_id**: the number of its row in **categories**. That number links the two tables.',
+        tables: [
+          {
+            name: 'products',
+            orderBy: 'product_id',
+            rows: 4,
+            columns: [
+              { name: 'product_id', about: 'the number of the product.' },
+              { name: 'product_name', about: 'the name of the product.' },
+              { name: 'category_id', about: 'the number of the product\'s category: find it in **categories**.' },
+            ],
+          },
+          {
+            name: 'categories',
+            orderBy: 'category_id',
+            rows: 4,
+            columns: [
+              { name: 'category_id', about: 'the number of the category. Products point to it.' },
+              { name: 'category_name', about: 'the name of the category.' },
+            ],
+          },
+        ],
+        after: 'Chai has category_id 1, and row 1 of categories is Beverages: Chai is a drink.',
+      },
+      {
+        title: 'JOIN puts linked rows together',
+        text: '`join` glues each row to its partner in another table. `on` says which columns must match: here the category_id of the product and of the category.',
+        query: 'select p.product_name,\n  c.category_name\nfrom products p\njoin categories c\n  on c.category_id = p.category_id\norder by p.product_id;',
+        after: 'Every product now has its category name next to it.',
+        tip: '`p` and `c` are short names for the tables, so `p.product_name` means "product_name of products".',
+      },
+      {
+        title: 'JOIN drops rows without a partner',
+        text: 'With `join`, a row that has no partner disappears. Customer FISSA has never ordered anything, GROSR has.',
+        query:
+          "select c.customer_id, o.order_id\nfrom customers c\njoin orders o\n  on o.customer_id = c.customer_id\nwhere c.customer_id\n  in ('FISSA', 'GROSR')\norder by c.customer_id, o.order_id;",
+        after: 'Only the {rows} orders of GROSR are here. FISSA is gone.',
+      },
+      {
+        title: 'LEFT JOIN keeps them',
+        text: '`left join` keeps every row of the first table. Where there is no partner, the columns of the other table are NULL.',
+        query:
+          "select c.customer_id, o.order_id\nfrom customers c\nleft join orders o\n  on o.customer_id = c.customer_id\nwhere c.customer_id\n  in ('FISSA', 'GROSR')\norder by c.customer_id, o.order_id;",
+        after: 'FISSA is back, with NULL where its order would be.',
+        tip: '`right join` is the same the other way round: it keeps every row of the second table.',
+      },
+    ],
+  },
+  {
+    topic: 'full-join',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'FULL JOIN keeps both sides',
+        text: '`full join` keeps the rows without a partner from both tables. Here: countries with customers but no suppliers, and countries with suppliers but no customers.',
+        query:
+          'select distinct\n  c.country as customers,\n  s.country as suppliers\nfrom customers c\nfull join suppliers s\n  on s.country = c.country\nwhere c.country is null\n   or s.country is null\norder by suppliers, customers;',
+        mysql:
+          'select c.country as customers,\n  s.country as suppliers\nfrom customers c\nleft join suppliers s\n  on s.country = c.country\nwhere s.country is null\nunion\nselect c.country, s.country\nfrom customers c\nright join suppliers s\n  on s.country = c.country\nwhere c.country is null;',
+        unordered: true,
+        shown: 5,
+        after: '{rows} countries have only one side: the other column is NULL.',
+        tip: 'MySQL has no `full join`: there you glue a `left join` and a `right join` with `union`.',
+        mysqlText: 'A full join keeps the rows without a partner from both tables. MySQL has no `full join`, so here a `left join` and a `right join` are glued with `union`.',
+        mysqlTip: 'PostgreSQL writes it in one go: `customers c full join suppliers s on …`.',
+      },
+    ],
+  },
+  {
+    topic: 'self-cross-join',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'A table joined to itself',
+        text: 'Each employee has **reports_to**: the employee_id of their manager, in the same table. Join the table to itself under two names: `e` for the employee, `m` for the manager.',
+        query: 'select e.last_name,\n  m.last_name as manager\nfrom employees e\njoin employees m\n  on m.employee_id = e.reports_to\norder by e.employee_id;',
+        after: '{rows} employees have a manager. The top boss has none, so `join` leaves them out.',
+      },
+      {
+        title: 'CROSS JOIN: every pair',
+        text: '`cross join` pairs every row of one table with every row of the other, with no `on`. Useful when you need all combinations.',
+        query: 'select e.last_name, c.category_name\nfrom employees e\ncross join categories c\norder by e.employee_id,\n  c.category_id;',
+        after: '{rows} rows: every employee with every category.',
+      },
+    ],
+  },
+  {
+    topic: 'group-by',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'GROUP BY makes groups',
+        text: '`group by country` puts the customers of each country into one group, and the result has one row per group. `count(*)` counts the rows of each group.',
+        query: 'select country,\n  count(*) as customers\nfrom customers\ngroup by country\norder by country;',
+        after: '{rows} countries, one row each.',
+        tip: 'Every column in `select` must either be in `group by` or sit inside `count()`, `sum()` and the like.',
+      },
+      {
+        title: 'HAVING filters the groups',
+        text: '`where` filters rows before grouping; `having` filters the groups after. Here only countries with at least 5 customers stay.',
+        query: 'select country,\n  count(*) as customers\nfrom customers\ngroup by country\nhaving count(*) >= 5\norder by country;',
+        after: '{rows} countries have 5 or more customers.',
+      },
+    ],
+  },
+  {
+    topic: 'aggregates',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Many rows into one number',
+        text: '`count` counts rows, `sum` adds up, `avg` gives the average, `min` and `max` the smallest and the biggest. Here: one row about all the products.',
+        query: 'select count(*) as products,\n  sum(units_in_stock) as stock,\n  max(unit_price) as top_price,\n  round(avg(unit_price), 2)\n    as avg_price\nfrom products;',
+        tip: 'With `group by`, you get these numbers for each group instead of for the whole table.',
+      },
+      {
+        title: 'Counting different values',
+        text: '`count(distinct x)` counts each different value once. Here: how many orders there are, and how many different customers placed them.',
+        query: 'select count(*) as orders,\n  count(distinct customer_id)\n    as customers\nfrom orders;',
+      },
+    ],
+  },
+  {
+    topic: 'text-aggregation',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Many values into one text',
+        text: '`string_agg` glues the values of a group into one text, with a separator between them. Here: the last names of the employees with each job title.',
+        query: "select title,\n  string_agg(last_name, ', '\n    order by last_name) as names\nfrom employees\ngroup by title\norder by title;",
+        mysql: "select title,\n  group_concat(last_name\n    order by last_name\n    separator ', ') as names\nfrom employees\ngroup by title\norder by title;",
+        tip: "MySQL calls it `group_concat(x separator ', ')`.",
+        mysqlText: '`group_concat` glues the values of a group into one text, with a separator between them. Here: the last names of the employees with each job title.',
+        mysqlTip: "PostgreSQL calls it `string_agg(x, ', ')`.",
+      },
+    ],
+  },
+  {
+    topic: 'conditional-aggregates',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Counting only some rows',
+        text: '`count(*) filter (where …)` counts only the rows that match. Here, for each employee: all their orders, and the big ones with freight over 100.',
+        query: 'select employee_id,\n  count(*) as orders,\n  count(*) filter\n    (where freight > 100) as big\nfrom orders\ngroup by employee_id\norder by employee_id;',
+        mysql: 'select employee_id,\n  count(*) as orders,\n  sum(case when freight > 100\n      then 1 else 0 end) as big\nfrom orders\ngroup by employee_id\norder by employee_id;',
+        after: 'Two counts side by side, in one query.',
+        tip: 'MySQL has no `filter`: `sum(case when … then 1 else 0 end)` adds 1 for each matching row.',
+        mysqlText: '`sum(case when … then 1 else 0 end)` adds 1 for each matching row, so it counts only those. Here, for each employee: all orders, and the ones with freight over 100.',
+        mysqlTip: 'PostgreSQL can also write it `count(*) filter (where freight > 100)`.',
+      },
+    ],
+  },
+  {
+    topic: 'set-operations',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'UNION stacks results',
+        text: '`union` puts the rows of two queries one under the other and removes repeats. Here: every country that has a customer or a supplier.',
+        query: 'select country from customers\nunion\nselect country from suppliers\norder by country;',
+        after: '{rows} countries in all.',
+        tip: '`union all` keeps the repeats, and is faster.',
+      },
+      {
+        title: 'EXCEPT and INTERSECT',
+        text: '`except` keeps the rows of the first query that are not in the second; `intersect` keeps those in both. Here: countries with customers but no suppliers.',
+        query: 'select country from customers\nexcept\nselect country from suppliers\norder by country;',
+        after: '{rows} such countries.',
+      },
+    ],
+  },
+  {
+    topic: 'subqueries',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'A query inside a query',
+        text: 'A query in brackets gives its answer to the outer query. Here the inner query works out the average price, and the outer one keeps the products above it.',
+        query: 'select product_name, unit_price\nfrom products\nwhere unit_price > (\n  select avg(unit_price)\n  from products\n)\norder by unit_price desc,\n  product_id;',
+        after: '{rows} products cost more than the average.',
+      },
+      {
+        title: 'IN with a list from a query',
+        text: '`in (select …)` checks a value against a list that another query makes. Here: the customers with at least one order whose freight is over 500.',
+        query: 'select company_name\nfrom customers\nwhere customer_id in (\n  select customer_id\n  from orders\n  where freight > 500\n)\norder by customer_id;',
+        after: '{rows} customers.',
+        tip: '`exists (select …)` asks the same question: is there at least one such row?',
+      },
+    ],
+  },
+  {
+    topic: 'casting',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Changing the type',
+        text: '`cast(x as type)` turns a value into another type. Here: the date and time into just a date, and the freight into a whole number.',
+        query: 'select order_date,\n  cast(order_date as date)\n    as order_day,\n  freight,\n  cast(freight as integer)\n    as whole\nfrom orders\norder by order_id;',
+        mysql: 'select order_date,\n  cast(order_date as date)\n    as order_day,\n  freight,\n  cast(freight as signed)\n    as whole\nfrom orders\norder by order_id;',
+        tip: 'PostgreSQL also writes it `order_date::date`. MySQL knows only `cast`.',
+        mysqlText: '`cast(x as type)` turns a value into another type. Here: the date and time into just a date, and the freight into a whole number (`signed`).',
+        mysqlTip: 'In MySQL a whole number is `signed`; PostgreSQL says `integer` and also has the short form `x::integer`.',
+      },
+    ],
+  },
+  {
+    topic: 'data-cleaning',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Tidying text',
+        text: 'Data typed by people is messy. `trim` cuts the spaces at the ends, `lower` writes in small letters, `nullif(x, \'\')` turns an empty text into NULL.',
+        query: "select trim('  Alice  ') as name,\n  lower('ALICE@MAIL.COM')\n    as email,\n  nullif('', '') as phone;",
+        after: 'Clean values, ready to compare and to count.',
+      },
+      {
+        title: 'Finding repeats',
+        text: 'To find values that appear more than once, group by them and keep the groups with `having count(*) > 1`. Here: cities with several customers.',
+        query: 'select city, count(*) as customers\nfrom customers\ngroup by city\nhaving count(*) > 1\norder by city;',
+        after: '{rows} cities have more than one customer.',
+      },
+    ],
+  },
+  {
+    topic: 'pagination',
+    dataset: 'northwind',
+    cards: [
+      {
+        title: 'Pages with OFFSET',
+        text: 'To show page 3 with 5 rows on a page, skip two pages (`offset 10`) and take 5 (`limit 5`). Sort by something unique, like the id, so pages never overlap.',
+        query: 'select product_id, product_name\nfrom products\norder by product_id\nlimit 5 offset 10;',
+        after: 'Products 11 to 15.',
+      },
+      {
+        title: 'Continue after the last row',
+        text: 'On big tables `offset` gets slow: the skipped rows are still read. Instead, remember the last id shown and ask for the rows after it.',
+        query: 'select product_id, product_name\nfrom products\nwhere product_id > 15\norder by product_id\nlimit 5;',
+        after: 'The next page, without reading the first 15 rows.',
       },
     ],
   },

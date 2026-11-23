@@ -202,6 +202,10 @@ Audit of 2026-10-15:
   "I know this" skips. `mysqlText`/`mysqlTip` replace text that names PostgreSQL-only syntax in MySQL mode.
   A card may show several `tables` (a picked column is highlighted in each table that has it: the link) with an
   optional `where`; `unordered` compares as sets when MySQL needs other SQL (FULL JOIN as LEFT + RIGHT JOIN).
+- Step hints (2026-11-23): write tasks have Hint → Next hint → Show answer instead of "I'm stuck"
+  (`src/utils/stepHints.ts`, StepHintList): where the data is (tables and the keys linking them), the shape of the
+  query (clauses, only FROM/JOIN filled, from `topClauses` in buildQuery.ts), then all but the conditions. Made from
+  the solution in the current dialect; only showing the answer counts as a miss. Non-plain SELECTs get hint 1 only.
 - Which result is right (2026-11-23): lesson task kind `predict` (PredictTask) replaced "how many rows" (the owner
   found counting rows in the data pointless). Three small results (≤ 3 columns, first 3 rows, row count): the
   solution's and two near-miss variants (opposite comparison, ALTERNATIVES keywords) whose preview visibly differs.

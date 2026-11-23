@@ -21,6 +21,8 @@ import { SqlErrorMessage } from './SqlErrorMessage'
 import { DialectSwitch } from './DialectSwitch'
 import { PromptWords } from './PromptWords'
 import { showWhileTyping } from '../utils/showWhileTyping'
+import { stepHints } from '../utils/stepHints'
+import { StepHintList } from './StepHintList'
 import { SCHEMAS } from '../content/schemas'
 import { tablesIn } from '../utils/schemaTables'
 import type { SuggestContext } from '../utils/sqlSuggest'
@@ -38,6 +40,8 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
   const [checked, setChecked] = useState('')
   const [reason, setReason] = useState('')
   const [revealed, setRevealed] = useState(false)
+  // How many step hints were asked for; they do not count against the answer, only showing the answer does.
+  const [hintCount, setHintCount] = useState(0)
   // The language picked above the editor; it becomes the learner's setting for the next tasks too.
   const [mode, setMode] = useState<Dialect>(dialect)
   const sqlRef = useRef(sql)
@@ -134,6 +138,17 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
 
   const answer = onMysql ? (exercise.solutions[0].mysql ?? exercise.solutions.find((s) => s.mysql)?.mysql ?? '') : exercise.solutions[0].postgres
   const other = onMysql ? exercise.solutions[0].postgres : mode === 'mysql' ? exercise.solutions[0].mysql : null
+  const hints = stepHints(answer, SCHEMAS[exercise.dataset])
+  const moreHints = hintCount < hints.length
+  const nextHint = () => {
+    setHintCount(hintCount + 1)
+    if (state === 'wrong') setState('idle')
+  }
+  const showAnswer = () => {
+    setRevealed(true)
+    setState('wrong')
+    setReason('No problem: read the answer and try the next one. You can come back to this exercise in Practice.')
+  }
 
   return (
     <>
@@ -175,6 +190,7 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
             <CodeBlock sql={file.content} />
           </Extra>
         ))}
+        <StepHintList hints={hints.slice(0, hintCount)} />
         <Writing ref={writingRef}>
           <SqlEditor
             id={id}
@@ -214,27 +230,31 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
               <Secondary type="button" onClick={() => setState('idle')}>
                 Try again
               </Secondary>
-              {!revealed && (
-                <Secondary type="button" onClick={() => setRevealed(true)}>
-                  Show answer
-                </Secondary>
-              )}
+              {!revealed &&
+                (moreHints ? (
+                  <Secondary type="button" onClick={nextHint}>
+                    Hint
+                  </Secondary>
+                ) : (
+                  <Secondary type="button" onClick={() => setRevealed(true)}>
+                    Show answer
+                  </Secondary>
+                ))}
             </>
           ) : busy ? (
             <Secondary type="button" onClick={() => (onMysql ? stopMysql() : stopDatabase(exercise.dataset))}>
               Stop
             </Secondary>
           ) : state === 'idle' ? (
-            <Secondary
-              type="button"
-              onClick={() => {
-                setRevealed(true)
-                setState('wrong')
-                setReason('No problem: read the answer and try the next one. You can come back to this exercise in Practice.')
-              }}
-            >
-              I'm stuck
-            </Secondary>
+            moreHints ? (
+              <Secondary type="button" onClick={nextHint}>
+                {hintCount === 0 ? 'Hint' : 'Next hint'}
+              </Secondary>
+            ) : (
+              <Secondary type="button" onClick={showAnswer}>
+                Show answer
+              </Secondary>
+            )
           ) : null
         }
       >

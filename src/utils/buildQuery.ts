@@ -120,6 +120,23 @@ export function splitPieces(sql: string): string[] | null {
   return pieces
 }
 
+/**
+ * The top-level clauses of a plain SELECT (no CTE, no UNION, one statement), each keyword with its text, whitespace
+ * collapsed. Null for anything else. The step hints of a write task are made from it.
+ */
+export function topClauses(sql: string): { keyword: string; body: string }[] | null {
+  const body = sql.trim().replace(/;\s*$/, '')
+  if (!/^select\b/i.test(body) || /;|\bunion\b|\bintersect\b|\bexcept\b/i.test(body)) return null
+  const flat = flatten(body.replace(/--.*$/gm, ''))
+  if (!flat) return null
+  const marks = [...flat.masked.matchAll(KEYWORDS)]
+  if (marks[0]?.index !== 0) return null
+  return marks.map((m, i) => ({
+    keyword: m[0].toLowerCase().replace(/\s+/g, ' '),
+    body: flat.text.slice(m.index! + m[0].length, marks[i + 1]?.index ?? flat.text.length).trim(),
+  }))
+}
+
 /** The pieces as one query to run. */
 export const piecesToSql = (pieces: string[]) => pieces.join(' ')
 

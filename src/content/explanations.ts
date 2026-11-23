@@ -5,6 +5,9 @@ import type { TopicExplanation } from './types'
  * card, a sentence or two, always shown on real rows of the dataset the lesson's tasks use. Numbers in the text come
  * from the data ({rows} in `after`), never typed by hand. `npm run build:explanations` runs every query on PostgreSQL
  * and MySQL and writes src/content/generated/explanations.json.
+ *
+ * How a card's text is written: first what the command does, in everyday words; then the same thing on the card's
+ * own query ("Here …"). No definitions, no double negatives.
  */
 export const EXPLANATIONS: TopicExplanation[] = [
   {
@@ -13,39 +16,39 @@ export const EXPLANATIONS: TopicExplanation[] = [
     cards: [
       {
         title: 'Data lives in tables',
-        text: 'A database is a set of tables, like the sheets of a spreadsheet. Northwind is a small food trading company: its table **products** has one row for each product.',
+        text: 'A database keeps its data in tables, like sheets in Excel. Northwind is a small food company; its table **products** lists what it sells, one product per row.',
         table: {
           name: 'products',
           orderBy: 'product_id',
           columns: [
-            { name: 'product_id', about: 'a number that tells the products apart. No two products share one.' },
+            { name: 'product_id', about: 'the number of the product. Every product has its own.' },
             { name: 'product_name', about: 'the name of the product.' },
             { name: 'unit_price', about: 'the price of one unit.' },
             { name: 'units_in_stock', about: 'how many units are in the warehouse.' },
           ],
         },
-        after: 'Each column has a name. A query asks for data by these names.',
+        after: 'Each column has a name. In a query you ask for data by these names.',
       },
       {
         title: 'SELECT picks the columns',
-        text: 'A query is a request to the database. `select` says which columns you want, `from` says which table.',
+        text: 'A query asks the database for data. `select` says which columns to show, `from` says which table to take them from.',
         query: 'select product_name, unit_price\nfrom products;',
-        after: 'All {rows} products are still there. Only the columns you named are left.',
-        tip: '`select *` gives every column of the table.',
+        after: 'You get all {rows} products, but only the two columns you asked for.',
+        tip: 'Want every column? Write `select *`.',
       },
       {
-        title: 'WHERE keeps some rows',
-        text: '`where` adds a condition. Rows for which it is not true are left out.',
+        title: 'WHERE filters the rows',
+        text: '`where` is a filter: only the rows that match the condition stay. Here the condition is `unit_price > 50`, so only products that cost more than 50 are left.',
         query: 'select product_name, unit_price\nfrom products\nwhere unit_price > 50;',
         after: 'Only {rows} products cost more than 50.',
-        tip: 'Join conditions with `and` (both must be true) or `or` (one is enough).',
+        tip: 'Two conditions: `and` means both must be true, `or` means one is enough.',
       },
       {
         title: 'ORDER BY sorts the rows',
-        text: 'Without `order by` the rows come in no particular order. Add it to sort them; `desc` puts the biggest first.',
+        text: '`order by` sorts the rows by a column. Here `order by unit_price desc` puts the most expensive first: `desc` means from big to small.',
         query: 'select product_name, unit_price\nfrom products\nwhere unit_price > 50\norder by unit_price desc;',
-        after: 'The most expensive product comes first.',
-        tip: 'Without `desc` the order goes from small to big (`asc`).',
+        after: 'Now the most expensive product is at the top.',
+        tip: 'Without `desc` it sorts from small to big. Without `order by` the database may return rows in any order.',
       },
     ],
   },
@@ -55,15 +58,16 @@ export const EXPLANATIONS: TopicExplanation[] = [
     cards: [
       {
         title: 'LIMIT keeps the first rows',
-        text: '`limit 3` returns only the first three rows. Sort first: without `order by`, "first" means nothing.',
+        text: '`limit` keeps only the first rows of the result. Here we sort by price, most expensive first, and keep 3.',
         query: 'select product_name, unit_price\nfrom products\norder by unit_price desc\nlimit 3;',
-        after: 'The three most expensive products.',
+        after: 'The 3 most expensive products.',
+        tip: 'Sort before `limit`: without `order by`, "the first 3" can be any 3.',
       },
       {
         title: 'OFFSET skips rows',
-        text: '`offset 3` skips the first three rows. With `limit` it gives the next page.',
+        text: '`offset` skips rows from the top. `limit 3 offset 3` skips the first 3 and shows the next 3, like page 2 of a list.',
         query: 'select product_name, unit_price\nfrom products\norder by unit_price desc\nlimit 3 offset 3;',
-        after: 'Products 4 to 6 by price.',
+        after: 'Products 4, 5 and 6 by price.',
         tip: 'PostgreSQL also knows the standard spelling `fetch first 3 rows only`; MySQL has only `limit`.',
       },
     ],
@@ -74,17 +78,17 @@ export const EXPLANATIONS: TopicExplanation[] = [
     cards: [
       {
         title: 'Values repeat',
-        text: 'Many customers are in the same country, so the column **country** has the same value many times.',
+        text: 'Here each row is one customer, and many customers are in the same country. So the same country shows up many times.',
         query: 'select country\nfrom customers\norder by country;',
         shown: 5,
-        after: '{rows} rows, one per customer, but far fewer countries.',
+        after: '{rows} rows, one per customer, with lots of repeats.',
       },
       {
         title: 'DISTINCT removes repeats',
-        text: '`select distinct` keeps each different value once.',
+        text: '`select distinct` removes repeats: each value shows up only once. Here each country appears once.',
         query: 'select distinct country\nfrom customers\norder by country;',
         after: '{rows} different countries.',
-        tip: 'With several columns, `distinct` drops a row only when all of its columns repeat.',
+        tip: 'With several columns, a row counts as a repeat only when all its columns are the same.',
       },
     ],
   },
@@ -93,22 +97,23 @@ export const EXPLANATIONS: TopicExplanation[] = [
     dataset: 'northwind',
     cards: [
       {
-        title: 'NULL: the value is unknown',
-        text: 'An empty cell is **NULL**: nobody entered a value. It is not 0 and not an empty text.',
+        title: 'NULL: no value',
+        text: '**NULL** means "no value": nobody filled this cell in. It is not 0 and not an empty text, it is simply unknown.',
         query: 'select company_name, region\nfrom customers\norder by customer_id;',
-        after: 'Many customers have no region: the cell says NULL.',
+        after: 'Many customers have no region, so their cell says NULL.',
       },
       {
         title: 'IS NULL finds them',
-        text: '`region = null` finds nothing: nothing equals unknown, not even unknown. Write `is null` or `is not null`.',
+        text: 'To find cells with no value, write `where region is null`. Careful: `= null` finds nothing, because SQL cannot compare anything with an unknown value.',
         query: 'select company_name\nfrom customers\nwhere region is null\norder by customer_id;',
         after: '{rows} customers have no region.',
+        tip: 'The opposite, `is not null`, keeps the rows that do have a value.',
       },
       {
         title: 'COALESCE fills the gaps',
-        text: '`coalesce(a, b)` gives `a`, or `b` when `a` is NULL.',
+        text: "`coalesce` puts a value in place of NULL. Here `coalesce(region, 'none')` shows the region, or the word none when there is no region.",
         query: "select company_name,\n  coalesce(region, 'none') as region\nfrom customers\norder by customer_id;",
-        after: 'No NULLs left: the missing regions say none.',
+        after: 'No NULLs left: the missing regions now say none.',
       },
     ],
   },
@@ -117,20 +122,21 @@ export const EXPLANATIONS: TopicExplanation[] = [
     dataset: 'northwind',
     cards: [
       {
-        title: 'LIKE matches a pattern',
-        text: 'In a `like` pattern, `%` stands for any text (even none) and `_` for exactly one character.',
+        title: 'LIKE searches by a pattern',
+        text: "`like` finds texts that fit a pattern. In the pattern `%` means \"any text here\", so `'Ch%'` finds names that start with Ch.",
         query: "select product_name\nfrom products\nwhere product_name like 'Ch%'\norder by product_id;",
-        after: '{rows} products start with Ch.',
+        after: '{rows} product names start with Ch.',
+        tip: "`_` means exactly one character: `'_hai'` finds Chai.",
       },
       {
         title: 'Anywhere in the text',
-        text: '`%` on both sides finds the word anywhere. `ilike` is `like` that ignores upper and lower case.',
+        text: '`%` on both sides finds the word anywhere in the text. `ilike` works like `like`, but does not care about capital letters.',
         query: "select product_name\nfrom products\nwhere product_name ilike '%sauce%'\norder by product_id;",
         mysql: "select product_name\nfrom products\nwhere product_name like '%sauce%'\norder by product_id;",
-        after: '{rows} products have "sauce" in the name, although it is written Sauce.',
-        tip: 'MySQL has no `ilike`, but there `like` usually ignores case already.',
-        mysqlText: '`%` on both sides finds the word anywhere. In MySQL `like` usually ignores upper and lower case.',
-        mysqlTip: 'PostgreSQL\'s `like` cares about case: there you write `ilike` to ignore it.',
+        after: '{rows} products have "sauce" in the name, even though it is written with a capital S.',
+        tip: 'MySQL has no `ilike`, but there `like` usually ignores capital letters already.',
+        mysqlText: '`%` on both sides finds the word anywhere in the text. In MySQL `like` usually does not care about capital letters.',
+        mysqlTip: 'In PostgreSQL `like` does care about capital letters: there you write `ilike` instead.',
       },
     ],
   },
@@ -140,22 +146,22 @@ export const EXPLANATIONS: TopicExplanation[] = [
     cards: [
       {
         title: 'IN: one of a list',
-        text: '`in (…)` is true when the value is one of the list: shorter than many `or`s.',
+        text: "`in` checks if a value is in a list. `country in ('UK', 'France')` is a short way to write `country = 'UK' or country = 'France'`.",
         query: "select company_name, country\nfrom customers\nwhere country in ('UK', 'France')\norder by customer_id;",
         after: '{rows} customers are in the UK or France.',
       },
       {
         title: 'BETWEEN: a range',
-        text: '`between 10 and 20` includes both ends: 10 and 20 count too.',
+        text: '`between` keeps values in a range. `between 10 and 20` means from 10 to 20, and 10 and 20 themselves count too.',
         query: 'select product_name, unit_price\nfrom products\nwhere unit_price between 10 and 20\norder by unit_price, product_id;',
         after: '{rows} products cost from 10 to 20.',
       },
       {
         title: 'CASE: a label for each row',
-        text: '`case` checks its conditions in order and gives the value of the first true one; `else` covers the rest.',
+        text: '`case` gives each row a label by rules. It checks the `when` lines from the top and uses the first one that is true; `else` is for all the rest.',
         query:
           "select product_name, unit_price,\n  case\n    when unit_price > 50 then 'high'\n    when unit_price > 20 then 'mid'\n    else 'low'\n  end as price_level\nfrom products\norder by product_id;",
-        after: 'Every product now has a label.',
+        after: 'Every product now has a price label: high, mid or low.',
       },
     ],
   },
@@ -165,21 +171,21 @@ export const EXPLANATIONS: TopicExplanation[] = [
     cards: [
       {
         title: 'Gluing text together',
-        text: "`||` joins texts. Put `', '` between the parts, or they stick together.",
+        text: "`||` glues texts together. Here `city || ', ' || country` turns two columns into one text, with a comma and a space between them.",
         query: "select company_name,\n  city || ', ' || country\n    as place\nfrom customers\norder by customer_id;",
         mysql: "select company_name,\n  concat(city, ', ', country)\n    as place\nfrom customers\norder by customer_id;",
-        after: 'Two columns made into one.',
+        after: 'Two columns turned into one.',
         tip: 'In MySQL `||` means OR: use `concat()` there. PostgreSQL has `concat()` too.',
-        mysqlText: "`concat()` joins texts. Put `', '` between the parts, or they stick together.",
-        mysqlTip: 'Careful: in MySQL `||` means OR. PostgreSQL joins texts with `||`.',
+        mysqlText: "`concat()` glues texts together. Here `concat(city, ', ', country)` turns two columns into one text, with a comma and a space between them.",
+        mysqlTip: 'Careful: in MySQL `||` means OR. PostgreSQL glues texts with `||`.',
       },
       {
-        title: 'Functions change text',
-        text: '`upper()` and `lower()` change the case of the letters, `length()` counts them.',
+        title: 'Changing text',
+        text: '`lower()` writes a text in small letters, `upper()` in capitals. `length()` counts its characters.',
         query: 'select product_name,\n  lower(product_name) as small,\n  length(product_name) as len\nfrom products\norder by product_id;',
         mysql: 'select product_name,\n  lower(product_name) as small,\n  char_length(product_name) as len\nfrom products\norder by product_id;',
         tip: 'In MySQL `length()` counts bytes, so é counts twice: use `char_length()`.',
-        mysqlText: '`upper()` and `lower()` change the case of the letters, `char_length()` counts them.',
+        mysqlText: '`lower()` writes a text in small letters, `upper()` in capitals. `char_length()` counts its characters.',
         mysqlTip: 'In MySQL `length()` counts bytes, so é counts twice.',
       },
     ],
@@ -190,23 +196,23 @@ export const EXPLANATIONS: TopicExplanation[] = [
     cards: [
       {
         title: 'Math on columns',
-        text: 'Columns can be multiplied, added and divided like numbers on a calculator. `as` names the new column.',
+        text: 'You can do math with columns, like on a calculator. Here price × units in stock gives what the stock is worth; `as` names the new column.',
         query: 'select unit_price, units_in_stock,\n  unit_price * units_in_stock\n    as stock_value\nfrom products\norder by product_id;',
-        after: 'A new column, worked out for every row.',
+        after: 'The new column is worked out for every row.',
       },
       {
-        title: 'ROUND',
-        text: '`round(x, 2)` keeps two digits after the point.',
+        title: 'Rounding',
+        text: '`round(x, 2)` rounds a number to two digits after the point, like money. Here it tidies up the price with 17% tax added (`* 1.17`).',
         query: 'select unit_price,\n  round(unit_price * 1.17, 2)\n    as with_tax\nfrom products\norder by product_id;',
       },
       {
         title: 'Whole numbers divide whole',
-        text: 'In PostgreSQL `7 / 2` is 3: both numbers are whole, so the answer is too. Write `7 / 2.0` to keep the fraction; `%` gives the remainder.',
+        text: 'In PostgreSQL `7 / 2` gives 3, not 3.5: when both numbers are whole, the answer is whole too. Write `7 / 2.0` to get 3.5. `%` gives what is left over.',
         query: 'select 7 / 2 as whole,\n  round(7 / 2.0, 1) as exact,\n  7 % 2 as remainder;',
         mysql: 'select 7 div 2 as whole,\n  round(7 / 2, 1) as exact,\n  7 % 2 as remainder;',
         tip: 'In MySQL `/` always keeps the fraction; `div` divides whole numbers.',
-        mysqlText: 'In MySQL `7 / 2` is 3.5: `/` keeps the fraction. `div` divides whole numbers; `%` gives the remainder.',
-        mysqlTip: 'In PostgreSQL `7 / 2` is 3: whole numbers divide whole there.',
+        mysqlText: 'In MySQL `7 / 2` gives 3.5. To divide without the fraction, write `7 div 2`: that gives 3. `%` gives what is left over.',
+        mysqlTip: 'In PostgreSQL `7 / 2` gives 3: whole numbers divide whole there.',
       },
     ],
   },
@@ -216,17 +222,17 @@ export const EXPLANATIONS: TopicExplanation[] = [
     cards: [
       {
         title: 'Parts of a date',
-        text: '`extract(year from d)` takes one part of a date. Instead of `year`: `month`, `day`, `hour`…',
+        text: '`extract` takes one part out of a date. Here `extract(year from order_date)` gives just the year; it works with `month` and `day` too.',
         query: 'select order_date,\n  extract(year from order_date)\n    as order_year\nfrom orders\norder by order_id;',
-        after: 'Now orders can be counted by year or by month.',
+        after: 'Now you could count the orders of each year.',
       },
       {
         title: 'Moving a date',
-        text: "`+ interval '7 days'` moves a date a week forward; `-` moves it back.",
+        text: "To move a date, add an interval. Here `order_date + interval '7 days'` gives the date one week after the order.",
         query: "select order_date,\n  order_date + interval '7 days'\n    as week_later\nfrom orders\norder by order_id;",
         mysql: 'select order_date,\n  date_add(order_date,\n           interval 7 day)\n    as week_later\nfrom orders\norder by order_id;',
         tip: 'MySQL writes it `date_add(order_date, interval 7 day)`.',
-        mysqlText: '`date_add(d, interval 7 day)` moves a date a week forward; `date_sub` moves it back.',
+        mysqlText: '`date_add` moves a date. Here `date_add(order_date, interval 7 day)` gives the date one week after the order.',
         mysqlTip: "PostgreSQL writes it `order_date + interval '7 days'`.",
       },
     ],

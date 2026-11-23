@@ -130,11 +130,13 @@ Audit of 2026-10-15:
 - MySQL mode (2026-10-24): `dialect` in the store (Progress page, "Learn in"). build:lessons now needs the local MySQL:
   for plain-query exercises whose first solution is verified on MySQL, gap/rows/bug/order tasks get a `mysql` version
   whose wrong options are run on MySQL (`pb_<dataset>`, max_execution_time 10 s). `src/progress/dialect.ts` swaps it
-  in; tasks without one stay in PostgreSQL with a notice. When the PostgreSQL blank's keyword is not in the MySQL solution (ilike → like), the MySQL version blanks
-  another keyword (`mysqlOwnGap`: topic keywords, then MYSQL_ALTERNATIVES such as date_format, group_concat, ifnull). Write tasks run on the MySQL runner in MySQL mode (below).
-  Script exercises (checkSql/setupSql) run each MySQL variant on a fresh copy (`pb_lessons`) of only the tables the
-  script mentions (`mysqlRowsOnCopy` in scripts/lib/mysql.ts, shared with verify). 524 of 671 tap tasks have a MySQL
-  version. build:lessons takes ~15 min; the CI timeout is 75 min.
+  in; tasks without one stay in PostgreSQL with a notice. When the PostgreSQL blank's keyword is not in the MySQL
+  solution (ilike → like), the MySQL version blanks another keyword (`mysqlOwnGap`: topic keywords, then
+  MYSQL_ALTERNATIVES such as date_format, group_concat, ifnull). Write tasks run on the MySQL runner in MySQL mode
+  (below). Script exercises (checkSql/setupSql) run each MySQL variant on a fresh copy (`pb_lessons`) of only the
+  tables the script mentions (`mysqlRowsOnCopy` in scripts/lib/mysql.ts, shared with verify). 588 of 671 tap tasks
+  have a MySQL version (the rest use PostgreSQL-only features or do not split into pieces). build:lessons takes
+  ~15 min; the CI timeout is 75 min.
 - Accounts (2026-10-31): Supabase Auth via `@supabase/auth-js` only (lazy chunk), PKCE flow (the email link returns
   `?code=` next to the #/ route). `api/config` hands the app SUPABASE_URL + SUPABASE_PUBLISHABLE_KEY (public; the owner
   adds it in Vercel). `src/progress/account.ts`: sign in by email link/code or Google, progress stored in table

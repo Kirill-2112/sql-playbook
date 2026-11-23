@@ -196,10 +196,12 @@ Audit of 2026-10-15:
   redeploy with --datasets. `scripts/check-runner.ts` compares the server with the local MySQL (through an SSH tunnel).
   Privacy Policy mentions it (Oracle, Israel; SQL not stored). The runner's origin is in vercel.json connect-src.
 - Explanation cards (2026-11-23): `src/content/explanations.ts` (one idea per card, real rows, numbers only via
-  {rows}) for level 1 topics; `npm run build:explanations` runs each query on PGlite and MySQL (same rows required,
+  {rows}) for level 1–2 topics (45 cards, all on Northwind); `npm run build:explanations` runs each query on PGlite and MySQL (same rows required,
   query lines ≤ 36 chars to fit a 375 px phone, text ≤ 200 chars) and writes `generated/explanations.json` (CI checks it
   is current). The skill's first lesson starts with them (`intro` in LessonPlayer, ExplainCardView, ExplainTable);
   "I know this" skips. `mysqlText`/`mysqlTip` replace text that names PostgreSQL-only syntax in MySQL mode.
+  A card may show several `tables` (a picked column is highlighted in each table that has it: the link) with an
+  optional `where`; `unordered` compares as sets when MySQL needs other SQL (FULL JOIN as LEFT + RIGHT JOIN).
 - Which result is right (2026-11-23): lesson task kind `predict` (PredictTask) replaced "how many rows" (the owner
   found counting rows in the data pointless). Three small results (≤ 3 columns, first 3 rows, row count): the
   solution's and two near-miss variants (opposite comparison, ALTERNATIVES keywords) whose preview visibly differs.

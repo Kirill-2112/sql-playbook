@@ -6,6 +6,7 @@ import { datasetOf } from '../content/exercises'
 import { inDialect } from '../progress/dialect'
 import { localDate, markDatasetSeen, streak, useProgress } from '../progress/store'
 import { BugTask } from './BugTask'
+import { BuildTask } from './BuildTask'
 import { ChoiceTask } from './ChoiceTask'
 import { LessonComplete } from './LessonComplete'
 import { MeetDatabase } from './MeetDatabase'
@@ -156,6 +157,8 @@ export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro }
           <BugTask key={key} task={task} onDone={done} />
         ) : task.kind === 'plan' ? (
           <PlanTask key={key} task={task} onDone={done} />
+        ) : task.kind === 'build' ? (
+          <BuildTask key={key} task={task} onDone={done} />
         ) : task.kind === 'order' ? (
           <OrderTask key={key} task={task} onDone={done} />
         ) : (

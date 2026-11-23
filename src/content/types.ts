@@ -183,6 +183,19 @@ export type LessonTask =
       mysql?: { lines: string[]; answer: number[] }
     }
   | {
+      /** The solution cut into pieces, with a few wrong ones mixed in: tap the right pieces in order. */
+      kind: 'build'
+      exerciseId: string
+      prompt: string
+      /** Every piece to show, shuffled: the answer's and the wrong ones. */
+      pieces: string[]
+      /** The answer's pieces in order (texts: a piece can appear twice). */
+      answer: string[]
+      explanation: string
+      /** The same from the MySQL solution, wrong pieces checked on MySQL 8.4. */
+      mysql?: { pieces: string[]; answer: string[]; note?: string }
+    }
+  | {
       /** Will PostgreSQL use an index for this query? The answer comes from a real EXPLAIN on the Delivery data. */
       kind: 'plan'
       /** "delivery-plan-…": the dataset prefix keeps the lesson player's dataset logic working. */

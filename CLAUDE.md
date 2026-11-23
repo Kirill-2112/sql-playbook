@@ -200,6 +200,12 @@ Audit of 2026-10-15:
   query lines ≤ 36 chars to fit a 375 px phone, text ≤ 200 chars) and writes `generated/explanations.json` (CI checks it
   is current). The skill's first lesson starts with them (`intro` in LessonPlayer, ExplainCardView, ExplainTable);
   "I know this" skips. `mysqlText`/`mysqlTip` replace text that names PostgreSQL-only syntax in MySQL mode.
+- Build the query (2026-11-23): lesson task kind `build` (BuildTask). `src/utils/buildQuery.ts` cuts a plain SELECT
+  into pieces (clause keywords, list items with their comma, conditions and AND/OR, FROM/JOIN tables; ≤ 14 pieces of
+  ≤ 36 chars) and compares answers with `canonical` (AND-conditions and GROUP BY items in any order). build-lessons adds
+  up to 3 wrong pieces (ALTERNATIVES keywords, the opposite comparison, unused columns of the same tables), each
+  run in place of the piece it imitates on PGlite (and MySQL for the mysql version) and kept only if the result
+  changes. It takes the 4th slot of a lesson and never uses the lesson's write exercise.
 - QA, design and accessibility reports of 2026-11-19 live in `qa-bug-hunt/` (git-ignored, local only).
 - iCloud Desktop sync can create "<name> 2.ts" copies; delete them, never commit them.
 - Next: more labs (level 4, and level 3 on other datasets), two replacement datasets.

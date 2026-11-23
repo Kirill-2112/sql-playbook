@@ -5,6 +5,9 @@
  *   gap   — the reference solution with one keyword blanked out, and options. Every wrong option is run on PGlite and
  *           kept only if it really changes the result (or fails): a "wrong" answer that also works is never offered.
  *   rows  — "how many rows does this query return?", with distractors taken from what the wrong variants return.
+ *   build — the solution cut into pieces to tap in order, plus a few wrong pieces (another keyword, the opposite
+ *           comparison, a column the query does not use). Each wrong piece is put in place of the piece it imitates
+ *           and run: it is kept only if the result changes (or the query fails).
  *   write — the exercise itself, checked in the browser like on the exercise page.
  *
  * MySQL mode: gap, rows, bug and order tasks also get a version built from the exercise's MySQL solution (when it was
@@ -30,6 +33,8 @@ import { emulateTransactions, splitStatements } from '../src/utils/emulateTransa
 import { attachFiles } from '../src/utils/exerciseFiles'
 import { changesDatabase, exerciseScript } from '../src/utils/exerciseScript'
 import { indexScenarios } from '../src/content/indexScenarios'
+import { SCHEMAS } from '../src/content/schemas'
+import { piecesToSql, splitPieces } from '../src/utils/buildQuery'
 import type { VerificationReport } from '../src/content/verification'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -470,6 +475,105 @@ async function rowsTask(db: PGlite, ex: Exercise, reference: unknown[][]): Promi
   }
 }
 
+/** The opposite comparison for a condition piece: the first one that applies. */
+const OPPOSITES: [RegExp, string][] = [
+  [/ >= /, ' < '],
+  [/ <= /, ' > '],
+  [/ <> /, ' = '],
+  [/ != /, ' = '],
+  [/ > /, ' < '],
+  [/ < /, ' > '],
+  [/ = /, ' <> '],
+  [/ is not null$/i, ' is null'],
+  [/ is null$/i, ' is not null'],
+  [/ not like /i, ' like '],
+  [/ like /i, ' not like '],
+  [/ ilike /i, ' not ilike '],
+  [/ between /i, ' not between '],
+  [/ in \(/i, ' not in ('],
+]
+
+type Decoy = { at: number; text: string; kind: 'opposite' | 'keyword' | 'column' }
+
+/** Wrong pieces that look right, each with the place of the piece it imitates. */
+function decoys(pieces: string[], dataset: DatasetId): Decoy[] {
+  const out: Decoy[] = []
+  const query = piecesToSql(pieces).toLowerCase()
+  const tables = pieces.filter((_, i) => i > 0 && /^(from|(\w+ )?join)$/i.test(pieces[i - 1]!)).map((p) => p.split(' ')[0]!.toLowerCase())
+  const columns = SCHEMAS[dataset]
+    .filter((t) => tables.includes(t.name))
+    .flatMap((t) => t.columns.map((c) => c.name))
+    .filter((c) => !new RegExp(`\\b${c}\\b`).test(query))
+  const from = pieces.findIndex((p) => /^from$/i.test(p))
+  pieces.forEach((piece, at) => {
+    const comma = piece.endsWith(',') ? ',' : ''
+    const bare = piece.replace(/,$/, '')
+    const keyword = ALTERNATIVES.find(([k]) => k === bare.toLowerCase())
+    // The first two alternatives are the believable ones (asc for desc, having for where, or for and).
+    if (keyword) for (const alt of keyword[1].slice(0, 2)) out.push({ at, text: alt + comma, kind: 'keyword' })
+    const opposite = OPPOSITES.find(([re]) => re.test(bare))
+    if (opposite) out.push({ at, text: bare.replace(opposite[0], opposite[1]) + comma, kind: 'opposite' })
+    // A plain column of the SELECT list: another column of the same tables.
+    if (at < from && /^\w+$/.test(bare) && !/^select/i.test(bare)) for (const c of columns) out.push({ at, text: c + comma, kind: 'column' })
+  })
+  return out
+}
+
+/** Pieces of one solution with up to three verified wrong pieces, or null. `run` gives a variant's rows. */
+async function buildPieces(
+  ex: Exercise,
+  sql: string,
+  reference: unknown[][],
+  run: (sql: string) => Promise<unknown[][] | null>,
+  seed: string,
+): Promise<{ pieces: string[]; answer: string[] } | null> {
+  const answer = splitPieces(sql)
+  if (!answer) return null
+  // Joined back into one line, the pieces must still give the solution's rows.
+  const same = await run(piecesToSql(answer))
+  if (!same || !compareRowSets(same, reference, ex.orderMatters).equal) return null
+  const real = new Set(answer.map((p) => p.toLowerCase()))
+  const wrong: string[] = []
+  const places = new Set<number>()
+  // One of each kind first (the opposite condition, then a keyword, then a column), shuffled within a kind.
+  const all = decoys(answer, ex.dataset)
+  const byKind = (['opposite', 'keyword', 'column'] as const).map((kind) => shuffle(all.filter((d) => d.kind === kind), seed + kind))
+  const ordered = [...byKind.map((list) => list[0]), ...byKind.flatMap((list) => list.slice(1))].filter((d): d is Decoy => !!d)
+  const bare = (text: string) => text.replace(/,$/, '').toLowerCase()
+  for (const d of ordered) {
+    if (wrong.length >= 3) break
+    // Not the same word twice (with and without a comma), and nothing that is also a right piece.
+    if (places.has(d.at) || real.has(d.text.toLowerCase()) || wrong.some((w) => bare(w) === bare(d.text)) || d.text.length > 36) continue
+    const variant = answer.map((p, i) => (i === d.at ? d.text : p))
+    const rows = await run(piecesToSql(variant))
+    if (rows === null || !compareRowSets(rows, reference, ex.orderMatters).equal) {
+      wrong.push(d.text)
+      places.add(d.at)
+    }
+  }
+  if (wrong.length < 2) return null
+  return { pieces: shuffle([...answer, ...wrong], seed + 'bank'), answer }
+}
+
+/** "Build the query": the solution's pieces and wrong ones, to tap in order. */
+async function buildTask(db: PGlite, ex: Exercise, reference: unknown[][]): Promise<LessonTask | null> {
+  if (ex.checkSql || ex.setupSql || ex.files) return null
+  const pg = await buildPieces(ex, ex.solutions[0].postgres, reference, (sql) => rowsOf(db, ex, sql), ex.id + 'build')
+  if (!pg) return null
+  const mysqlSql = mysqlSolution(ex)
+  const mysqlReference = mysqlSql ? await mysqlRowsOf(ex, mysqlSql) : null
+  const my =
+    mysqlSql && mysqlReference ? await buildPieces(ex, mysqlSql, mysqlReference, (sql) => mysqlRowsOf(ex, sql), ex.id + 'build-mysql') : null
+  return {
+    kind: 'build',
+    exerciseId: ex.id,
+    prompt: ex.prompt,
+    ...pg,
+    explanation: ex.solutions[0].explanation,
+    ...(my && { mysql: { ...my, note: ex.solutions[0].mysqlNote } }),
+  }
+}
+
 /** Plan questions for the index topics, where a changed keyword never changes the result. */
 const PLAN_SCENARIOS: { slug: string; title: string; setup: string; query: string; lesson: string }[] = [
   ...indexScenarios.flatMap((sc) => [
@@ -586,6 +690,7 @@ async function main() {
       const used = new Set<string>()
       bugs = []
       const orders: LessonTask[] = []
+      const builds: LessonTask[] = []
       for (const onlyTopicKeywords of [true, false]) {
         for (const ex of pool) {
           const haveGaps = quick.filter((t) => t.kind === 'gap').length
@@ -606,6 +711,13 @@ async function main() {
             used.add('order:' + ex.id)
             orders.push(order)
           }
+          if (onlyTopicKeywords && !used.has('build:' + ex.id) && builds.length < LESSONS_PER_SKILL * 2) {
+            const build = await buildTask(d, ex, reference)
+            if (build) {
+              used.add('build:' + ex.id)
+              builds.push(build)
+            }
+          }
           if (onlyTopicKeywords && !used.has('rows:' + ex.id) && quick.filter((t) => t.kind === 'rows').length < LESSONS_PER_SKILL * 2) {
             const rows = await rowsTask(d, ex, reference)
             if (rows) {
@@ -615,8 +727,9 @@ async function main() {
           }
         }
       }
-      // Each lesson: gap, rows, a third kind (find the bug or put in order), gap, then the full query to write.
-      // A bug task never comes from the same exercise and keyword as a gap in the same lesson (it would give it away).
+      // Each lesson: gap, rows, a third kind (find the bug or put in order), build the query (or another gap), then
+      // the full query to write. A bug task never comes from the same exercise and keyword as a gap in the same
+      // lesson, and a build task never from the exercise to write (either would give the answer away).
       const gaps: LessonTask[] = quick.filter((t) => t.kind === 'gap')
       const counts: LessonTask[] = quick.filter((t) => t.kind === 'rows')
       // Index topics: plan questions first, since a changed keyword never changes their results.
@@ -627,11 +740,17 @@ async function main() {
       const lessons: Lesson[] = []
       for (let i = 0; i < LESSONS_PER_SKILL; i++) {
         const tasks: LessonTask[] = []
-        for (const kind of ['gap', 'rows', 'extra', 'gap'] as const) {
-          const pools = kind === 'gap' ? [gaps, extras, counts] : kind === 'rows' ? [counts, gaps, extras] : [extras, gaps, counts]
+        const write = writable[i]
+        for (const kind of ['gap', 'rows', 'extra', 'build'] as const) {
+          const pools =
+            kind === 'gap' ? [gaps, extras, counts] : kind === 'rows' ? [counts, gaps, extras] : kind === 'extra' ? [extras, gaps, counts] : [builds, gaps, extras, counts]
           let next: LessonTask | undefined
           for (const pool of pools) {
-            const at = pool.findIndex((t) => !tasks.some((x) => x.exerciseId === t.exerciseId && x.kind !== t.kind && (x.kind === 'bug' || t.kind === 'bug')))
+            const at = pool.findIndex(
+              (t) =>
+                !tasks.some((x) => x.exerciseId === t.exerciseId && x.kind !== t.kind && (x.kind === 'bug' || t.kind === 'bug')) &&
+                !(t.kind === 'build' && t.exerciseId === write?.id),
+            )
             if (at >= 0) {
               next = pool.splice(at, 1)[0]
               break
@@ -639,7 +758,6 @@ async function main() {
           }
           if (next) tasks.push(next)
         }
-        const write = writable[i]
         if (write) tasks.push({ kind: 'write', exerciseId: write.id })
         // A lesson ends with a query to write; without one left, the skill has enough lessons.
         if (tasks.length < 3 || (!write && i > 0)) break
@@ -663,9 +781,10 @@ async function main() {
   writeFileSync(OUT, `${JSON.stringify(course, null, 2)}\n`)
   const lessons = course.units.flatMap((u) => u.skills.flatMap((s) => s.lessons))
   const tasks = lessons.flatMap((l) => l.tasks)
-  const tappable = tasks.filter((t) => t.kind === 'gap' || t.kind === 'rows' || t.kind === 'bug' || t.kind === 'order')
+  const tappable = tasks.filter((t) => t.kind === 'gap' || t.kind === 'rows' || t.kind === 'bug' || t.kind === 'order' || t.kind === 'build')
   console.log(`\n${lessons.length} lessons, ${tasks.length} tasks → ${OUT.replace(ROOT + '/', '')}`)
-  console.log(`MySQL versions: ${tappable.filter((t) => 'mysql' in t && t.mysql).length} of ${tappable.length} gap/rows/bug/order tasks`)
+  console.log(`Build the query: ${tasks.filter((t) => t.kind === 'build').length} tasks`)
+  console.log(`MySQL versions: ${tappable.filter((t) => 'mysql' in t && t.mysql).length} of ${tappable.length} gap/rows/bug/order/build tasks`)
 }
 
 await main()

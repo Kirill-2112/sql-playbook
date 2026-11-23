@@ -130,6 +130,29 @@ const ALTERNATIVES: [string, string[]][] = [
   ['<>', ['=', '>', '<', '>=', 'not']],
 ]
 
+/**
+ * Keywords found only in MySQL solutions, with plausible wrong alternatives. When the PostgreSQL blank's keyword is
+ * not in the MySQL solution (ilike → like, date_trunc → date_format), the MySQL version blanks one of these instead.
+ */
+const MYSQL_ALTERNATIVES: [string, string[]][] = [
+  ['with rollup', ['with cube', 'rollup', 'with totals']],
+  ['group_concat', ['concat', 'json_arrayagg', 'count']],
+  ['date_format', ['str_to_date', 'date_add', 'time_format']],
+  ['timestampdiff', ['datediff', 'timediff', 'period_diff']],
+  ['date_add', ['date_sub', 'datediff', 'timestampdiff']],
+  ['date_sub', ['date_add', 'datediff', 'subtime']],
+  ['datediff', ['timestampdiff', 'date_sub', 'timediff']],
+  ['ifnull', ['nullif', 'isnull', 'if']],
+  ['concat', ['concat_ws', 'group_concat', 'insert']],
+  ['regexp', ['like', '=', 'in']],
+  ['div', ['/', '%', '*']],
+  ['json_extract', ['json_contains', 'json_search', 'json_keys']],
+  ['json_unquote', ['json_quote', 'json_extract', 'trim']],
+  ['char_length', ['length', 'bit_length', 'char']],
+  ['year', ['month', 'day', 'week']],
+  ['month', ['year', 'day', 'week']],
+]
+
 // Which keywords to prefer for a topic, so a NULL lesson blanks IS NULL rather than ORDER BY.
 const TOPIC_KEYWORDS: Record<string, string[]> = {
   'select-basics': ['where', 'and', 'or', 'order by', 'desc', '>=', '<='],
@@ -349,6 +372,24 @@ async function mysqlGap(ex: Exercise, keyword: string, alternatives: string[]): 
   }
 }
 
+/**
+ * A MySQL blank of its own, for when the PostgreSQL blank's keyword is not in the MySQL solution or its wrong options
+ * all work there: the topic's keywords first, then MySQL-only ones, then any. Its wrong options are run on MySQL.
+ */
+async function mysqlOwnGap(ex: Exercise, topic: string): Promise<GapVariant | null> {
+  const sql = mysqlSolution(ex)
+  if (!sql) return null
+  const preferred = TOPIC_KEYWORDS[topic] ?? []
+  const rank = ([k]: [string, string[]]) => (preferred.includes(k) ? preferred.indexOf(k) : MYSQL_ALTERNATIVES.some(([m]) => m === k) ? 50 : 99)
+  const candidates = [...MYSQL_ALTERNATIVES, ...ALTERNATIVES].sort((a, b) => rank(a) - rank(b))
+  for (const [keyword, alternatives] of candidates) {
+    if (findKeyword(sql, keyword) < 0) continue
+    const gap = await mysqlGap(ex, keyword, alternatives)
+    if (gap) return gap
+  }
+  return null
+}
+
 async function gapTasks(
   db: PGlite,
   ex: Exercise,
@@ -375,7 +416,7 @@ async function gapTasks(
       if (rows === null || !compareRowSets(rows, reference, ex.orderMatters).equal) wrong.push(alt)
     }
     if (wrong.length < 2) continue
-    const my = await mysqlGap(ex, keyword, alternatives)
+    const my = (await mysqlGap(ex, keyword, alternatives)) ?? (await mysqlOwnGap(ex, topic))
     const picked = pickWrong(wrong, ex.id + keyword)
     const bug = bugTask(ex, sql, at, keyword.length, picked[0]!)
     if (bug && bug.kind === 'bug' && my?.bug) bug.mysql = { ...my.bug, note: my.note }

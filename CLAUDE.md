@@ -130,7 +130,8 @@ Audit of 2026-10-15:
 - MySQL mode (2026-10-24): `dialect` in the store (Progress page, "Learn in"). build:lessons now needs the local MySQL:
   for plain-query exercises whose first solution is verified on MySQL, gap/rows/bug/order tasks get a `mysql` version
   whose wrong options are run on MySQL (`pb_<dataset>`, max_execution_time 10 s). `src/progress/dialect.ts` swaps it
-  in; tasks without one stay in PostgreSQL with a notice. Write tasks run on the MySQL runner in MySQL mode (below).
+  in; tasks without one stay in PostgreSQL with a notice. When the PostgreSQL blank's keyword is not in the MySQL solution (ilike → like), the MySQL version blanks
+  another keyword (`mysqlOwnGap`: topic keywords, then MYSQL_ALTERNATIVES such as date_format, group_concat, ifnull). Write tasks run on the MySQL runner in MySQL mode (below).
   Script exercises (checkSql/setupSql) run each MySQL variant on a fresh copy (`pb_lessons`) of only the tables the
   script mentions (`mysqlRowsOnCopy` in scripts/lib/mysql.ts, shared with verify). 524 of 671 tap tasks have a MySQL
   version. build:lessons takes ~15 min; the CI timeout is 75 min.

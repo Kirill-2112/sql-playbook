@@ -2432,7 +2432,18 @@
                     "like"
                   ],
                   "answer": 0,
-                  "explanation": "ILIKE is case-insensitive LIKE."
+                  "explanation": "ILIKE is case-insensitive LIKE.",
+                  "mysql": {
+                    "code": "select customer_id, company_name\nfrom customers\nwhere company_name ⟦?⟧ '%market%'\norder by customer_id;",
+                    "options": [
+                      "in",
+                      "contains",
+                      "=",
+                      "like"
+                    ],
+                    "answer": 3,
+                    "note": "No ILIKE in MySQL; with the default collation LIKE already ignores case."
+                  }
                 },
                 {
                   "kind": "predict",
@@ -2665,7 +2676,18 @@
                   ],
                   "answer": 2,
                   "fixed": "where company_name ilike '%market%'",
-                  "explanation": "ILIKE is case-insensitive LIKE."
+                  "explanation": "ILIKE is case-insensitive LIKE.",
+                  "mysql": {
+                    "lines": [
+                      "select customer_id, company_name",
+                      "from customers",
+                      "where company_name in '%market%'",
+                      "order by customer_id;"
+                    ],
+                    "answer": 2,
+                    "fixed": "where company_name like '%market%'",
+                    "note": "No ILIKE in MySQL; with the default collation LIKE already ignores case."
+                  }
                 },
                 {
                   "kind": "build",
@@ -2754,7 +2776,18 @@
                     "ilike"
                   ],
                   "answer": 3,
-                  "explanation": "% matches any text, so \"24 - 12 oz bottles\" and \"12 - 550 ml bottles\" both match. ILIKE ignores case."
+                  "explanation": "% matches any text, so \"24 - 12 oz bottles\" and \"12 - 550 ml bottles\" both match. ILIKE ignores case.",
+                  "mysql": {
+                    "code": "select product_id, product_name, quantity_per_unit\nfrom products\nwhere quantity_per_unit ⟦?⟧ '%bottle%'\norder by product_id;",
+                    "options": [
+                      "similar",
+                      "contains",
+                      "like",
+                      "="
+                    ],
+                    "answer": 2,
+                    "note": "No ILIKE in MySQL; its LIKE already ignores case with the default collation."
+                  }
                 },
                 {
                   "kind": "predict",
@@ -6393,7 +6426,18 @@
                     "right join"
                   ],
                   "answer": 0,
-                  "explanation": "1998 stops in May, so June to December show 0 for 1998. With a FULL JOIN the query would also be right in the opposite case, a month present only in the later year."
+                  "explanation": "1998 stops in May, so June to December show 0 for 1998. With a FULL JOIN the query would also be right in the opposite case, a month present only in the later year.",
+                  "mysql": {
+                    "code": "with y97 as (\n  select month(order_date) as month, count(*) as n\n  from orders where order_date >= '1997-01-01' and order_date < '1998-01-01' group by 1\n),\ny98 as (\n  select month(order_date) as month, count(*) as n\n  from orders where order_date >= '1998-01-01' and order_date < '1999-01-01' group by 1\n)\nselect a.month, a.n as orders_1997, coalesce(b.n, 0) as orders_1998\nfrom y97 a ⟦?⟧ y98 b on b.month = a.month\nunion all\nselect b.month, 0, b.n\nfrom y98 b left join y97 a on a.month = b.month\nwhere a.month is null\norder by month;",
+                    "options": [
+                      "join",
+                      "right join",
+                      "full join",
+                      "left join"
+                    ],
+                    "answer": 3,
+                    "note": "No FULL JOIN in MySQL: LEFT JOIN plus the months only 1998 has (none here)."
+                  }
                 },
                 {
                   "kind": "write",
@@ -14634,7 +14678,18 @@
                     "left join"
                   ],
                   "answer": 3,
-                  "explanation": "The series guarantees all 24 months appear. The open count must check that a joined order exists: in a month with no orders the LEFT JOIN row has every order column NULL, and \"shipped_date is null\" alone would count it as open."
+                  "explanation": "The series guarantees all 24 months appear. The open count must check that a joined order exists: in a month with no orders the LEFT JOIN row has every order column NULL, and \"shipped_date is null\" alone would count it as open.",
+                  "mysql": {
+                    "code": "⟦?⟧ months (month) as (\n  select cast('1996-07-01' as datetime)\n  union all\n  select month + interval 1 month from months where month < '1998-06-01'\n)\nselect date_format(m.month, '%Y-%m') as month,\n       count(o.order_id) as due,\n       sum(case when o.shipped_date <= o.required_date then 1 else 0 end) as on_time,\n       sum(case when o.shipped_date > o.required_date then 1 else 0 end) as late,\n       sum(case when o.order_id is not null and o.shipped_date is null then 1 else 0 end) as not_shipped\nfrom months m\nleft join orders o\n  on o.required_date >= m.month and o.required_date < m.month + interval 1 month\ngroup by m.month\norder by m.month;",
+                    "options": [
+                      "with recursive",
+                      "with loop",
+                      "recursive",
+                      "with"
+                    ],
+                    "answer": 0,
+                    "note": "No generate_series or FILTER in MySQL: a recursive CTE makes the months and SUM(CASE …) does the counting."
+                  }
                 },
                 {
                   "kind": "write",
@@ -14660,7 +14715,18 @@
                     "join"
                   ],
                   "answer": 2,
-                  "explanation": "The weekend days (4–5 and 11–12 April) show 0: Northwind takes orders on weekdays only. Without the series those days would be absent, and an average per day would come out too high."
+                  "explanation": "The weekend days (4–5 and 11–12 April) show 0: Northwind takes orders on weekdays only. Without the series those days would be absent, and an average per day would come out too high.",
+                  "mysql": {
+                    "code": "⟦?⟧ days (day) as (\n  select cast('1998-04-01' as date)\n  union all\n  select day + interval 1 day from days where day < '1998-04-14'\n)\nselect d.day, weekday(d.day) + 1 as weekday, count(o.order_id) as orders\nfrom days d\nleft join orders o on o.order_date >= d.day and o.order_date < d.day + interval 1 day\ngroup by d.day\norder by d.day;",
+                    "options": [
+                      "with loop",
+                      "with",
+                      "recursive",
+                      "with recursive"
+                    ],
+                    "answer": 3,
+                    "note": "WEEKDAY() is 0 for Monday, so add 1 to match ISO numbering."
+                  }
                 },
                 {
                   "kind": "predict",
@@ -16252,7 +16318,18 @@
                     "date_part"
                   ],
                   "answer": 0,
-                  "explanation": "date_trunc cuts every timestamp down to the start of its month, so all orders of a month fall into one group. It is the standard first step of almost every monthly report. GROUP BY 1 means \"the first selected column\"."
+                  "explanation": "date_trunc cuts every timestamp down to the start of its month, so all orders of a month fall into one group. It is the standard first step of almost every monthly report. GROUP BY 1 means \"the first selected column\".",
+                  "mysql": {
+                    "code": "select cast(⟦?⟧(order_date, '%Y-%m-01') as date) as month,\n       count(*) as orders\nfrom orders\ngroup by month\norder by month;",
+                    "options": [
+                      "date_add",
+                      "str_to_date",
+                      "time_format",
+                      "date_format"
+                    ],
+                    "answer": 3,
+                    "note": "MySQL has no DATE_TRUNC: format the date as the first of its month and cast it back to a date."
+                  }
                 },
                 {
                   "kind": "predict",
@@ -16363,7 +16440,18 @@
                     "extract"
                   ],
                   "answer": 1,
-                  "explanation": "date_trunc works with any unit: year, quarter, month, week, day, hour. The first and last quarters are partial: the data runs from July 1996 to early May 1998."
+                  "explanation": "date_trunc works with any unit: year, quarter, month, week, day, hour. The first and last quarters are partial: the data runs from July 1996 to early May 1998.",
+                  "mysql": {
+                    "code": "select makedate(⟦?⟧(o.order_date), 1) + interval (quarter(o.order_date) - 1) quarter as quarter,\n       round(sum(d.unit_price * d.quantity * (1 - d.discount)), 2) as revenue\nfrom orders o\njoin order_details d on d.order_id = o.order_id\ngroup by quarter\norder by quarter;",
+                    "options": [
+                      "week",
+                      "year",
+                      "day",
+                      "month"
+                    ],
+                    "answer": 1,
+                    "note": "Build the quarter start from the year and QUARTER(): 1 January plus (quarter − 1) quarters."
+                  }
                 },
                 {
                   "kind": "write",
@@ -16389,7 +16477,18 @@
                     "to_char"
                   ],
                   "answer": 0,
-                  "explanation": "\"Monthly active users\" is the first number every product dashboard shows. COUNT(DISTINCT) counts each customer once per month, however many times they ordered."
+                  "explanation": "\"Monthly active users\" is the first number every product dashboard shows. COUNT(DISTINCT) counts each customer once per month, however many times they ordered.",
+                  "mysql": {
+                    "code": "select cast(⟦?⟧(created_at, '%Y-%m-01') as date) as month,\n       count(distinct customer_id) as active_customers\nfrom orders\nwhere status = 'delivered'\ngroup by month\norder by month;",
+                    "options": [
+                      "time_format",
+                      "date_format",
+                      "date_add",
+                      "str_to_date"
+                    ],
+                    "answer": 1,
+                    "note": "MySQL has no DATE_TRUNC; DATE_FORMAT to the first of the month does the same."
+                  }
                 },
                 {
                   "kind": "predict",
@@ -16493,7 +16592,19 @@
                   ],
                   "answer": 0,
                   "fixed": "select date_trunc('month', order_date)::date as month,",
-                  "explanation": "date_trunc cuts every timestamp down to the start of its month, so all orders of a month fall into one group. It is the standard first step of almost every monthly report. GROUP BY 1 means \"the first selected column\"."
+                  "explanation": "date_trunc cuts every timestamp down to the start of its month, so all orders of a month fall into one group. It is the standard first step of almost every monthly report. GROUP BY 1 means \"the first selected column\".",
+                  "mysql": {
+                    "lines": [
+                      "select cast(date_add(order_date, '%Y-%m-01') as date) as month,",
+                      "       count(*) as orders",
+                      "from orders",
+                      "group by month",
+                      "order by month;"
+                    ],
+                    "answer": 0,
+                    "fixed": "select cast(date_format(order_date, '%Y-%m-01') as date) as month,",
+                    "note": "MySQL has no DATE_TRUNC: format the date as the first of its month and cast it back to a date."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -16544,7 +16655,18 @@
                     "date_part"
                   ],
                   "answer": 0,
-                  "explanation": "Three different measures over the same year groups. avg() ignores unshipped orders; count(*) does not."
+                  "explanation": "Three different measures over the same year groups. avg() ignores unshipped orders; count(*) does not.",
+                  "mysql": {
+                    "code": "select year(order_date) as year,\n       count(*) as orders,\n       round(avg(⟦?⟧(shipped_date, order_date)), 1) as avg_days_to_ship,\n       round(100.0 * sum(case when shipped_date > required_date then 1 else 0 end) / count(*), 1) as late_pct\nfrom orders\ngroup by 1\norder by 1;",
+                    "options": [
+                      "timediff",
+                      "date_sub",
+                      "datediff",
+                      "timestampdiff"
+                    ],
+                    "answer": 2,
+                    "note": "YEAR() and DATEDIFF()."
+                  }
                 },
                 {
                   "kind": "predict",
@@ -16637,7 +16759,20 @@
                   ],
                   "answer": 0,
                   "fixed": "select date_trunc('quarter', o.order_date)::date as quarter,",
-                  "explanation": "date_trunc works with any unit: year, quarter, month, week, day, hour. The first and last quarters are partial: the data runs from July 1996 to early May 1998."
+                  "explanation": "date_trunc works with any unit: year, quarter, month, week, day, hour. The first and last quarters are partial: the data runs from July 1996 to early May 1998.",
+                  "mysql": {
+                    "lines": [
+                      "select makedate(day(o.order_date), 1) + interval (quarter(o.order_date) - 1) quarter as quarter,",
+                      "       round(sum(d.unit_price * d.quantity * (1 - d.discount)), 2) as revenue",
+                      "from orders o",
+                      "join order_details d on d.order_id = o.order_id",
+                      "group by quarter",
+                      "order by quarter;"
+                    ],
+                    "answer": 0,
+                    "fixed": "select makedate(year(o.order_date), 1) + interval (quarter(o.order_date) - 1) quarter as quarter,",
+                    "note": "Build the quarter start from the year and QUARTER(): 1 January plus (quarter − 1) quarters."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -16651,7 +16786,18 @@
                     "extract"
                   ],
                   "answer": 3,
-                  "explanation": "Number every month as year × 12 + month. Inside a streak, that number and the row number both grow by 1, so their difference stays the same and identifies the streak."
+                  "explanation": "Number every month as year × 12 + month. Inside a streak, that number and the row number both grow by 1, so their difference stays the same and identifies the streak.",
+                  "mysql": {
+                    "code": "with months as (\n  select distinct year(order_date) * 12 + month(order_date) - 1 as m\n  from orders\n  where customer_id = 'SAVEA'\n),\ngrouped as (\n  select m, m - row_number() over (order by m) as streak from months\n)\nselect ⟦?⟧(min(m) div 12, '-', lpad(min(m) % 12 + 1, 2, '0')) as first_month,\n       concat(max(m) div 12, '-', lpad(max(m) % 12 + 1, 2, '0')) as last_month,\n       count(*) as months\nfrom grouped\ngroup by streak\norder by min(m);",
+                    "options": [
+                      "group_concat",
+                      "concat_ws",
+                      "concat",
+                      "insert"
+                    ],
+                    "answer": 2,
+                    "note": "Integer division is DIV in MySQL, and strings are glued with CONCAT()."
+                  }
                 },
                 {
                   "kind": "write",
@@ -16714,7 +16860,18 @@
                     "primary key"
                   ],
                   "answer": 2,
-                  "explanation": "Constraints make bad data impossible instead of just unlikely: the foreign key rejects reviews of tracks that do not exist, the CHECK rejects a rating of 7."
+                  "explanation": "Constraints make bad data impossible instead of just unlikely: the foreign key rejects reviews of tracks that do not exist, the CHECK rejects a rating of 7.",
+                  "mysql": {
+                    "code": "create table review (\n  review_id  integer auto_increment primary key,\n  track_id   integer not null,\n  rating     smallint not null check (rating between 1 and 5),\n  created_at timestamp not null default current_timestamp,\n  foreign key (track_id) ⟦?⟧ track (track_id)\n);\n\ninsert into review (track_id, rating) values (1, 5), (2, 4);",
+                    "options": [
+                      "unique",
+                      "foreign",
+                      "check",
+                      "references"
+                    ],
+                    "answer": 3,
+                    "note": "AUTO_INCREMENT instead of an identity column. MySQL ignores REFERENCES written next to a column, so the foreign key must be a separate FOREIGN KEY clause, or it silently is not created."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -16732,7 +16889,23 @@
                   ],
                   "answer": 4,
                   "fixed": "primary key (customer_id, playlist_id)",
-                  "explanation": "When playlist 18 is deleted, its follow row goes with it; the follow of playlist 1 stays. (playlist_track has no CASCADE, so the check empties playlist 18 first.)"
+                  "explanation": "When playlist 18 is deleted, its follow row goes with it; the follow of playlist 1 stays. (playlist_track has no CASCADE, so the check empties playlist 18 first.)",
+                  "mysql": {
+                    "lines": [
+                      "create table playlist_follow (",
+                      "  customer_id int      not null,",
+                      "  playlist_id int      not null,",
+                      "  followed_at datetime not null default current_timestamp,",
+                      "  primary key (customer_id, playlist_id),",
+                      "  foreign key (customer_id) check customer (customer_id),",
+                      "  foreign key (playlist_id) references playlist (playlist_id) on delete cascade",
+                      ");",
+                      "",
+                      "insert into playlist_follow (customer_id, playlist_id) values (1, 1), (1, 18);"
+                    ],
+                    "answer": 5,
+                    "fixed": "foreign key (customer_id) references customer (customer_id),"
+                  }
                 },
                 {
                   "kind": "gap",
@@ -16782,7 +16955,17 @@
                     "index"
                   ],
                   "answer": 1,
-                  "explanation": "When playlist 18 is deleted, its follow row goes with it; the follow of playlist 1 stays. (playlist_track has no CASCADE, so the check empties playlist 18 first.)"
+                  "explanation": "When playlist 18 is deleted, its follow row goes with it; the follow of playlist 1 stays. (playlist_track has no CASCADE, so the check empties playlist 18 first.)",
+                  "mysql": {
+                    "code": "create table playlist_follow (\n  customer_id int      not null,\n  playlist_id int      not null,\n  followed_at datetime not null default current_timestamp,\n  primary key (customer_id, playlist_id),\n  foreign key (customer_id) ⟦?⟧ customer (customer_id),\n  foreign key (playlist_id) references playlist (playlist_id) on delete cascade\n);\n\ninsert into playlist_follow (customer_id, playlist_id) values (1, 1), (1, 18);",
+                    "options": [
+                      "check",
+                      "unique",
+                      "foreign",
+                      "references"
+                    ],
+                    "answer": 3
+                  }
                 },
                 {
                   "kind": "gap",
@@ -16902,7 +17085,18 @@
                     "index"
                   ],
                   "answer": 0,
-                  "explanation": "Now \"films with trailers\" is a plain WHERE feature = 'Trailers' that an index can serve, a new feature is a new row rather than an edited string, and a typo cannot hide inside a list."
+                  "explanation": "Now \"films with trailers\" is a plain WHERE feature = 'Trailers' that an index can serve, a new feature is a new row rather than an edited string, and a typo cannot hide inside a list.",
+                  "mysql": {
+                    "code": "create table film_feature (\n  film_id smallint unsigned not null,\n  feature varchar(20)       not null,\n  primary key (film_id, feature),\n  foreign key (film_id) ⟦?⟧ film (film_id)\n);\n\ninsert into film_feature (film_id, feature)\nselect film.film_id, f.feature\nfrom film\njoin (select 'Trailers' as feature union all select 'Commentaries'\n      union all select 'Deleted Scenes' union all select 'Behind the Scenes') as f\n  on find_in_set(f.feature, film.special_features) > 0;",
+                    "options": [
+                      "unique",
+                      "check",
+                      "references",
+                      "foreign"
+                    ],
+                    "answer": 2,
+                    "note": "film.film_id is SMALLINT UNSIGNED in Sakila's MySQL schema, and a foreign key column must have exactly the same type."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -16920,7 +17114,23 @@
                   ],
                   "answer": 1,
                   "fixed": "review_id  integer generated always as identity primary key,",
-                  "explanation": "Constraints make bad data impossible instead of just unlikely: the foreign key rejects reviews of tracks that do not exist, the CHECK rejects a rating of 7."
+                  "explanation": "Constraints make bad data impossible instead of just unlikely: the foreign key rejects reviews of tracks that do not exist, the CHECK rejects a rating of 7.",
+                  "mysql": {
+                    "lines": [
+                      "create table review (",
+                      "  review_id  integer auto_increment primary key,",
+                      "  track_id   integer not null,",
+                      "  rating     smallint not null check (rating between 1 and 5),",
+                      "  created_at timestamp not null default current_timestamp,",
+                      "  foreign key (track_id) check track (track_id)",
+                      ");",
+                      "",
+                      "insert into review (track_id, rating) values (1, 5), (2, 4);"
+                    ],
+                    "answer": 5,
+                    "fixed": "foreign key (track_id) references track (track_id)",
+                    "note": "AUTO_INCREMENT instead of an identity column. MySQL ignores REFERENCES written next to a column, so the foreign key must be a separate FOREIGN KEY clause, or it silently is not created."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17002,7 +17212,18 @@
                     "primary key"
                   ],
                   "answer": 2,
-                  "explanation": "Constraints make bad data impossible instead of just unlikely: the foreign key rejects reviews of tracks that do not exist, the CHECK rejects a rating of 7."
+                  "explanation": "Constraints make bad data impossible instead of just unlikely: the foreign key rejects reviews of tracks that do not exist, the CHECK rejects a rating of 7.",
+                  "mysql": {
+                    "code": "create table review (\n  review_id  integer auto_increment primary key,\n  track_id   integer not null,\n  rating     smallint not null check (rating between 1 and 5),\n  created_at timestamp not null default current_timestamp,\n  foreign key (track_id) ⟦?⟧ track (track_id)\n);\n\ninsert into review (track_id, rating) values (1, 5), (2, 4);",
+                    "options": [
+                      "unique",
+                      "foreign",
+                      "check",
+                      "references"
+                    ],
+                    "answer": 3,
+                    "note": "AUTO_INCREMENT instead of an identity column. MySQL ignores REFERENCES written next to a column, so the foreign key must be a separate FOREIGN KEY clause, or it silently is not created."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -17020,7 +17241,23 @@
                   ],
                   "answer": 4,
                   "fixed": "primary key (customer_id, playlist_id)",
-                  "explanation": "When playlist 18 is deleted, its follow row goes with it; the follow of playlist 1 stays. (playlist_track has no CASCADE, so the check empties playlist 18 first.)"
+                  "explanation": "When playlist 18 is deleted, its follow row goes with it; the follow of playlist 1 stays. (playlist_track has no CASCADE, so the check empties playlist 18 first.)",
+                  "mysql": {
+                    "lines": [
+                      "create table playlist_follow (",
+                      "  customer_id int      not null,",
+                      "  playlist_id int      not null,",
+                      "  followed_at datetime not null default current_timestamp,",
+                      "  primary key (customer_id, playlist_id),",
+                      "  foreign key (customer_id) check customer (customer_id),",
+                      "  foreign key (playlist_id) references playlist (playlist_id) on delete cascade",
+                      ");",
+                      "",
+                      "insert into playlist_follow (customer_id, playlist_id) values (1, 1), (1, 18);"
+                    ],
+                    "answer": 5,
+                    "fixed": "foreign key (customer_id) references customer (customer_id),"
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17070,7 +17307,17 @@
                     "index"
                   ],
                   "answer": 1,
-                  "explanation": "When playlist 18 is deleted, its follow row goes with it; the follow of playlist 1 stays. (playlist_track has no CASCADE, so the check empties playlist 18 first.)"
+                  "explanation": "When playlist 18 is deleted, its follow row goes with it; the follow of playlist 1 stays. (playlist_track has no CASCADE, so the check empties playlist 18 first.)",
+                  "mysql": {
+                    "code": "create table playlist_follow (\n  customer_id int      not null,\n  playlist_id int      not null,\n  followed_at datetime not null default current_timestamp,\n  primary key (customer_id, playlist_id),\n  foreign key (customer_id) ⟦?⟧ customer (customer_id),\n  foreign key (playlist_id) references playlist (playlist_id) on delete cascade\n);\n\ninsert into playlist_follow (customer_id, playlist_id) values (1, 1), (1, 18);",
+                    "options": [
+                      "check",
+                      "unique",
+                      "foreign",
+                      "references"
+                    ],
+                    "answer": 3
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17132,7 +17379,18 @@
                     "index"
                   ],
                   "answer": 0,
-                  "explanation": "NOT NULL alone would accept an empty string; the CHECK on trim(note) rejects blank notes too. Defaults fill priority and created_at when the insert leaves them out."
+                  "explanation": "NOT NULL alone would accept an empty string; the CHECK on trim(note) rejects blank notes too. Defaults fill priority and created_at when the insert leaves them out.",
+                  "mysql": {
+                    "code": "create table staff_note (\n  id         int auto_increment primary key,\n  staff_id   tinyint unsigned not null,\n  note       text     not null check (length(trim(note)) > 0),\n  priority   enum('low', 'normal', 'high') not null default 'normal',\n  created_at datetime not null default current_timestamp,\n  foreign key (staff_id) ⟦?⟧ staff (staff_id)\n);\n\ninsert into staff_note (staff_id, note) values (1, 'Training on the new till');",
+                    "options": [
+                      "references",
+                      "check",
+                      "unique",
+                      "foreign"
+                    ],
+                    "answer": 0,
+                    "note": "staff.staff_id is TINYINT UNSIGNED in Sakila, and a foreign key needs the same type. ENUM is MySQL's built-in list of allowed values; a CHECK works too."
+                  }
                 },
                 {
                   "kind": "write",
@@ -17182,7 +17440,18 @@
                     "primary key"
                   ],
                   "answer": 2,
-                  "explanation": "A domain is a named type plus rules: every column declared as email_address gets the length and the CHECK, and changing the domain changes them all. '%_@_%' demands at least one character before and after the @. Real email validation is far more complex; the database only keeps out obvious junk."
+                  "explanation": "A domain is a named type plus rules: every column declared as email_address gets the length and the CHECK, and changing the domain changes them all. '%_@_%' demands at least one character before and after the @. Real email validation is far more complex; the database only keeps out obvious junk.",
+                  "mysql": {
+                    "code": "create table newsletter_signup (\n  signup_id    int auto_increment primary key,\n  email        varchar(100) not null unique check (email ⟦?⟧ '%_@_%'),\n  signed_up_at date not null\n);\n\ninsert into newsletter_signup (email, signed_up_at) values ('anna@example.com', '2025-07-01');",
+                    "options": [
+                      "ilike",
+                      "=",
+                      "like",
+                      "similar"
+                    ],
+                    "answer": 2,
+                    "note": "MySQL has no domains; the CHECK has to be repeated on every column that stores an email."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -17200,7 +17469,23 @@
                   ],
                   "answer": 1,
                   "fixed": "review_id  integer generated always as identity primary key,",
-                  "explanation": "Constraints make bad data impossible instead of just unlikely: the foreign key rejects reviews of tracks that do not exist, the CHECK rejects a rating of 7."
+                  "explanation": "Constraints make bad data impossible instead of just unlikely: the foreign key rejects reviews of tracks that do not exist, the CHECK rejects a rating of 7.",
+                  "mysql": {
+                    "lines": [
+                      "create table review (",
+                      "  review_id  integer auto_increment primary key,",
+                      "  track_id   integer not null,",
+                      "  rating     smallint not null check (rating between 1 and 5),",
+                      "  created_at timestamp not null default current_timestamp,",
+                      "  foreign key (track_id) check track (track_id)",
+                      ");",
+                      "",
+                      "insert into review (track_id, rating) values (1, 5), (2, 4);"
+                    ],
+                    "answer": 5,
+                    "fixed": "foreign key (track_id) references track (track_id)",
+                    "note": "AUTO_INCREMENT instead of an identity column. MySQL ignores REFERENCES written next to a column, so the foreign key must be a separate FOREIGN KEY clause, or it silently is not created."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17213,7 +17498,18 @@
                     "key"
                   ],
                   "answer": 1,
-                  "explanation": "GENERATED ALWAYS AS IDENTITY is the standard way to number rows; \"always\" refuses a hand-written id unless you insist with OVERRIDING SYSTEM VALUE. A column left out of the INSERT gets its DEFAULT."
+                  "explanation": "GENERATED ALWAYS AS IDENTITY is the standard way to number rows; \"always\" refuses a hand-written id unless you insist with OVERRIDING SYSTEM VALUE. A column left out of the INSERT gets its DEFAULT.",
+                  "mysql": {
+                    "code": "create table projects (\n  id      int auto_increment primary key,\n  dept_no char(4)        not null,\n  name    varchar(100)   not null,\n  budget  decimal(12, 2) not null default 0,\n  foreign key (dept_no) ⟦?⟧ departments (dept_no)\n);\n\ninsert into projects (dept_no, name) values ('d005', 'Payroll rewrite');\ninsert into projects (dept_no, name, budget) values ('d005', 'Search', 50000);",
+                    "options": [
+                      "check",
+                      "unique",
+                      "references",
+                      "foreign"
+                    ],
+                    "answer": 2,
+                    "note": "AUTO_INCREMENT instead of an identity column. Write the foreign key as a separate clause: MySQL 8.4 parses a REFERENCES written inside a column definition but silently ignores it (it is enforced only from MySQL 9.0)."
+                  }
                 },
                 {
                   "kind": "write",
@@ -17246,7 +17542,18 @@
                     "and"
                   ],
                   "answer": 0,
-                  "explanation": "A step towards third normal form: the address facts live in one place, and orders point to them. The old columns could now be dropped. The UNIQUE constraint stops the same address from being stored twice later."
+                  "explanation": "A step towards third normal form: the address facts live in one place, and orders point to them. The old columns could now be dropped. The UNIQUE constraint stops the same address from being stored twice later.",
+                  "mysql": {
+                    "code": "create table ship_addresses (\n  id           int auto_increment primary key,\n  ship_name    varchar(40) not null,\n  ship_address varchar(60) not null,\n  ship_city    varchar(15) not null,\n  ship_country varchar(15) not null,\n  unique (ship_name, ship_address, ship_city, ship_country)\n);\n\ninsert into ship_addresses (ship_name, ship_address, ship_city, ship_country)\nselect distinct ship_name, ship_address, ship_city, ship_country from orders;\n\nalter table orders add column ship_address_id int, add foreign key (ship_address_id) references ship_addresses (id);\n\nupdate orders o\njoin ship_addresses a\n  on a.ship_name = o.ship_name ⟦?⟧ a.ship_address = o.ship_address\n and a.ship_city = o.ship_city and a.ship_country = o.ship_country\nset o.ship_address_id = a.id;",
+                    "options": [
+                      "and",
+                      "plus",
+                      "also",
+                      ","
+                    ],
+                    "answer": 0,
+                    "note": "MySQL writes an update that reads another table as UPDATE … JOIN … SET; PostgreSQL uses UPDATE … SET … FROM."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17562,7 +17869,17 @@
                     "on duplicate"
                   ],
                   "answer": 1,
-                  "explanation": "Only the listed column changes for existing customers; the rest of ALFKI's row stays. For NEWCO the whole row is inserted."
+                  "explanation": "Only the listed column changes for existing customers; the rest of ALFKI's row stays. For NEWCO the whole row is inserted.",
+                  "mysql": {
+                    "code": "insert into customers (customer_id, company_name, city, country, phone)\nvalues ('ALFKI', 'Alfreds Futterkiste', 'Berlin', 'Germany', '030-0074322'),\n       ('NEWCO', 'New Company', 'Oslo', 'Norway', null) as ⟦?⟧\non duplicate key update phone = new.phone;",
+                    "options": [
+                      "current",
+                      "next",
+                      "new",
+                      "old"
+                    ],
+                    "answer": 2
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17576,7 +17893,17 @@
                     "inserted"
                   ],
                   "answer": 0,
-                  "explanation": "Only the listed column changes for existing customers; the rest of ALFKI's row stays. For NEWCO the whole row is inserted."
+                  "explanation": "Only the listed column changes for existing customers; the rest of ALFKI's row stays. For NEWCO the whole row is inserted.",
+                  "mysql": {
+                    "code": "insert into customers (customer_id, company_name, city, country, phone)\nvalues ('ALFKI', 'Alfreds Futterkiste', 'Berlin', 'Germany', '030-0074322'),\n       ('NEWCO', 'New Company', 'Oslo', 'Norway', null) as ⟦?⟧\non duplicate key update phone = new.phone;",
+                    "options": [
+                      "current",
+                      "next",
+                      "new",
+                      "old"
+                    ],
+                    "answer": 2
+                  }
                 },
                 {
                   "kind": "bug",
@@ -17593,7 +17920,19 @@
                   ],
                   "answer": 4,
                   "fixed": "on conflict (shipper_id) do update",
-                  "explanation": "The WHERE makes PostgreSQL leave shipper 1 alone instead of writing an identical new row version (which also fires update triggers and creates dead rows). IS DISTINCT FROM treats NULLs as comparable values, so a NULL phone replaced by a number still counts as a change."
+                  "explanation": "The WHERE makes PostgreSQL leave shipper 1 alone instead of writing an identical new row version (which also fires update triggers and creates dead rows). IS DISTINCT FROM treats NULLs as comparable values, so a NULL phone replaced by a number still counts as a change.",
+                  "mysql": {
+                    "lines": [
+                      "insert into shippers (shipper_id, company_name, phone)",
+                      "values (1, 'Speedy Express', '(503) 555-9831'),",
+                      "       (2, 'United Package', '(503) 555-0000'),",
+                      "       (4, 'Fast Freight', '(503) 555-4444') as next",
+                      "on duplicate key update phone = new.phone;"
+                    ],
+                    "answer": 3,
+                    "fixed": "(4, 'Fast Freight', '(503) 555-4444') as new",
+                    "note": "MySQL has no WHERE on the update part, but it notices when the new values equal the old ones, leaves such rows unchanged and counts them as 0 affected rows."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17607,7 +17946,17 @@
                     "on duplicate"
                   ],
                   "answer": 1,
-                  "explanation": "category_id is an identity column, but explicit ids can still be inserted (GENERATED BY DEFAULT). The identity sequence does not know about id 9, so a later insert without an id could collide; in real code, let the database pick ids or reset the sequence with setval."
+                  "explanation": "category_id is an identity column, but explicit ids can still be inserted (GENERATED BY DEFAULT). The identity sequence does not know about id 9, so a later insert without an id could collide; in real code, let the database pick ids or reset the sequence with setval.",
+                  "mysql": {
+                    "code": "insert into categories (category_id, category_name) values (8, 'Seafood & Fish'), (9, 'Bakery') as ⟦?⟧\non duplicate key update category_name = new.category_name;",
+                    "options": [
+                      "new",
+                      "current",
+                      "next",
+                      "old"
+                    ],
+                    "answer": 0
+                  }
                 },
                 {
                   "kind": "write",
@@ -17633,7 +17982,17 @@
                     "inserted"
                   ],
                   "answer": 2,
-                  "explanation": "category_id is an identity column, but explicit ids can still be inserted (GENERATED BY DEFAULT). The identity sequence does not know about id 9, so a later insert without an id could collide; in real code, let the database pick ids or reset the sequence with setval."
+                  "explanation": "category_id is an identity column, but explicit ids can still be inserted (GENERATED BY DEFAULT). The identity sequence does not know about id 9, so a later insert without an id could collide; in real code, let the database pick ids or reset the sequence with setval.",
+                  "mysql": {
+                    "code": "insert into categories (category_id, category_name) values (8, 'Seafood & Fish'), (9, 'Bakery') as ⟦?⟧\non duplicate key update category_name = new.category_name;",
+                    "options": [
+                      "new",
+                      "current",
+                      "next",
+                      "old"
+                    ],
+                    "answer": 0
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17647,7 +18006,18 @@
                     "on duplicate"
                   ],
                   "answer": 0,
-                  "explanation": "The WHERE makes PostgreSQL leave shipper 1 alone instead of writing an identical new row version (which also fires update triggers and creates dead rows). IS DISTINCT FROM treats NULLs as comparable values, so a NULL phone replaced by a number still counts as a change."
+                  "explanation": "The WHERE makes PostgreSQL leave shipper 1 alone instead of writing an identical new row version (which also fires update triggers and creates dead rows). IS DISTINCT FROM treats NULLs as comparable values, so a NULL phone replaced by a number still counts as a change.",
+                  "mysql": {
+                    "code": "insert into shippers (shipper_id, company_name, phone)\nvalues (1, 'Speedy Express', '(503) 555-9831'),\n       (2, 'United Package', '(503) 555-0000'),\n       (4, 'Fast Freight', '(503) 555-4444') as ⟦?⟧\non duplicate key update phone = new.phone;",
+                    "options": [
+                      "next",
+                      "old",
+                      "new",
+                      "current"
+                    ],
+                    "answer": 2,
+                    "note": "MySQL has no WHERE on the update part, but it notices when the new values equal the old ones, leaves such rows unchanged and counts them as 0 affected rows."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -17661,7 +18031,17 @@
                   ],
                   "answer": 3,
                   "fixed": "on conflict (customer_id) do update set phone = excluded.phone;",
-                  "explanation": "Only the listed column changes for existing customers; the rest of ALFKI's row stays. For NEWCO the whole row is inserted."
+                  "explanation": "Only the listed column changes for existing customers; the rest of ALFKI's row stays. For NEWCO the whole row is inserted.",
+                  "mysql": {
+                    "lines": [
+                      "insert into customers (customer_id, company_name, city, country, phone)",
+                      "values ('ALFKI', 'Alfreds Futterkiste', 'Berlin', 'Germany', '030-0074322'),",
+                      "       ('NEWCO', 'New Company', 'Oslo', 'Norway', null) as old",
+                      "on duplicate key update phone = new.phone;"
+                    ],
+                    "answer": 2,
+                    "fixed": "('NEWCO', 'New Company', 'Oslo', 'Norway', null) as new"
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17675,7 +18055,18 @@
                     "excluded"
                   ],
                   "answer": 3,
-                  "explanation": "The WHERE makes PostgreSQL leave shipper 1 alone instead of writing an identical new row version (which also fires update triggers and creates dead rows). IS DISTINCT FROM treats NULLs as comparable values, so a NULL phone replaced by a number still counts as a change."
+                  "explanation": "The WHERE makes PostgreSQL leave shipper 1 alone instead of writing an identical new row version (which also fires update triggers and creates dead rows). IS DISTINCT FROM treats NULLs as comparable values, so a NULL phone replaced by a number still counts as a change.",
+                  "mysql": {
+                    "code": "insert into shippers (shipper_id, company_name, phone)\nvalues (1, 'Speedy Express', '(503) 555-9831'),\n       (2, 'United Package', '(503) 555-0000'),\n       (4, 'Fast Freight', '(503) 555-4444') as ⟦?⟧\non duplicate key update phone = new.phone;",
+                    "options": [
+                      "next",
+                      "old",
+                      "new",
+                      "current"
+                    ],
+                    "answer": 2,
+                    "note": "MySQL has no WHERE on the update part, but it notices when the new values equal the old ones, leaves such rows unchanged and counts them as 0 affected rows."
+                  }
                 },
                 {
                   "kind": "write",
@@ -17701,7 +18092,18 @@
                     "on conflict"
                   ],
                   "answer": 3,
-                  "explanation": "Rows that would violate a unique constraint are skipped; the others are inserted. Without the clause, the first duplicate aborts the whole statement."
+                  "explanation": "Rows that would violate a unique constraint are skipped; the others are inserted. Without the clause, the first duplicate aborts the whole statement.",
+                  "mysql": {
+                    "code": "insert into playlist_track (playlist_id, track_id)\nvalues (1, 1), (1, 2), (1, 3), (1, 4), (1, 5) as ⟦?⟧\non duplicate key update track_id = new.track_id;",
+                    "options": [
+                      "new",
+                      "next",
+                      "old",
+                      "current"
+                    ],
+                    "answer": 0,
+                    "note": "INSERT IGNORE also skips duplicates, but it turns other errors into warnings too (a bad foreign key, a value too long), so data can silently go wrong. The no-op ON DUPLICATE KEY UPDATE skips only key clashes."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17715,7 +18117,18 @@
                     "ignore"
                   ],
                   "answer": 0,
-                  "explanation": "Rows that would violate a unique constraint are skipped; the others are inserted. Without the clause, the first duplicate aborts the whole statement."
+                  "explanation": "Rows that would violate a unique constraint are skipped; the others are inserted. Without the clause, the first duplicate aborts the whole statement.",
+                  "mysql": {
+                    "code": "insert into playlist_track (playlist_id, track_id)\nvalues (1, 1), (1, 2), (1, 3), (1, 4), (1, 5) as ⟦?⟧\non duplicate key update track_id = new.track_id;",
+                    "options": [
+                      "new",
+                      "next",
+                      "old",
+                      "current"
+                    ],
+                    "answer": 0,
+                    "note": "INSERT IGNORE also skips duplicates, but it turns other errors into warnings too (a bad foreign key, a value too long), so data can silently go wrong. The no-op ON DUPLICATE KEY UPDATE skips only key clashes."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -17729,7 +18142,17 @@
                   ],
                   "answer": 3,
                   "fixed": "on conflict (customer_id) do update set phone = excluded.phone;",
-                  "explanation": "Only the listed column changes for existing customers; the rest of ALFKI's row stays. For NEWCO the whole row is inserted."
+                  "explanation": "Only the listed column changes for existing customers; the rest of ALFKI's row stays. For NEWCO the whole row is inserted.",
+                  "mysql": {
+                    "lines": [
+                      "insert into customers (customer_id, company_name, city, country, phone)",
+                      "values ('ALFKI', 'Alfreds Futterkiste', 'Berlin', 'Germany', '030-0074322'),",
+                      "       ('NEWCO', 'New Company', 'Oslo', 'Norway', null) as old",
+                      "on duplicate key update phone = new.phone;"
+                    ],
+                    "answer": 2,
+                    "fixed": "('NEWCO', 'New Company', 'Oslo', 'Norway', null) as new"
+                  }
                 },
                 {
                   "kind": "gap",
@@ -17743,7 +18166,18 @@
                     "on conflict"
                   ],
                   "answer": 3,
-                  "explanation": "ON CONFLICT needs a unique index or constraint that matches its target; without UNIQUE (name), PostgreSQL refuses the statement and MySQL would happily insert a second \"Jazz\" with another id."
+                  "explanation": "ON CONFLICT needs a unique index or constraint that matches its target; without UNIQUE (name), PostgreSQL refuses the statement and MySQL would happily insert a second \"Jazz\" with another id.",
+                  "mysql": {
+                    "code": "alter table genre add constraint genre_name_key unique (name);\n\ninsert into genre (genre_id, name) values (2, 'Jazz'), (26, 'K-Pop') as ⟦?⟧\non duplicate key update name = new.name;",
+                    "options": [
+                      "new",
+                      "next",
+                      "current",
+                      "old"
+                    ],
+                    "answer": 0,
+                    "note": "ON DUPLICATE KEY reacts to a clash on any unique key, here the primary key or the new one on name; the no-op update leaves Jazz untouched."
+                  }
                 },
                 {
                   "kind": "write",
@@ -17934,7 +18368,18 @@
                     "or"
                   ],
                   "answer": 2,
-                  "explanation": "The feed speaks in names, the table in ids, so the source query translates first. Film 2 is already Horror and is left alone; films 1 and 3 change. Because (film_id, category_id) is the primary key, the UPDATE changes a key column, which is allowed as long as no other row has the new pair."
+                  "explanation": "The feed speaks in names, the table in ids, so the source query translates first. Film 2 is already Horror and is left alone; films 1 and 3 change. Because (film_id, category_id) is the primary key, the UPDATE changes a key column, which is allowed as long as no other row has the new pair.",
+                  "mysql": {
+                    "code": "update film_category fc\njoin (\n  select v.film_id, c.category_id\n  from (select 1 as film_id, 'Horror' as category union all select 2, 'Horror' union all select 3, 'Comedy') v\n  join category c on c.name = v.category collate utf8mb4_0900_ai_ci\n) s on s.film_id = fc.film_id\nset fc.category_id = s.category_id, fc.last_update = now()\n⟦?⟧ fc.category_id <> s.category_id;",
+                    "options": [
+                      "where",
+                      "and",
+                      "having",
+                      "on"
+                    ],
+                    "answer": 0,
+                    "note": "No MERGE in MySQL; every film here already has a category row, so a joined UPDATE does the job. COLLATE matches the literal names to the table's collation."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -18414,7 +18859,24 @@
                   ],
                   "answer": 2,
                   "fixed": "copy price_update from 'price_update.csv' with (format csv, header);",
-                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price."
+                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price.",
+                  "mysql": {
+                    "lines": [
+                      "create temporary table price_update (product_id int, unit_price decimal(10, 2));",
+                      "",
+                      "load data local infile 'price_update.csv'",
+                      "into table price_update",
+                      "fields terminated by ','",
+                      "ignore 1 lines;",
+                      "",
+                      "update products p",
+                      "full join price_update u on u.product_id = p.product_id",
+                      "set p.unit_price = u.unit_price;"
+                    ],
+                    "answer": 8,
+                    "fixed": "join price_update u on u.product_id = p.product_id",
+                    "note": "MySQL joins the staging table in the UPDATE instead of using FROM."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -18432,7 +18894,24 @@
                   ],
                   "answer": 2,
                   "fixed": "copy price_update from 'price_update.csv' with (format csv, header);",
-                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price."
+                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price.",
+                  "mysql": {
+                    "lines": [
+                      "create temporary table price_update (product_id int, unit_price decimal(10, 2));",
+                      "",
+                      "load data local infile 'price_update.csv'",
+                      "into table price_update",
+                      "fields terminated by ','",
+                      "ignore 1 lines;",
+                      "",
+                      "update products p",
+                      "full join price_update u on u.product_id = p.product_id",
+                      "set p.unit_price = u.unit_price;"
+                    ],
+                    "answer": 8,
+                    "fixed": "join price_update u on u.product_id = p.product_id",
+                    "note": "MySQL joins the staging table in the UPDATE instead of using FROM."
+                  }
                 },
                 {
                   "kind": "write",
@@ -18458,7 +18937,18 @@
                     "text"
                   ],
                   "answer": 2,
-                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price."
+                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price.",
+                  "mysql": {
+                    "code": "create temporary table price_update (product_id int, unit_price decimal(10, 2));\n\nload data local infile 'price_update.csv'\ninto table price_update\nfields terminated by ','\nignore 1 lines;\n\nupdate products p\n⟦?⟧ price_update u on u.product_id = p.product_id\nset p.unit_price = u.unit_price;",
+                    "options": [
+                      "join",
+                      "natural join",
+                      "left join",
+                      "full join"
+                    ],
+                    "answer": 0,
+                    "note": "MySQL joins the staging table in the UPDATE instead of using FROM."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -18472,7 +18962,18 @@
                     "header"
                   ],
                   "answer": 3,
-                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price."
+                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price.",
+                  "mysql": {
+                    "code": "create temporary table price_update (product_id int, unit_price decimal(10, 2));\n\nload data local infile 'price_update.csv'\ninto table price_update\nfields terminated by ','\nignore 1 lines;\n\nupdate products p\n⟦?⟧ price_update u on u.product_id = p.product_id\nset p.unit_price = u.unit_price;",
+                    "options": [
+                      "join",
+                      "natural join",
+                      "left join",
+                      "full join"
+                    ],
+                    "answer": 0,
+                    "note": "MySQL joins the staging table in the UPDATE instead of using FROM."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -18614,7 +19115,18 @@
                     "filter"
                   ],
                   "answer": 1,
-                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price."
+                  "explanation": "Load into a staging table first, then apply: you can inspect, clean or reject the file before touching the real table. Product 4 is not in the file and keeps its price.",
+                  "mysql": {
+                    "code": "create temporary table price_update (product_id int, unit_price decimal(10, 2));\n\nload data local infile 'price_update.csv'\ninto table price_update\nfields terminated by ','\nignore 1 lines;\n\nupdate products p\n⟦?⟧ price_update u on u.product_id = p.product_id\nset p.unit_price = u.unit_price;",
+                    "options": [
+                      "join",
+                      "natural join",
+                      "left join",
+                      "full join"
+                    ],
+                    "answer": 0,
+                    "note": "MySQL joins the staging table in the UPDATE instead of using FROM."
+                  }
                 },
                 {
                   "kind": "write",
@@ -19863,7 +20375,18 @@
                     "cross join"
                   ],
                   "answer": 0,
-                  "explanation": "string_to_array turns the text into an array, unnest turns the array into rows, and LATERAL lets unnest see each track's composer."
+                  "explanation": "string_to_array turns the text into an array, unnest turns the array into rows, and LATERAL lets unnest see each track's composer.",
+                  "mysql": {
+                    "code": "create table composer_credit (\n  track_id integer not null,\n  composer varchar(220) not null\n);\n\ninsert into composer_credit\n⟦?⟧ parts as (\n  select track_id,\n         trim(substring_index(composer, ',', 1)) as composer,\n         substring(composer, char_length(substring_index(composer, ',', 1)) + 2) as rest\n  from track\n  where composer is not null\n  union all\n  select track_id,\n         trim(substring_index(rest, ',', 1)),\n         substring(rest, char_length(substring_index(rest, ',', 1)) + 2)\n  from parts\n  where rest <> ''\n)\nselect track_id, composer from parts;",
+                    "options": [
+                      "with recursive",
+                      "with",
+                      "recursive",
+                      "with loop"
+                    ],
+                    "answer": 0,
+                    "note": "MySQL has no function that splits a string into rows. A recursive CTE peels off one name at a time with SUBSTRING_INDEX. Use CHAR_LENGTH, not LENGTH, which counts bytes and breaks on accented names."
+                  }
                 },
                 {
                   "kind": "write",
@@ -20035,7 +20558,17 @@
                     "="
                   ],
                   "answer": 1,
-                  "explanation": "@> means \"contains\": the order of elements does not matter. Two films, ACADEMY DINOSAUR and WIZARD COLDBLOODED, have both. A plain join would do the same (film_actor twice); the array form shines when the list to check comes from the user."
+                  "explanation": "@> means \"contains\": the order of elements does not matter. Two films, ACADEMY DINOSAUR and WIZARD COLDBLOODED, have both. A plain join would do the same (film_actor twice); the array form shines when the list to check comes from the user.",
+                  "mysql": {
+                    "code": "with casts as (\n  select film_id, json_arrayagg(actor_id) as actor_ids\n  from film_actor\n  group by film_id\n)\nselect f.film_id, f.title\nfrom casts c\n⟦?⟧ film f on f.film_id = c.film_id\nwhere json_contains(c.actor_ids, '[1, 10]')\norder by f.film_id;",
+                    "options": [
+                      "full join",
+                      "natural join",
+                      "join"
+                    ],
+                    "answer": 2,
+                    "note": "No arrays in MySQL: a JSON array plays the role, and JSON_CONTAINS(target, candidate) checks that every element of the candidate is in it."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -20048,7 +20581,18 @@
                     "@>"
                   ],
                   "answer": 2,
-                  "explanation": "The cast gives the literal the same type as the aggregated column (varchar[]): array operators want both sides to have the same element type. 605 employees changed department at least once, 98 of them between these two."
+                  "explanation": "The cast gives the literal the same type as the aggregated column (varchar[]): array operators want both sides to have the same element type. 605 employees changed department at least once, 98 of them between these two.",
+                  "mysql": {
+                    "code": "with careers as (\n  select emp_no, json_arrayagg(dept_no) as depts\n  from dept_emp\n  ⟦?⟧ emp_no\n)\nselect count(*) as employees\nfrom careers\nwhere json_contains(depts, '[\"d004\", \"d005\"]');",
+                    "options": [
+                      "group by",
+                      "collect by",
+                      "order by",
+                      "sort by"
+                    ],
+                    "answer": 0,
+                    "note": "A JSON array instead of an array; JSON_CONTAINS checks that both values are in it."
+                  }
                 },
                 {
                   "kind": "order",
@@ -20145,7 +20689,18 @@
                     "="
                   ],
                   "answer": 2,
-                  "explanation": "Containment ignores order and duplicates: the question is only whether both values are present. Five models qualify, including the Sport-100 helmet and the road frames."
+                  "explanation": "Containment ignores order and duplicates: the question is only whether both values are present. Five models qualify, including the Sport-100 helmet and the road frames.",
+                  "mysql": {
+                    "code": "with model_colours as (\n  select pm.name as model, json_arrayagg(p.color) as colours\n  from product p\n  join product_model pm on pm.product_model_id = p.product_model_id\n  where p.color ⟦?⟧\n  group by pm.product_model_id, pm.name\n)\nselect model\nfrom model_colours\nwhere json_contains(colours, '[\"Black\", \"Red\"]')\norder by model;",
+                    "options": [
+                      "!= null",
+                      "not null",
+                      "is null",
+                      "is not null"
+                    ],
+                    "answer": 3,
+                    "note": "JSON_ARRAYAGG has no DISTINCT, so colours repeat in the list; JSON_CONTAINS does not mind."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -20158,7 +20713,17 @@
                     "@>"
                   ],
                   "answer": 2,
-                  "explanation": "16 products. For a purchasing negotiation with two vendors at once, these are the items where both compete. The list form makes \"all of these vendors\" one condition, however many vendors you name."
+                  "explanation": "16 products. For a purchasing negotiation with two vendors at once, these are the items where both compete. The list form makes \"all of these vendors\" one condition, however many vendors you name.",
+                  "mysql": {
+                    "code": "select count(*) as products\nfrom (\n  select product_id, json_arrayagg(business_entity_id) as vendors\n  from product_vendor\n  ⟦?⟧ product_id\n) p\nwhere json_contains(vendors, '[1492, 1534]');",
+                    "options": [
+                      "group by",
+                      "partition by",
+                      "collect by",
+                      "order by"
+                    ],
+                    "answer": 0
+                  }
                 },
                 {
                   "kind": "bug",
@@ -20178,7 +20743,24 @@
                   ],
                   "answer": 8,
                   "fixed": "where c.actor_ids @> array[1, 10]",
-                  "explanation": "@> means \"contains\": the order of elements does not matter. Two films, ACADEMY DINOSAUR and WIZARD COLDBLOODED, have both. A plain join would do the same (film_actor twice); the array form shines when the list to check comes from the user."
+                  "explanation": "@> means \"contains\": the order of elements does not matter. Two films, ACADEMY DINOSAUR and WIZARD COLDBLOODED, have both. A plain join would do the same (film_actor twice); the array form shines when the list to check comes from the user.",
+                  "mysql": {
+                    "lines": [
+                      "with casts as (",
+                      "  select film_id, json_arrayagg(actor_id) as actor_ids",
+                      "  from film_actor",
+                      "  group by film_id",
+                      ")",
+                      "select f.film_id, f.title",
+                      "from casts c",
+                      "natural join film f on f.film_id = c.film_id",
+                      "where json_contains(c.actor_ids, '[1, 10]')",
+                      "order by f.film_id;"
+                    ],
+                    "answer": 7,
+                    "fixed": "join film f on f.film_id = c.film_id",
+                    "note": "No arrays in MySQL: a JSON array plays the role, and JSON_CONTAINS(target, candidate) checks that every element of the candidate is in it."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -20192,7 +20774,18 @@
                     "&&"
                   ],
                   "answer": 0,
-                  "explanation": "41 players have worn both uniforms since 2010. The list form answers \"which players have played for all of these teams\" for any set of teams by changing one literal; with plain joins, each extra team means another join."
+                  "explanation": "41 players have worn both uniforms since 2010. The list form answers \"which players have played for all of these teams\" for any set of teams by changing one literal; with plain joins, each extra team means another join.",
+                  "mysql": {
+                    "code": "with careers as (\n  select player_id, json_arrayagg(team_id) as teams\n  from batting\n  ⟦?⟧ player_id\n)\nselect count(*) as players\nfrom careers\nwhere json_contains(teams, '[\"NYA\", \"BOS\"]');",
+                    "options": [
+                      "group by",
+                      "order by",
+                      "partition by",
+                      "sort by"
+                    ],
+                    "answer": 0,
+                    "note": "A JSON array replaces the PostgreSQL array; JSON_CONTAINS checks that both team ids appear in it."
+                  }
                 },
                 {
                   "kind": "write",
@@ -20268,7 +20861,22 @@
                   ],
                   "answer": 7,
                   "fixed": "where depts @> array['d004', 'd005']::varchar[];",
-                  "explanation": "The cast gives the literal the same type as the aggregated column (varchar[]): array operators want both sides to have the same element type. 605 employees changed department at least once, 98 of them between these two."
+                  "explanation": "The cast gives the literal the same type as the aggregated column (varchar[]): array operators want both sides to have the same element type. 605 employees changed department at least once, 98 of them between these two.",
+                  "mysql": {
+                    "lines": [
+                      "with careers as (",
+                      "  select emp_no, json_arrayagg(dept_no) as depts",
+                      "  from dept_emp",
+                      "  order by emp_no",
+                      ")",
+                      "select count(*) as employees",
+                      "from careers",
+                      "where json_contains(depts, '[\"d004\", \"d005\"]');"
+                    ],
+                    "answer": 3,
+                    "fixed": "group by emp_no",
+                    "note": "A JSON array instead of an array; JSON_CONTAINS checks that both values are in it."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -20732,7 +21340,17 @@
                     "cardinality"
                   ],
                   "answer": 2,
-                  "explanation": "string_to_array turns the text into an array and unnest makes one row per element, so each film appears once per feature. This column breaks first normal form (one value per field): the next exercise fixes that."
+                  "explanation": "string_to_array turns the text into an array and unnest makes one row per element, so each film appears once per feature. This column breaks first normal form (one value per field): the next exercise fixes that.",
+                  "mysql": {
+                    "code": "select f.feature, count(*) as films\nfrom film\n⟦?⟧ (select 'Trailers' as feature union all select 'Commentaries'\n      union all select 'Deleted Scenes' union all select 'Behind the Scenes') as f\n  on find_in_set(f.feature, film.special_features) > 0\ngroup by f.feature\norder by films desc, f.feature;",
+                    "options": [
+                      "full join",
+                      "natural join",
+                      "join"
+                    ],
+                    "answer": 2,
+                    "note": "In MySQL the column is a SET, a built-in \"list of allowed values\" type. FIND_IN_SET looks a value up in it, but there is no general way to turn it into rows, so the four allowed values are listed by hand."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -22065,7 +22683,18 @@
                     "remove"
                   ],
                   "answer": 0,
-                  "explanation": "PostgreSQL refuses to drop a role that still holds privileges (\"role cannot be dropped because some objects depend on it\"), so revoke them first."
+                  "explanation": "PostgreSQL refuses to drop a role that still holds privileges (\"role cannot be dropped because some objects depend on it\"), so revoke them first.",
+                  "mysql": {
+                    "code": "create role temp_staff;\n⟦?⟧ select, insert on product to temp_staff;\ngrant select on vendor to temp_staff;\n\ndrop role temp_staff;",
+                    "options": [
+                      "grant",
+                      "allow",
+                      "give",
+                      "revoke"
+                    ],
+                    "answer": 0,
+                    "note": "MySQL removes an account's privileges together with it, so DROP ROLE alone is enough."
+                  }
                 },
                 {
                   "kind": "write",
@@ -22283,7 +22912,18 @@
                     "coalesce"
                   ],
                   "answer": 2,
-                  "explanation": "The CASE statement (not the CASE expression) chooses which RETURN runs; the first true branch wins, so silver only needs its lower bound. The existence check separates \"unknown customer\" from \"customer who never bought\". 5 customers are gold, 9 silver, 45 standard."
+                  "explanation": "The CASE statement (not the CASE expression) chooses which RETURN runs; the first true branch wins, so silver only needs its lower bound. The existence check separates \"unknown customer\" from \"customer who never bought\". 5 customers are gold, 9 silver, 45 standard.",
+                  "mysql": {
+                    "code": "create function customer_tier(p_customer_id int) returns varchar(10)\nreads sql data\nbegin\n  declare v_spend decimal(10, 2);\n\n  if not exists (select 1 from customer ⟦?⟧ customer_id = p_customer_id) then\n    return null;\n  end if;\n\n  select coalesce(sum(total), 0) into v_spend from invoice where customer_id = p_customer_id;\n\n  case\n    when v_spend >= 45 then return 'gold';\n    when v_spend >= 40 then return 'silver';\n    else return 'standard';\n  end case;\nend;",
+                    "options": [
+                      "where",
+                      "if",
+                      "when",
+                      "on"
+                    ],
+                    "answer": 0,
+                    "note": "In the mysql command-line client, wrap the CREATE statement in DELIMITER $$ … $$ so the semicolons inside the body do not end it early."
+                  }
                 },
                 {
                   "kind": "write",
@@ -22334,7 +22974,18 @@
                     "concat"
                   ],
                   "answer": 0,
-                  "explanation": "All 412 totals agree with their lines today. invoice.total is derived data stored for speed; a function like this turns \"is it still right?\" into a one-line audit you can run any time."
+                  "explanation": "All 412 totals agree with their lines today. invoice.total is derived data stored for speed; a function like this turns \"is it still right?\" into a one-line audit you can run any time.",
+                  "mysql": {
+                    "code": "create function lines_total(p_invoice_id int) returns decimal(10, 2)\nreads sql data\nbegin\n  return (select coalesce(sum(unit_price * quantity), 0) from invoice_line ⟦?⟧ invoice_id = p_invoice_id);\nend;",
+                    "options": [
+                      "where",
+                      "having",
+                      "on",
+                      "if"
+                    ],
+                    "answer": 0,
+                    "note": "In the mysql command-line client, wrap the CREATE statement in DELIMITER $$ … $$ so the semicolons inside the body do not end it early."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -22798,7 +23449,18 @@
                     "coalesce"
                   ],
                   "answer": 2,
-                  "explanation": "The CASE statement (not the CASE expression) chooses which RETURN runs; the first true branch wins, so silver only needs its lower bound. The existence check separates \"unknown customer\" from \"customer who never bought\". 5 customers are gold, 9 silver, 45 standard."
+                  "explanation": "The CASE statement (not the CASE expression) chooses which RETURN runs; the first true branch wins, so silver only needs its lower bound. The existence check separates \"unknown customer\" from \"customer who never bought\". 5 customers are gold, 9 silver, 45 standard.",
+                  "mysql": {
+                    "code": "create function customer_tier(p_customer_id int) returns varchar(10)\nreads sql data\nbegin\n  declare v_spend decimal(10, 2);\n\n  if ⟦?⟧ (select 1 from customer where customer_id = p_customer_id) then\n    return null;\n  end if;\n\n  select coalesce(sum(total), 0) into v_spend from invoice where customer_id = p_customer_id;\n\n  case\n    when v_spend >= 45 then return 'gold';\n    when v_spend >= 40 then return 'silver';\n    else return 'standard';\n  end case;\nend;",
+                    "options": [
+                      "not exists",
+                      "not in",
+                      "not any",
+                      "exists"
+                    ],
+                    "answer": 0,
+                    "note": "In the mysql command-line client, wrap the CREATE statement in DELIMITER $$ … $$ so the semicolons inside the body do not end it early."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -23058,7 +23720,18 @@
                     "else"
                   ],
                   "answer": 1,
-                  "explanation": "A CHECK constraint cannot look at other tables, so a rule that spans flights, routes and seats needs a trigger. RAISE EXCEPTION aborts the insert with a message; the valid pass in the check goes through."
+                  "explanation": "A CHECK constraint cannot look at other tables, so a rule that spans flights, routes and seats needs a trigger. RAISE EXCEPTION aborts the insert with a message; the valid pass in the check goes through.",
+                  "mysql": {
+                    "code": "create trigger boarding_passes_check_seat\nbefore insert on boarding_passes\nfor each row\nbegin\n  if not exists (\n    select 1\n    from flights f\n    join routes r on r.route_no = f.route_no\n                 ⟦?⟧ f.scheduled_departure >= r.valid_from and f.scheduled_departure < r.valid_to\n    join seats s on s.airplane_code = r.airplane_code and s.seat_no = new.seat_no\n    where f.flight_id = new.flight_id\n  ) then\n    signal sqlstate '45000' set message_text = 'seat does not exist on this flight';\n  end if;\nend;",
+                    "options": [
+                      "plus",
+                      "and",
+                      "also",
+                      ","
+                    ],
+                    "answer": 1,
+                    "note": "SIGNAL raises an error (SQLSTATE 45000 is \"user-defined\"). A MySQL trigger handles one event, so updates need a second, BEFORE UPDATE trigger. In the mysql command-line client, wrap the CREATE statement in DELIMITER $$ … $$ so the semicolons inside the body do not end it early."
+                  }
                 },
                 {
                   "kind": "bug",
@@ -24726,7 +25399,17 @@
                     "primary key"
                   ],
                   "answer": 2,
-                  "explanation": "order_date must be NOT NULL here: a NULL could not be placed in any range partition (PostgreSQL would need a DEFAULT partition). For 830 rows partitioning is pure practice; it starts to pay off with millions."
+                  "explanation": "order_date must be NOT NULL here: a NULL could not be placed in any range partition (PostgreSQL would need a DEFAULT partition). For 830 rows partitioning is pure practice; it starts to pay off with millions.",
+                  "mysql": {
+                    "code": "create table orders_by_year (\n  order_id    int            not null,\n  customer_id varchar(5),\n  order_date  datetime       not null,\n  freight     decimal(10, 2),\n  primary key (order_id, order_date)\n)\n⟦?⟧ range columns (order_date) (\n  partition p1996 values less than ('1997-01-01'),\n  partition p1997 values less than ('1998-01-01'),\n  partition p1998 values less than ('1999-01-01')\n);\n\ninsert into orders_by_year select order_id, customer_id, order_date, freight from orders;",
+                    "options": [
+                      "order by",
+                      "group by",
+                      "partition by",
+                      "split by"
+                    ],
+                    "answer": 2
+                  }
                 },
                 {
                   "kind": "bug",
@@ -24793,7 +25476,18 @@
                     "index"
                   ],
                   "answer": 0,
-                  "explanation": "Each partition lists its values; a customer from a country in neither list would be rejected. In PostgreSQL a DEFAULT partition can catch \"everything else\" instead. 37 customers land in americas and 54 in europe."
+                  "explanation": "Each partition lists its values; a customer from a country in neither list would be rejected. In PostgreSQL a DEFAULT partition can catch \"everything else\" instead. 37 customers land in americas and 54 in europe.",
+                  "mysql": {
+                    "code": "create table customers_by_region (\n  customer_id  varchar(5)  not null,\n  company_name varchar(40) not null,\n  country      varchar(15) not null,\n  primary key (customer_id, country)\n)\n⟦?⟧ list columns (country) (\n  partition americas values in ('Argentina', 'Brazil', 'Canada', 'Mexico', 'USA', 'Venezuela'),\n  partition europe   values in ('Austria', 'Belgium', 'Denmark', 'Finland', 'France', 'Germany', 'Ireland', 'Italy',\n                                'Norway', 'Poland', 'Portugal', 'Spain', 'Sweden', 'Switzerland', 'UK')\n);\n\ninsert into customers_by_region select customer_id, company_name, country from customers;",
+                    "options": [
+                      "order by",
+                      "split by",
+                      "partition by",
+                      "group by"
+                    ],
+                    "answer": 2,
+                    "note": "A MySQL partition is not a table you can query by name in FROM; use PARTITION (americas) after the table name, or a WHERE on the key."
+                  }
                 },
                 {
                   "kind": "gap",
@@ -24848,7 +25542,18 @@
                     "primary key"
                   ],
                   "answer": 2,
-                  "explanation": "Hash partitioning spreads rows evenly when there is no natural range, and all lines of one order stay in one partition, so a query for one order reads one partition. It does not help range queries such as \"orders of March\"."
+                  "explanation": "Hash partitioning spreads rows evenly when there is no natural range, and all lines of one order stay in one partition, so a query for one order reads one partition. It does not help range queries such as \"orders of March\".",
+                  "mysql": {
+                    "code": "create table order_details_hashed (\n  order_id   int           not null,\n  product_id int           not null,\n  unit_price decimal(10, 2) not null,\n  quantity   smallint      not null,\n  discount   decimal(4, 2) not null,\n  primary key (order_id, product_id)\n)\n⟦?⟧ hash (order_id) partitions 4;\n\ninsert into order_details_hashed select * from order_details;",
+                    "options": [
+                      "partition by",
+                      "group by",
+                      "split by",
+                      "order by"
+                    ],
+                    "answer": 0,
+                    "note": "One clause creates all four partitions. MySQL's HASH is plain order_id MOD 4, so which partition a row lands in differs from PostgreSQL's."
+                  }
                 },
                 {
                   "kind": "write",
@@ -24897,7 +25602,17 @@
                     "index"
                   ],
                   "answer": 1,
-                  "explanation": "249, 326 and 255 orders. A fourth shipper would need a new partition before its first order could be stored; in PostgreSQL a DEFAULT partition can catch it instead. Partitioning by a column with three values only pays off when each value really is a separate workload."
+                  "explanation": "249, 326 and 255 orders. A fourth shipper would need a new partition before its first order could be stored; in PostgreSQL a DEFAULT partition can catch it instead. Partitioning by a column with three values only pays off when each value really is a separate workload.",
+                  "mysql": {
+                    "code": "create table orders_by_shipper (\n  order_id    int            not null,\n  customer_id varchar(5),\n  order_date  datetime,\n  ship_via    int            not null,\n  freight     decimal(10, 2),\n  primary key (order_id, ship_via)\n)\n⟦?⟧ list (ship_via) (\n  partition p_ship1 values in (1),\n  partition p_ship2 values in (2),\n  partition p_ship3 values in (3)\n);\n\ninsert into orders_by_shipper select order_id, customer_id, order_date, ship_via, freight from orders;",
+                    "options": [
+                      "order by",
+                      "group by",
+                      "partition by",
+                      "split by"
+                    ],
+                    "answer": 2
+                  }
                 },
                 {
                   "kind": "bug",

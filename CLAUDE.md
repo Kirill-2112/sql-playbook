@@ -199,12 +199,16 @@ Audit of 2026-10-15:
   redeploy with --datasets. `scripts/check-runner.ts` compares the server with the local MySQL (through an SSH tunnel).
   Privacy Policy mentions it (Oracle, Israel; SQL not stored). The runner's origin is in vercel.json connect-src.
 - Explanation cards (2026-11-23): `src/content/explanations.ts` (one idea per card, real rows, numbers only via
-  {rows}) for level 1–3 topics (60 cards, all on Northwind); `npm run build:explanations` runs each query on PGlite and MySQL (same rows required,
+  {rows}) for all 58 topics (90 cards; Northwind, index topics on Delivery); `npm run build:explanations` runs each query on PGlite and MySQL (same rows required,
   query lines ≤ 36 chars to fit a 375 px phone, text ≤ 200 chars) and writes `generated/explanations.json` (CI checks it
   is current). The skill's first lesson starts with them (`intro` in LessonPlayer, ExplainCardView, ExplainTable);
   "I know this" skips. `mysqlText`/`mysqlTip` replace text that names PostgreSQL-only syntax in MySQL mode.
   A card may show several `tables` (a picked column is highlighted in each table that has it: the link) with an
   optional `where`; `unordered` compares as sets when MySQL needs other SQL (FULL JOIN as LEFT + RIGHT JOIN).
+  Queries may be scripts that change data (PG: rolled-back transaction with emulateTransactions; MySQL: mysqlRowsOnCopy
+  in `pb_explain`); `fails` shows each database's error (a broken constraint); `mysql: null` = PostgreSQL only (MySQL
+  mode keeps the text and shows mysqlText as a note); `code`/`mysqlCode` are shown, not run (COPY needs a file);
+  `steps` draws two sessions taking turns (locks, SessionSteps). EXPLAIN cards use `costs off` (deterministic).
 - Step hints (2026-11-23): write tasks have Hint → Next hint → Show answer instead of "I'm stuck"
   (`src/utils/stepHints.ts`, StepHintList): where the data is (tables and the keys linking them), the shape of the
   query (clauses, only FROM/JOIN filled, from `topClauses` in buildQuery.ts), then all but the conditions. Made from

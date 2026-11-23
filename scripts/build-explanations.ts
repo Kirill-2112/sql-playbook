@@ -11,7 +11,8 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { PGlite } from '@electric-sql/pglite'
-import { connectMysql, mysqlRows, type MysqlConnection } from './lib/mysql'
+import { connectMysql, mysqlRows, mysqlRowsOnCopy, type MysqlConnection } from './lib/mysql'
+import { emulateTransactions } from '../src/utils/emulateTransactions'
 import { createPglite } from './lib/pglite'
 import { compareRowSets } from './lib/normalize'
 import { SEED_SQL } from '../src/db/seed'
@@ -30,6 +31,8 @@ const MAX_LINE = 36
 
 function cell(value: unknown): string | null {
   if (value === null || value === undefined) return null
+  // As PostgreSQL prints an array: {11,42,72}.
+  if (Array.isArray(value)) return `{${value.map((v) => cell(v) ?? 'NULL').join(',')}}`
   if (typeof value === 'object') return JSON.stringify(value)
   return String(value)
 }
@@ -56,22 +59,54 @@ async function main() {
     return c
   }
 
-  /** Runs on both databases; the PostgreSQL rows, or null when they differ or fail. */
-  async function run(where: string, dataset: DatasetId, postgres: string, mysqlSql = postgres, ordered = true) {
-    let pgResult: { columns: string[]; rows: unknown[][] }
+  // SQL that changes something: PostgreSQL rolls it back, MySQL runs it on a throwaway copy of the tables.
+  const WRITES = /\b(create|insert|update|delete|alter|drop|grant|revoke|merge|call|truncate|refresh|begin)\b/i
+
+  async function pgRun(dataset: DatasetId, sql: string): Promise<{ columns: string[]; rows: unknown[][] }> {
+    let shown: { columns: string[]; rows: unknown[][] } = { columns: [], rows: [] }
+    await (await pg(dataset)).transaction(async (tx) => {
+      // A script's own BEGIN / COMMIT / ROLLBACK become savepoints of this transaction, as for learners.
+      const results = await tx.exec(emulateTransactions(sql), { rowMode: 'array' })
+      const last = [...results].reverse().find((r) => r.fields.length > 0)
+      if (last) shown = { columns: last.fields.map((f) => f.name), rows: last.rows as unknown[][] }
+      await tx.rollback()
+    })
+    return shown
+  }
+
+  async function mysqlRun(dataset: DatasetId, sql: string): Promise<unknown[][]> {
+    return WRITES.test(sql) ? mysqlRowsOnCopy(dataset, sql, undefined, { scratch: 'pb_explain', onlyTables: true }) : mysqlRows(await my(dataset), sql)
+  }
+
+  /**
+   * Runs on both databases (only PostgreSQL when `mysqlSql` is null); the PostgreSQL rows, or null when they differ
+   * or fail. With `fails`, both must fail, and the messages are returned instead.
+   */
+  async function run(where: string, dataset: DatasetId, postgres: string, mysqlSql: string | null = postgres, ordered = true, fails = false) {
+    let pgResult: { columns: string[]; rows: unknown[][]; error?: string; mysqlError?: string }
     try {
-      const r = await (await pg(dataset)).query<unknown[]>(postgres, [], { rowMode: 'array' })
-      pgResult = { columns: r.fields.map((f) => f.name), rows: r.rows }
+      pgResult = await pgRun(dataset, postgres)
+      if (fails) {
+        problems.push(`${where}: meant to fail, but PostgreSQL ran it`)
+        return null
+      }
     } catch (e) {
-      problems.push(`${where}: PostgreSQL fails: ${(e as Error).message}`)
-      return null
+      if (!fails) {
+        problems.push(`${where}: PostgreSQL fails: ${(e as Error).message}`)
+        return null
+      }
+      pgResult = { columns: [], rows: [], error: (e as Error).message }
     }
+    if (mysqlSql === null) return pgResult
     try {
-      const rows = await mysqlRows(await my(dataset), mysqlSql)
+      const rows = await mysqlRun(dataset, mysqlSql)
+      if (fails) problems.push(`${where}: meant to fail, but MySQL ran it`)
       const same = compareRowSets(rows, pgResult.rows, ordered)
-      if (!same.equal) problems.push(`${where}: MySQL returns other rows (${same.reason})`)
+      if (!fails && !same.equal) problems.push(`${where}: MySQL returns other rows (${same.reason})`)
     } catch (e) {
-      problems.push(`${where}: MySQL fails: ${(e as Error).message}`)
+      const message = (e as Error).message
+      if (fails) pgResult.mysqlError = `ERROR ${(e as { errno?: number }).errno ?? ''}: ${message}`
+      else problems.push(`${where}: MySQL fails: ${message}`)
     }
     return pgResult
   }
@@ -93,7 +128,7 @@ async function main() {
     for (const [field, text] of [['text', s.text], ['after', s.after], ['tip', s.tip], ['mysqlText', s.mysqlText], ['mysqlTip', s.mysqlTip]] as const) {
       if (text && text.replace(/\{rows\}/g, '0000').length > MAX_TEXT) problems.push(`${where}: ${field} is longer than ${MAX_TEXT} characters`)
     }
-    if (!s.tables?.length && !s.query) problems.push(`${where}: shows no table and no query`)
+    if (!s.tables?.length && !s.query && !s.code && !s.steps?.length) problems.push(`${where}: shows nothing to look at`)
     if (s.text.includes('{rows}') || s.tip?.includes('{rows}')) problems.push(`${where}: {rows} only works in "after"`)
     const card: ExplainCard = { title: s.title, text: s.text }
     let total: number | null = null
@@ -110,17 +145,25 @@ async function main() {
         { name: table.name, columns: table.columns, rows: result.rows.slice(0, table.rows ?? TABLE_ROWS).map((r) => r.map(cell)), total },
       ]
     }
+    const shownSql = [s.query, s.mysql, s.code, s.mysqlCode, ...(s.steps ?? []).map((st) => st.sql)].filter((x): x is string => !!x)
+    for (const line of shownSql.flatMap((sql) => sql.split('\n'))) {
+      if (line.length > MAX_LINE) problems.push(`${where}: "${line}" is longer than ${MAX_LINE} characters (a phone shows ${MAX_LINE})`)
+    }
+    for (const st of s.steps ?? []) if (st.note.length > MAX_TEXT) problems.push(`${where}: a step's note is longer than ${MAX_TEXT} characters`)
+    if (s.code) card.code = s.code
+    if (s.mysqlCode) card.mysqlCode = s.mysqlCode
+    if (s.steps) card.steps = s.steps
     if (s.query) {
-      for (const line of [...s.query.split('\n'), ...(s.mysql ?? '').split('\n')]) {
-        if (line.length > MAX_LINE) problems.push(`${where}: "${line}" is longer than ${MAX_LINE} characters (a phone shows ${MAX_LINE})`)
-      }
       if (s.mysql === s.query) problems.push(`${where}: the MySQL text is the same; leave it out`)
-      const result = await run(`${where} (query)`, dataset, s.query, s.mysql, !s.unordered)
+      const result = await run(`${where} (query)`, dataset, s.query, s.mysql === undefined ? s.query : s.mysql, !s.unordered, s.fails)
       if (!result) return null
       total = result.rows.length
       card.query = {
         postgres: s.query,
         ...(s.mysql ? { mysql: s.mysql } : {}),
+        ...(s.mysql === null ? { pgOnly: true } : {}),
+        ...(result.error ? { error: result.error } : {}),
+        ...(result.mysqlError ? { mysqlError: result.mysqlError } : {}),
         columns: result.columns,
         rows: result.rows.slice(0, s.shown ?? SHOWN).map((r) => r.map(cell)),
         total,

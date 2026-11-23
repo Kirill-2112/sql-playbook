@@ -260,9 +260,20 @@ export interface ExplainCardSource {
    * a column name says what the column holds.
    */
   tables?: { name: string; orderBy: string; columns: { name: string; about: string }[]; where?: string; rows?: number }[]
-  /** A query to run (PostgreSQL); `mysql` when MySQL needs other text. Both must return the same rows. */
+  /**
+   * A query to run (PostgreSQL); `mysql` when MySQL needs other text, null when MySQL has no such feature (the
+   * query runs only on PostgreSQL). Both must return the same rows. A query may be a script that changes data: it runs
+   * in a transaction that is rolled back (PostgreSQL) or on a throwaway copy of the tables (MySQL).
+   */
   query?: string
-  mysql?: string
+  mysql?: string | null
+  /** The query is meant to fail (a broken rule): its error message is shown instead of rows. */
+  fails?: boolean
+  /** SQL shown but not run (loading a file needs the file). */
+  code?: string
+  mysqlCode?: string
+  /** Two sessions taking turns (locks): who runs what, and what happens. */
+  steps?: { session: 'A' | 'B'; sql: string; note: string }[]
   /** Rows of the result to show (default 4). */
   shown?: number
   /** The query has no ORDER BY that both databases follow (e.g. MySQL needs a UNION instead): compare as sets. */
@@ -286,7 +297,21 @@ export interface ExplainCard {
   title: string
   text: string
   tables?: { name: string; columns: { name: string; about: string }[]; rows: (string | null)[][]; total: number }[]
-  query?: { postgres: string; mysql?: string; columns: string[]; rows: (string | null)[][]; total: number }
+  query?: {
+    postgres: string
+    mysql?: string
+    /** MySQL has no such feature: MySQL mode shows the PostgreSQL query, marked. */
+    pgOnly?: boolean
+    columns: string[]
+    rows: (string | null)[][]
+    total: number
+    /** For a query meant to fail: what each database says. */
+    error?: string
+    mysqlError?: string
+  }
+  code?: string
+  mysqlCode?: string
+  steps?: { session: 'A' | 'B'; sql: string; note: string }[]
   after?: string
   tip?: string
   mysqlText?: string

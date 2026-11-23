@@ -2161,5 +2161,873 @@
         "mysqlTip": "PostgreSQL does it in one step: `date_trunc('month', order_date)`."
       }
     ]
+  },
+  "ddl": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "CREATE TABLE describes a table",
+        "text": "`create table` names a new table and lists its columns, each with a type: whole numbers, text, dates… Here we make a table, add a row and read it back.",
+        "query": {
+          "postgres": "create table notes (\n  id integer primary key,\n  title text not null,\n  added date\n);\ninsert into notes\nvalues (1, 'Hello', '2026-01-05');\nselect * from notes;",
+          "columns": [
+            "id",
+            "title",
+            "added"
+          ],
+          "rows": [
+            [
+              "1",
+              "Hello",
+              "2026-01-05"
+            ]
+          ],
+          "total": 1
+        },
+        "tip": "Nothing here is saved: examples run in a sandbox that is thrown away."
+      },
+      {
+        "title": "An id that fills itself in",
+        "text": "`generated always as identity` makes the database number the rows itself: 1, 2, 3… You insert only the other columns.",
+        "query": {
+          "postgres": "create table tags (\n  id integer generated always\n    as identity primary key,\n  name text\n);\ninsert into tags (name)\nvalues ('red'), ('blue');\nselect * from tags;",
+          "mysql": "create table tags (\n  id integer auto_increment\n    primary key,\n  name text\n);\ninsert into tags (name)\nvalues ('red'), ('blue');\nselect * from tags;",
+          "columns": [
+            "id",
+            "name"
+          ],
+          "rows": [
+            [
+              "1",
+              "red"
+            ],
+            [
+              "2",
+              "blue"
+            ]
+          ],
+          "total": 2
+        },
+        "tip": "MySQL writes it `auto_increment`.",
+        "mysqlText": "`auto_increment` makes the database number the rows itself: 1, 2, 3… You insert only the other columns.",
+        "mysqlTip": "PostgreSQL writes it `generated always as identity`."
+      }
+    ]
+  },
+  "constraints": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Rules the data must follow",
+        "text": "Constraints are rules the database checks on every change: `primary key`, `unique`, `not null`, `check (…)`. Here the age is negative, so the row is refused.",
+        "query": {
+          "postgres": "create table people (\n  id integer primary key,\n  email varchar(100) unique,\n  age integer check (age >= 0)\n);\ninsert into people\nvalues (1, 'ann@mail.com', -5);",
+          "error": "new row for relation \"people\" violates check constraint \"people_age_check\"",
+          "mysqlError": "ERROR 3819: Check constraint 'people_chk_1' is violated.",
+          "columns": [],
+          "rows": [],
+          "total": 0
+        },
+        "after": "Nothing was added: the database refused the row."
+      },
+      {
+        "title": "A foreign key points to a row",
+        "text": "A foreign key says: this column must match a row in another table. There is no team 7, so the player is refused.",
+        "query": {
+          "postgres": "create table teams (\n  id integer primary key\n);\ncreate table players (\n  name text,\n  team_id integer,\n  foreign key (team_id)\n    references teams (id)\n);\ninsert into players\nvalues ('Ann', 7);",
+          "error": "insert or update on table \"players\" violates foreign key constraint \"players_team_id_fkey\"",
+          "mysqlError": "ERROR 1452: Cannot add or update a child row: a foreign key constraint fails (`pb_explain`.`players`, CONSTRAINT `players_ibfk_1` FOREIGN KEY (`team_id`) REFERENCES `teams` (`id`))",
+          "columns": [],
+          "rows": [],
+          "total": 0
+        },
+        "after": "Add team 7 first, and the same insert works."
+      }
+    ]
+  },
+  "dml": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "UPDATE changes rows",
+        "text": "`update` changes rows: `set` says what to change, `where` which rows. Without `where`, every row of the table changes!",
+        "query": {
+          "postgres": "update products\nset unit_price = unit_price * 2\nwhere product_id = 1;\nselect product_name, unit_price\nfrom products\nwhere product_id = 1;",
+          "columns": [
+            "product_name",
+            "unit_price"
+          ],
+          "rows": [
+            [
+              "Chai",
+              "36.00"
+            ]
+          ],
+          "total": 1
+        },
+        "after": "Chai now costs twice as much (only inside this example)."
+      },
+      {
+        "title": "INSERT adds, DELETE removes",
+        "text": "`insert into` adds rows: list the columns, then the values in the same order. `delete from … where …` removes the rows that match.",
+        "query": {
+          "postgres": "insert into categories\n  (category_id, category_name)\nvalues (9, 'Snacks');\nselect category_id, category_name\nfrom categories\norder by category_id desc;",
+          "columns": [
+            "category_id",
+            "category_name"
+          ],
+          "rows": [
+            [
+              "9",
+              "Snacks"
+            ],
+            [
+              "8",
+              "Seafood"
+            ],
+            [
+              "7",
+              "Produce"
+            ]
+          ],
+          "total": 9
+        },
+        "after": "Snacks is category 9 now.",
+        "tip": "PostgreSQL can show the changed rows at once with `returning *`; MySQL cannot."
+      }
+    ]
+  },
+  "upsert": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Insert, or update if it exists",
+        "text": "An upsert adds a row, or updates it when a row with that key is already there. Category 1 exists, so its name changes to Drinks.",
+        "query": {
+          "postgres": "insert into categories\n  (category_id, category_name)\nvalues (1, 'Drinks')\non conflict (category_id)\ndo update set category_name =\n  excluded.category_name;\nselect category_id, category_name\nfrom categories\nwhere category_id = 1;",
+          "mysql": "insert into categories\n  (category_id, category_name)\nvalues (1, 'Drinks') as new\non duplicate key update\n  category_name =\n    new.category_name;\nselect category_id, category_name\nfrom categories\nwhere category_id = 1;",
+          "columns": [
+            "category_id",
+            "category_name"
+          ],
+          "rows": [
+            [
+              "1",
+              "Drinks"
+            ]
+          ],
+          "total": 1
+        },
+        "tip": "`excluded` is the row you tried to insert. MySQL writes `on duplicate key update`.",
+        "mysqlText": "An upsert adds a row, or updates it when a row with that key is already there. In MySQL: `on duplicate key update`. Category 1 exists, so its name changes.",
+        "mysqlTip": "PostgreSQL writes `on conflict (category_id) do update set …`."
+      }
+    ]
+  },
+  "merge": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "MERGE: update or insert, row by row",
+        "text": "`merge` compares new rows with a table: it updates the ones that match and inserts the others. Here category 1 is renamed and category 9 is added.",
+        "query": {
+          "postgres": "merge into categories c\nusing (values (1, 'Drinks'),\n  (9, 'Snacks')) as v(id, name)\non c.category_id = v.id\nwhen matched then\n  update set category_name = v.name\nwhen not matched then\n  insert (category_id,\n    category_name)\n  values (v.id, v.name);\nselect category_id, category_name\nfrom categories\norder by category_id;",
+          "pgOnly": true,
+          "columns": [
+            "category_id",
+            "category_name"
+          ],
+          "rows": [
+            [
+              "1",
+              "Drinks"
+            ],
+            [
+              "2",
+              "Condiments"
+            ],
+            [
+              "3",
+              "Confections"
+            ],
+            [
+              "4",
+              "Dairy Products"
+            ]
+          ],
+          "total": 9
+        },
+        "mysqlText": "MySQL has no `merge`. The same job is done by `insert … on duplicate key update` (see Upsert). This example is in PostgreSQL."
+      }
+    ]
+  },
+  "transactions": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "All or nothing",
+        "text": "Changes between `begin` and `commit` happen together or not at all. `rollback` cancels all of them. Here the stock is set to 0, then rolled back.",
+        "query": {
+          "postgres": "begin;\nupdate products\nset units_in_stock = 0\nwhere product_id = 1;\nrollback;\nselect units_in_stock\nfrom products\nwhere product_id = 1;",
+          "columns": [
+            "units_in_stock"
+          ],
+          "rows": [
+            [
+              "39"
+            ]
+          ],
+          "total": 1
+        },
+        "after": "The stock is still there: the rollback undid the update.",
+        "tip": "`savepoint` marks a point you can roll back to without losing everything.",
+        "mysqlTip": "In MySQL `create`, `alter` and `drop` commit at once and cannot be rolled back."
+      }
+    ]
+  },
+  "data-loading": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Loading a whole file",
+        "text": "`copy … from 'file.csv'` loads a file into a table in one go, much faster than many inserts. `header` skips the line with the column names.",
+        "code": "copy customer_import\nfrom 'customers.csv'\nwith (format csv, header);",
+        "mysqlCode": "load data local infile\n  'customers.csv'\ninto table customer_import\nfields terminated by ','\nignore 1 lines;",
+        "tip": "Load into a staging table first, check and clean the rows there, then copy the good ones on.",
+        "mysqlText": "MySQL loads a file with `load data local infile`. `fields terminated by ','` says how values are split, `ignore 1 lines` skips the header."
+      }
+    ]
+  },
+  "temp-tables": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "A table for this session only",
+        "text": "A temporary table lives until you disconnect, and only you can see it. Handy to keep the result of a step and use it several times.",
+        "query": {
+          "postgres": "create temp table big as\nselect order_id, freight\nfrom orders\nwhere freight > 500;\nselect count(*) as big_orders\nfrom big;",
+          "mysql": "create temporary table big as\nselect order_id, freight\nfrom orders\nwhere freight > 500;\nselect count(*) as big_orders\nfrom big;",
+          "columns": [
+            "big_orders"
+          ],
+          "rows": [
+            [
+              "13"
+            ]
+          ],
+          "total": 1
+        },
+        "tip": "MySQL writes `create temporary table`.",
+        "mysqlText": "`create temporary table` makes a table that lives until you disconnect, and only you can see it. Handy to keep the result of a step and use it several times."
+      }
+    ]
+  },
+  "views": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "A saved query with a name",
+        "text": "A view is a query saved under a name, used like a table. It stores no data: each time you read it, its query runs again on fresh data.",
+        "query": {
+          "postgres": "create view expensive as\nselect product_name, unit_price\nfrom products\nwhere unit_price > 50;\nselect * from expensive\norder by unit_price desc;",
+          "columns": [
+            "product_name",
+            "unit_price"
+          ],
+          "rows": [
+            [
+              "Côte de Blaye",
+              "263.50"
+            ],
+            [
+              "Thüringer Rostbratwurst",
+              "123.79"
+            ],
+            [
+              "Mishi Kobe Niku",
+              "97.00"
+            ],
+            [
+              "Sir Rodney's Marmalade",
+              "81.00"
+            ]
+          ],
+          "total": 7
+        },
+        "after": "The view hides the condition: everyone reads the same list the same way."
+      }
+    ]
+  },
+  "materialized-views": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "A view that keeps its result",
+        "text": "A materialized view stores the result of its query, so reading it is fast. It does not follow changes: `refresh materialized view` updates it.",
+        "query": {
+          "postgres": "create materialized view\n  per_category as\nselect category_id,\n  count(*) as products\nfrom products\ngroup by category_id;\nselect * from per_category\norder by category_id;",
+          "pgOnly": true,
+          "columns": [
+            "category_id",
+            "products"
+          ],
+          "rows": [
+            [
+              "1",
+              "12"
+            ],
+            [
+              "2",
+              "12"
+            ],
+            [
+              "3",
+              "13"
+            ],
+            [
+              "4",
+              "10"
+            ]
+          ],
+          "total": 8
+        },
+        "mysqlText": "MySQL has no materialized views. The usual way is an ordinary table you fill with `insert … select` and refresh yourself. This example is in PostgreSQL."
+      }
+    ]
+  },
+  "normalization": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Each fact in one place",
+        "text": "Normalization means each fact is stored once. An order keeps only the customer's id; the company name lives in **customers**, so you change it in one place.",
+        "tables": [
+          {
+            "name": "orders",
+            "columns": [
+              {
+                "name": "order_id",
+                "about": "the number of the order."
+              },
+              {
+                "name": "customer_id",
+                "about": "who ordered: a pointer to a row of **customers**, not a copy of its name."
+              },
+              {
+                "name": "order_date",
+                "about": "when the order was placed."
+              }
+            ],
+            "rows": [
+              [
+                "10643",
+                "ALFKI",
+                "1997-08-25 00:00:00"
+              ],
+              [
+                "10692",
+                "ALFKI",
+                "1997-10-03 00:00:00"
+              ],
+              [
+                "10702",
+                "ALFKI",
+                "1997-10-13 00:00:00"
+              ],
+              [
+                "10835",
+                "ALFKI",
+                "1998-01-15 00:00:00"
+              ]
+            ],
+            "total": 830
+          },
+          {
+            "name": "customers",
+            "columns": [
+              {
+                "name": "customer_id",
+                "about": "the id that orders point to."
+              },
+              {
+                "name": "company_name",
+                "about": "stored once, here, whatever the number of orders."
+              }
+            ],
+            "rows": [
+              [
+                "ALFKI",
+                "Alfreds Futterkiste"
+              ]
+            ],
+            "total": 91
+          }
+        ],
+        "after": "All of ALFKI's orders point to one row of customers."
+      }
+    ]
+  },
+  "json": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Reading values out of JSON",
+        "text": "`->>` takes a value out of JSON as text: `doc ->> 'name'`. `->` keeps it as JSON so you can go deeper: `doc -> 'tags' ->> 0` is the first tag.",
+        "query": {
+          "postgres": "select doc ->> 'name' as name,\n  doc -> 'tags' ->> 0 as first_tag\nfrom (select '{\"name\": \"Chai\",\n  \"tags\": [\"tea\", \"hot\"]}'::jsonb\n  as doc) t;",
+          "mysql": "select doc ->> '$.name' as name,\n  doc ->> '$.tags[0]' as first_tag\nfrom (select cast('{\"name\":\n  \"Chai\", \"tags\": [\"tea\",\n  \"hot\"]}' as json) as doc) t;",
+          "columns": [
+            "name",
+            "first_tag"
+          ],
+          "rows": [
+            [
+              "Chai",
+              "tea"
+            ]
+          ],
+          "total": 1
+        },
+        "tip": "MySQL writes a path instead: `doc ->> '$.name'`.",
+        "mysqlText": "In MySQL `->>` takes a path: `doc ->> '$.name'` is the name, `'$.tags[0]'` the first tag (counting from 0).",
+        "mysqlTip": "PostgreSQL writes keys straight away: `doc ->> 'name'`."
+      }
+    ]
+  },
+  "arrays": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Several values in one cell",
+        "text": "An array holds a list in one cell. `array_agg` collects values into one, `unnest` turns an array back into rows. Here: the products of each order.",
+        "query": {
+          "postgres": "select order_id,\n  array_agg(product_id\n    order by product_id) as items\nfrom order_details\nwhere order_id < 10251\ngroup by order_id\norder by order_id;",
+          "pgOnly": true,
+          "columns": [
+            "order_id",
+            "items"
+          ],
+          "rows": [
+            [
+              "10248",
+              "{11,42,72}"
+            ],
+            [
+              "10249",
+              "{14,51}"
+            ],
+            [
+              "10250",
+              "{41,51,65}"
+            ]
+          ],
+          "total": 3
+        },
+        "mysqlText": "MySQL has no arrays. Keep one value per row in a separate table, or use a JSON array. This example is in PostgreSQL."
+      }
+    ]
+  },
+  "generated-columns": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "A column worked out by itself",
+        "text": "A generated column is computed from other columns of the row, and the database keeps it up to date. You never insert it yourself.",
+        "query": {
+          "postgres": "create table basket (\n  price numeric(10, 2),\n  qty integer,\n  total numeric(10, 2)\n    generated always as\n    (price * qty) stored\n);\ninsert into basket (price, qty)\nvalues (2.50, 4);\nselect * from basket;",
+          "columns": [
+            "price",
+            "qty",
+            "total"
+          ],
+          "rows": [
+            [
+              "2.50",
+              "4",
+              "10.00"
+            ]
+          ],
+          "total": 1
+        },
+        "after": "total is 10.00: 2.50 × 4, worked out on insert."
+      }
+    ]
+  },
+  "introspection": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "The database describes itself",
+        "text": "Every database lists its own tables and columns in `information_schema`. Here: the columns of the table categories, in order.",
+        "query": {
+          "postgres": "select column_name\nfrom information_schema.columns\nwhere table_name = 'categories'\norder by ordinal_position;",
+          "mysql": "select column_name\nfrom information_schema.columns\nwhere table_name = 'categories'\n  and table_schema = database()\norder by ordinal_position;",
+          "columns": [
+            "column_name"
+          ],
+          "rows": [
+            [
+              "category_id"
+            ],
+            [
+              "category_name"
+            ],
+            [
+              "description"
+            ]
+          ],
+          "total": 3
+        },
+        "tip": "In MySQL add `table_schema = database()`: one server holds many databases.",
+        "mysqlText": "Every database lists its own tables and columns in `information_schema`. In MySQL add `table_schema = database()`: the server holds many databases."
+      }
+    ]
+  },
+  "privileges": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Who may do what",
+        "text": "A role is a user or a group. `grant` gives it a right on a table, `revoke` takes it back. Here reader may read products, but not change them.",
+        "query": {
+          "postgres": "create role reader;\ngrant select on products\n  to reader;\nselect has_table_privilege(\n    'reader', 'products', 'select'\n  ) as can_read,\n  has_table_privilege(\n    'reader', 'products', 'update'\n  ) as can_update;",
+          "pgOnly": true,
+          "columns": [
+            "can_read",
+            "can_update"
+          ],
+          "rows": [
+            [
+              "true",
+              "false"
+            ]
+          ],
+          "total": 1
+        },
+        "mysqlText": "In MySQL accounts are `'name'@'host'`: `create user 'reader'@'%'`, then `grant select on shop.products to 'reader'@'%'`. This example is in PostgreSQL."
+      }
+    ]
+  },
+  "functions": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Your own function",
+        "text": "A function is SQL with a name and inputs, used like `round()` or `upper()`. Here `with_tax` adds 17% to a price.",
+        "query": {
+          "postgres": "create function with_tax(\n  price numeric\n) returns numeric\nlanguage sql\nreturn round(price * 1.17, 2);\nselect product_name,\n  with_tax(unit_price) as price\nfrom products\norder by product_id;",
+          "mysql": "create function with_tax(\n  price decimal(10, 2)\n) returns decimal(10, 2)\ndeterministic\nreturn round(price * 1.17, 2);\nselect product_name,\n  with_tax(unit_price) as price\nfrom products\norder by product_id;",
+          "columns": [
+            "product_name",
+            "price"
+          ],
+          "rows": [
+            [
+              "Chai",
+              "21.06"
+            ],
+            [
+              "Chang",
+              "22.23"
+            ],
+            [
+              "Aniseed Syrup",
+              "11.70"
+            ],
+            [
+              "Chef Anton's Cajun Seasoning",
+              "25.74"
+            ]
+          ],
+          "total": 77
+        },
+        "tip": "MySQL wants `deterministic` when the same input always gives the same answer."
+      }
+    ]
+  },
+  "procedures": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "A procedure does steps",
+        "text": "A procedure is a named set of steps you start with `call`. It can change data: here it adds stock to a product.",
+        "query": {
+          "postgres": "create procedure restock(\n  pid integer, amount integer)\nlanguage sql\nas $$\n  update products\n  set units_in_stock =\n    units_in_stock + amount\n  where product_id = pid;\n$$;\ncall restock(1, 10);\nselect units_in_stock\nfrom products\nwhere product_id = 1;",
+          "mysql": "create procedure restock(\n  pid integer, amount integer)\n  update products\n  set units_in_stock =\n    units_in_stock + amount\n  where product_id = pid;\ncall restock(1, 10);\nselect units_in_stock\nfrom products\nwhere product_id = 1;",
+          "columns": [
+            "units_in_stock"
+          ],
+          "rows": [
+            [
+              "49"
+            ]
+          ],
+          "total": 1
+        },
+        "after": "Product 1 got 10 more units.",
+        "tip": "A function returns a value you use in a query; a procedure is run on its own with `call`."
+      }
+    ]
+  },
+  "control-flow": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "IF inside a function",
+        "text": "Inside a function you can use `if … then … else`, variables and loops, as in other programming languages. Here the answer depends on a number.",
+        "query": {
+          "postgres": "create function size_of(n bigint)\nreturns text language plpgsql as $$\nbegin\n  if n > 50 then return 'big';\n  elsif n > 10 then return 'mid';\n  else return 'small';\n  end if;\nend $$;\nselect size_of(count(*)) as verdict\nfrom products;",
+          "mysql": "create function size_of(n bigint)\nreturns text deterministic\nbegin\n  if n > 50 then return 'big';\n  elseif n > 10 then return 'mid';\n  else return 'small';\n  end if;\nend;\nselect size_of(count(*)) as verdict\nfrom products;",
+          "columns": [
+            "verdict"
+          ],
+          "rows": [
+            [
+              "big"
+            ]
+          ],
+          "total": 1
+        },
+        "tip": "MySQL writes `elseif`; PostgreSQL writes `elsif`."
+      }
+    ]
+  },
+  "triggers": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Code that runs by itself",
+        "text": "A trigger runs by itself when rows change. Here every price change is written to a log: `new` is the row after the change.",
+        "query": {
+          "postgres": "create table price_log (\n  product_id integer,\n  new_price numeric\n);\ncreate function log_price()\nreturns trigger\nlanguage plpgsql as $$\nbegin\n  insert into price_log\n  values (new.product_id,\n    new.unit_price);\n  return new;\nend $$;\ncreate trigger on_price\nafter update on products\nfor each row\nexecute function log_price();\nupdate products\nset unit_price = 20\nwhere product_id = 1;\nselect * from price_log;",
+          "mysql": "create table price_log (\n  product_id integer,\n  new_price decimal(10, 2)\n);\ncreate trigger on_price\nafter update on products\nfor each row\ninsert into price_log\nvalues (new.product_id,\n  new.unit_price);\nupdate products\nset unit_price = 20\nwhere product_id = 1;\nselect * from price_log;",
+          "columns": [
+            "product_id",
+            "new_price"
+          ],
+          "rows": [
+            [
+              "1",
+              "20.00"
+            ]
+          ],
+          "total": 1
+        },
+        "after": "The update wrote its own log row.",
+        "tip": "In PostgreSQL the trigger calls a function; MySQL writes the body inside `create trigger`.",
+        "mysqlText": "A trigger runs by itself when rows change. In MySQL its body is written right inside `create trigger`. Here every price change goes to a log."
+      }
+    ]
+  },
+  "indexes": {
+    "dataset": "delivery",
+    "cards": [
+      {
+        "title": "Without an index: read everything",
+        "text": "`explain` shows how the database will run a query. With no index on customer_id, it has to read every order and check each one: a Seq Scan.",
+        "query": {
+          "postgres": "explain (costs off)\nselect * from orders\nwhere customer_id = 1234;",
+          "pgOnly": true,
+          "columns": [
+            "QUERY PLAN"
+          ],
+          "rows": [
+            [
+              "Seq Scan on orders"
+            ],
+            [
+              "  Filter: (customer_id = 1234)"
+            ]
+          ],
+          "total": 2
+        },
+        "after": "Seq Scan means: read the whole table, row by row.",
+        "mysqlText": "MySQL also has `explain`, but it prints a table: the type column says ALL when every row is read. This example is in PostgreSQL."
+      },
+      {
+        "title": "With an index: jump to the rows",
+        "text": "An index is a sorted copy of a column with pointers to the rows, like the index at the back of a book. Now the database jumps straight to customer 1234.",
+        "query": {
+          "postgres": "create index on orders\n  (customer_id);\nanalyze orders;\nexplain (costs off)\nselect * from orders\nwhere customer_id = 1234;",
+          "pgOnly": true,
+          "columns": [
+            "QUERY PLAN"
+          ],
+          "rows": [
+            [
+              "Bitmap Heap Scan on orders"
+            ],
+            [
+              "  Recheck Cond: (customer_id = 1234)"
+            ],
+            [
+              "  ->  Bitmap Index Scan on orders_customer_id_idx"
+            ],
+            [
+              "        Index Cond: (customer_id = 1234)"
+            ]
+          ],
+          "total": 4
+        },
+        "after": "Index Scan (here Bitmap Index Scan) means the index is used: only the matching rows are read.",
+        "tip": "Indexes make reading faster and writing a little slower: each change updates them too.",
+        "mysqlText": "MySQL indexes work the same way: `create index … on orders (customer_id)`. Its `explain` then names the index in the key column."
+      }
+    ]
+  },
+  "partial-covering-indexes": {
+    "dataset": "delivery",
+    "cards": [
+      {
+        "title": "An index of some rows only",
+        "text": "A partial index keeps only some rows: here only refunded orders. It is small, and a query asking for exactly those rows can use it.",
+        "query": {
+          "postgres": "create index on orders (created_at)\n  where status = 'refunded';\nanalyze orders;\nexplain (costs off)\nselect * from orders\nwhere status = 'refunded'\n  and created_at >= '2026-06-01';",
+          "pgOnly": true,
+          "columns": [
+            "QUERY PLAN"
+          ],
+          "rows": [
+            [
+              "Bitmap Heap Scan on orders"
+            ],
+            [
+              "  Recheck Cond: ((created_at >= '2026-06-01 00:00:00'::timestamp without time zone) AND (status = 'refunded'::text))"
+            ],
+            [
+              "  ->  Bitmap Index Scan on orders_created_at_idx"
+            ],
+            [
+              "        Index Cond: (created_at >= '2026-06-01 00:00:00'::timestamp without time zone)"
+            ]
+          ],
+          "total": 4
+        },
+        "tip": "`include (total)` adds a column to an index, so a query can be answered from the index alone.",
+        "mysqlText": "MySQL has no partial indexes and no `include`. An index on (status, created_at) does a similar job. This example is in PostgreSQL."
+      }
+    ]
+  },
+  "query-plans": {
+    "dataset": "delivery",
+    "cards": [
+      {
+        "title": "Reading a plan",
+        "text": "`explain` shows the plan: the steps the database will take. Read it from the innermost line out: here two tables are read, joined, then grouped.",
+        "query": {
+          "postgres": "explain (costs off)\nselect c.city, count(*)\nfrom orders o\njoin customers c\n  on c.id = o.customer_id\ngroup by c.city;",
+          "pgOnly": true,
+          "columns": [
+            "QUERY PLAN"
+          ],
+          "rows": [
+            [
+              "HashAggregate"
+            ],
+            [
+              "  Group Key: c.city"
+            ],
+            [
+              "  ->  Hash Join"
+            ],
+            [
+              "        Hash Cond: (o.customer_id = c.id)"
+            ]
+          ],
+          "total": 7
+        },
+        "tip": "`explain analyze` also runs the query and shows the real time of each step.",
+        "mysqlText": "MySQL has `explain` too, but prints a table with a row per table read. This plan is from PostgreSQL."
+      }
+    ]
+  },
+  "full-text": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Searching for words",
+        "text": "Full-text search finds words, not letters: `to_tsvector` cuts a text into words, `to_tsquery` is what you look for, `@@` checks if they match.",
+        "query": {
+          "postgres": "select product_name\nfrom products\nwhere to_tsvector('english',\n    product_name)\n  @@ to_tsquery('english', 'sauce')\norder by product_id;",
+          "mysql": "alter table products\n  add fulltext (product_name);\nselect product_name\nfrom products\nwhere match (product_name)\n  against ('sauce')\norder by product_id;",
+          "columns": [
+            "product_name"
+          ],
+          "rows": [
+            [
+              "Northwoods Cranberry Sauce"
+            ],
+            [
+              "Louisiana Fiery Hot Pepper Sauce"
+            ]
+          ],
+          "total": 2
+        },
+        "tip": "With an `english` dictionary, 'sauce' also finds 'sauces'. A GIN index makes the search fast.",
+        "mysqlText": "MySQL needs a `fulltext` index first. Then `match (column) against ('word')` finds the rows that contain the word.",
+        "mysqlTip": "PostgreSQL works without an index too (`to_tsvector … @@ to_tsquery`); a GIN index makes it fast."
+      }
+    ]
+  },
+  "partitioning": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "One table in parts",
+        "text": "Partitioning splits a big table into parts by a key, here by year. You read and write the table as usual; each row goes into its part by itself.",
+        "query": {
+          "postgres": "create table sales (\n  sold_on date, amount integer\n) partition by range (sold_on);\ncreate table sales_2025\n  partition of sales for values\n  from ('2025-01-01')\n  to ('2026-01-01');\ncreate table sales_2026\n  partition of sales for values\n  from ('2026-01-01')\n  to ('2027-01-01');\ninsert into sales values\n  ('2025-05-01', 10),\n  ('2026-02-01', 20);\nselect tableoid::regclass\n  as part, sold_on, amount\nfrom sales\norder by sold_on;",
+          "pgOnly": true,
+          "columns": [
+            "part",
+            "sold_on",
+            "amount"
+          ],
+          "rows": [
+            [
+              "sales_2025",
+              "2025-05-01",
+              "10"
+            ],
+            [
+              "sales_2026",
+              "2026-02-01",
+              "20"
+            ]
+          ],
+          "total": 2
+        },
+        "after": "Each row went into the part for its year.",
+        "mysqlText": "MySQL lists the parts inside `create table`: `partition by range (year(sold_on)) (partition p2025 values less than (2026), …)`. This example is in PostgreSQL."
+      }
+    ]
+  },
+  "locks-isolation": {
+    "dataset": "northwind",
+    "cards": [
+      {
+        "title": "Two people, one row",
+        "text": "When two sessions change the same row, the first one locks it, and the second waits until the first commits or rolls back.",
+        "steps": [
+          {
+            "session": "A",
+            "sql": "begin;\nupdate products\nset units_in_stock = 0\nwhere product_id = 1;",
+            "note": "A changes the row and holds a lock on it until the end of its transaction."
+          },
+          {
+            "session": "B",
+            "sql": "update products\nset units_in_stock = 5\nwhere product_id = 1;",
+            "note": "B wants the same row, so it waits."
+          },
+          {
+            "session": "A",
+            "sql": "commit;",
+            "note": "A finishes. Now B's update goes through, and the stock ends up 5."
+          }
+        ],
+        "tip": "`select … for update` locks rows you are about to change; `nowait` or `skip locked` say what to do instead of waiting.",
+        "mysqlTip": "MySQL locks rows the same way. Its default isolation level is repeatable read; PostgreSQL's is read committed."
+      }
+    ]
   }
 }

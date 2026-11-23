@@ -6,6 +6,7 @@ import { CodeBlock } from './CodeBlock'
 import { ExampleResult } from './ExampleResult'
 import { ExplainTable, type PickedColumn } from './ExplainTable'
 import { RichText } from './RichText'
+import { SessionSteps } from './SessionSteps'
 
 interface Props {
   card: ExplainCard
@@ -26,8 +27,13 @@ export function ExplainCardView({ card, kind, dialect, onBack, onNext, last }: P
   const [picked, setPicked] = useState<PickedColumn>(null)
   const query = card.query
   const mysql = dialect === 'mysql'
-  const sql = query && (mysql ? (query.mysql ?? query.postgres) : query.postgres)
-  const text = (mysql && card.mysqlText) || card.text
+  // A feature MySQL does not have: MySQL mode shows the PostgreSQL query, marked as such.
+  const sql = query && (mysql && !query.pgOnly ? (query.mysql ?? query.postgres) : query.postgres)
+  const error = query && (mysql && !query.pgOnly ? (query.mysqlError ?? query.error) : query.error)
+  const code = (mysql && card.mysqlCode) || card.code
+  // A PostgreSQL-only card keeps its explanation in MySQL mode; its MySQL wording becomes the note above the query.
+  const pgOnly = mysql && !!query?.pgOnly
+  const text = (mysql && !pgOnly && card.mysqlText) || card.text
   const tip = (mysql && card.mysqlTip) || card.tip
   return (
     <>
@@ -39,10 +45,19 @@ export function ExplainCardView({ card, kind, dialect, onBack, onNext, last }: P
         </Text>
         {card.tables?.map((table) => <ExplainTable key={table.name} table={table} picked={picked} onPick={setPicked} />)}
         {card.tables && !picked && <TapHint>Tap a column name to see what it holds.</TapHint>}
+        {code && <CodeBlock sql={code} />}
+        {card.steps && <SessionSteps steps={card.steps} />}
         {query && sql && (
           <>
+            {pgOnly && (
+              <Only>
+                <RichText text={card.mysqlText ?? 'PostgreSQL only: MySQL has no such feature.'} />
+              </Only>
+            )}
             <CodeBlock sql={sql} />
-            {ran ? (
+            {ran && error ? (
+              <Refused role="status">{error}</Refused>
+            ) : ran ? (
               <>
                 <Meta>
                   {query.total.toLocaleString('en-US')} {query.total === 1 ? 'row' : 'rows'}
@@ -118,6 +133,25 @@ const TapHint = styled.p`
   background: ${({ theme }) => theme.color.bg};
   color: ${({ theme }) => theme.color.muted};
   font-size: ${({ theme }) => theme.size.sm};
+`
+
+const Only = styled.p`
+  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  background: ${({ theme }) => theme.color.warnSoft};
+  font-size: ${({ theme }) => theme.size.sm};
+  line-height: 1.5;
+`
+
+// The database's own message for a query that breaks a rule: the point of the card.
+const Refused = styled.p`
+  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.sm};
+  background: ${({ theme }) => theme.color.badSoft};
+  color: ${({ theme }) => theme.color.bad};
+  font-family: ${({ theme }) => theme.font.mono};
+  font-size: ${({ theme }) => theme.size.sm};
+  overflow-wrap: anywhere;
 `
 
 const Meta = styled.span`

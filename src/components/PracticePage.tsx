@@ -31,6 +31,14 @@ export function PracticePage() {
   return (
     <Page>
       <h1>Practice</h1>
+      {/* The way interviews test SQL: the whole query, from an empty editor. */}
+      <WriteCard to="/write">
+        <span>
+          <strong>Write SQL</strong>
+          <small>The whole query from an empty editor, like in an interview. By topic and level, plus interview classics.</small>
+        </span>
+        <b aria-hidden="true">→</b>
+      </WriteCard>
       <Tabs role="tablist" aria-label="Practice mode">
         <TabNow role="tab" aria-selected="true">
           By keyword
@@ -267,4 +275,36 @@ const GroupButton = styled.button`
 const Muted = styled.p`
   font-size: ${({ theme }) => theme.size.sm};
   color: ${({ theme }) => theme.color.muted};
+`
+
+const WriteCard = styled(Link)`
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.md};
+  padding: ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  background: ${({ theme }) => theme.color.accent};
+  color: ${({ theme }) => theme.color.surface};
+  text-decoration: none;
+
+  > span {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  strong {
+    font-size: ${({ theme }) => theme.size.lg};
+  }
+
+  small {
+    font-size: ${({ theme }) => theme.size.sm};
+    line-height: 1.45;
+    opacity: 0.9;
+  }
+
+  b {
+    font-size: ${({ theme }) => theme.size.xl};
+  }
 `

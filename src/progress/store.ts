@@ -36,6 +36,8 @@ export interface ProgressState {
   settingsAt: string
   /** Labs: the exercise ids of the steps solved, per lab id. */
   labs: Record<string, string[]>
+  /** Write SQL: exercise id → when it was first written correctly. */
+  written: Record<string, string>
 }
 
 export type Dialect = 'postgres' | 'mysql'
@@ -61,14 +63,14 @@ export const DAILY_GOALS = [
   { xp: 100, name: 'Intense', about: 'Five lessons a day.' },
 ] as const
 
-const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres', settingsAt: '', labs: {} }
+const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres', settingsAt: '', labs: {}, written: {} }
 
 function load(): ProgressState {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as Partial<ProgressState>
-    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', settingsAt: parsed.settingsAt ?? '', labs: parsed.labs ?? {}, onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
+    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', settingsAt: parsed.settingsAt ?? '', labs: parsed.labs ?? {}, written: parsed.written ?? {}, onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
   } catch {
     return EMPTY
   }
@@ -145,6 +147,11 @@ export function recordReview(results: { key: string; correct: boolean }[]): numb
 export function recordLabStep(labId: string, exerciseId: string) {
   const done = state.labs[labId] ?? []
   if (!done.includes(exerciseId)) save({ ...state, labs: { ...state.labs, [labId]: [...done, exerciseId] } })
+}
+
+/** Write SQL: an exercise written correctly, kept with the time of the first success. */
+export function markWritten(exerciseId: string) {
+  if (!state.written[exerciseId]) save({ ...state, written: { ...state.written, [exerciseId]: new Date().toISOString() } })
 }
 
 /** XP for a practice drill or a lab, which are not part of the path. */

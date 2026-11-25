@@ -2,5 +2,5 @@
 export const OWNER = 'Kiril Zakharov'
 export const COUNTRY = 'Israel'
 export const CONTACT_EMAIL = 'noizmc12345@gmail.com'
-export const LEGAL_UPDATED = '22 November 2026'
+export const LEGAL_UPDATED = '25 November 2026'
 export const SITE = 'sql.kirillabs.com'

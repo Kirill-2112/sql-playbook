@@ -17,6 +17,8 @@ import { DrillPage } from './DrillPage'
 import { KeywordPage } from './KeywordPage'
 import { LabPage } from './LabPage'
 import { PracticePage } from './PracticePage'
+import { WriteSessionPage } from './WriteSessionPage'
+import { WriteTrackPage } from './WriteTrackPage'
 import { PrivacyPage } from './PrivacyPage'
 import { ProgressPage } from './ProgressPage'
 import { ReminderSync } from './ReminderSync'
@@ -42,11 +44,13 @@ export function App() {
           <Route path="welcome" element={<WelcomePage />} />
           <Route path="labs/:labId" element={<LabPage />} />
           <Route path="practice/:id/drill" element={<DrillPage />} />
+          <Route path="write/:set" element={<WriteSessionPage />} />
           <Route element={<Layout />}>
             <Route index element={<LearnPage />} />
             <Route path="overview" element={<HomePage />} />
             <Route path="progress" element={<ProgressPage />} />
             <Route path="practice" element={<PracticePage />} />
+            <Route path="write" element={<WriteTrackPage />} />
             <Route path="practice/:id" element={<KeywordPage />} />
             <Route path="exercises" element={<ExercisesPage />} />
             <Route path="exercises/:id" element={<ExercisePage />} />

@@ -32,13 +32,17 @@ interface Props {
   onFinish: (results: { key: string; correct: boolean }[]) => number
   /** Cards that explain the skill before its first lesson; "I know this" skips them. `kind`: "Level 1 · NULL". */
   intro?: { cards: ExplainCard[]; kind: string }
+  /** Called after every task, so progress is kept even if the session is left halfway. */
+  onTaskDone?: (key: string, correct: boolean) => void
+  /** Where the close button leads (the path by default). */
+  exitTo?: string
 }
 
 /**
  * Plays a list of tasks full screen: lessons, reviews and practice drills. A task answered wrongly comes back once
  * at the end (except a full query, which offers its own retry), so a session always ends on a right answer.
  */
-export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro }: Props) {
+export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro, onTaskDone, exitTo = '/' }: Props) {
   const progress = useProgress()
   const [introStep, setIntroStep] = useState<number | null>(intro?.cards.length ? 0 : null)
   const [queue, setQueue] = useState<number[]>(() => tasks.map((_, i) => i))
@@ -66,7 +70,7 @@ export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro }
       <TaskFocus taskKey={`intro-${introStep}`}>
         <Screen>
           <Top>
-            <Close to="/" aria-label="Leave">
+            <Close to={exitTo} aria-label="Leave">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
                 <path d="M6 6l12 12M18 6 6 18" />
               </svg>
@@ -119,6 +123,7 @@ export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro }
   const { task, fallback } = inDialect(tasks[index]!.task, progress.dialect)
 
   function done(correct: boolean) {
+    onTaskDone?.(tasks[index]!.key, correct)
     if (correct && !missed.has(index)) setFirstTry(new Set(firstTry).add(index))
     if (!correct && !missed.has(index) && task.kind !== 'write') {
       setMissed(new Set(missed).add(index))
@@ -134,7 +139,7 @@ export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro }
     <TaskFocus taskKey={meet ? `meet-${meet}` : key}>
       <Screen>
         <Top>
-          <Close to="/" aria-label="Leave">
+          <Close to={exitTo} aria-label="Leave">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
               <path d="M6 6l12 12M18 6 6 18" />
             </svg>

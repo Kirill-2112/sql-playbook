@@ -25,7 +25,7 @@ export function PrivacyPage() {
       <h2>What is stored, and why</h2>
       <ul>
         <li>
-          <strong>On your device.</strong> Your progress (finished lessons, XP, streak, review schedule) and settings (daily
+          <strong>On your device.</strong> Your progress (finished lessons, labs and exercises, XP, streak, review schedule) and settings (daily
           goal, SQL dialect, reminder time) are saved in your browser’s local storage so the app works without an account.
           The queries you run execute in your browser and are not sent anywhere, except in MySQL mode (below).
         </li>

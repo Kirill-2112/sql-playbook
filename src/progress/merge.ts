@@ -28,6 +28,10 @@ export function mergeProgress(a: ProgressState, b: ProgressState): ProgressState
   const labs: Record<string, string[]> = { ...(a.labs ?? {}) }
   for (const [id, steps] of Object.entries(b.labs ?? {})) labs[id] = [...new Set([...(labs[id] ?? []), ...steps])].sort()
 
+  // Write SQL: solved on either device counts; the earlier first success is kept. Older states have no field.
+  const written: Record<string, string> = { ...(a.written ?? {}) }
+  for (const [id, at] of Object.entries(b.written ?? {})) written[id] = !written[id] || at < written[id] ? at : written[id]
+
   const settings = (b.settingsAt ?? '') > (a.settingsAt ?? '') ? b : a
   const sum = Object.values(days).reduce((n, xp) => n + xp, 0)
   return {
@@ -43,6 +47,7 @@ export function mergeProgress(a: ProgressState, b: ProgressState): ProgressState
     unlockedLevels: [...new Set([...a.unlockedLevels, ...b.unlockedLevels])].sort((x, y) => x - y),
     seenDatasets: [...new Set([...a.seenDatasets, ...b.seenDatasets])].sort(),
     labs,
+    written,
   }
 }
 

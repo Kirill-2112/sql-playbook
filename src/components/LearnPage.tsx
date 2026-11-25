@@ -1,10 +1,12 @@
-import { Link, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, Navigate, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 import { LABS } from '../content/labs'
 import { useCourse } from '../hooks/useCourse'
 import { dueReviewKeys, pathProgress } from '../progress/path'
 import { setDialect, unlockLevel, useProgress } from '../progress/store'
 import { DialectSwitch } from './DialectSwitch'
+import { GoalCard } from './GoalCard'
 import { LabCard } from './LabCard'
 import { SkillNode } from './SkillNode'
 import { StatsBar } from './StatsBar'
@@ -15,6 +17,11 @@ export function LearnPage() {
   const progress = useProgress()
   const units = course ? pathProgress(course, progress) : []
   const due = course ? dueReviewKeys(course, progress.review).length : 0
+  // After the level check: straight to the level to start at, not the levels already known above it.
+  const startLevel = (useLocation().state as { level?: number } | null)?.level
+  useEffect(() => {
+    if (course && startLevel) document.getElementById(`unit-${startLevel}`)?.closest('section')?.scrollIntoView({ block: 'start' })
+  }, [course, startLevel])
   // First visit: a few questions before the path.
   if (!progress.onboarded) return <Navigate to="/welcome" replace />
 
@@ -27,6 +34,7 @@ export function LearnPage() {
         <span id="learn-in">Learning in</span>
         <DialectSwitch value={progress.dialect} onChange={setDialect} labelledBy="learn-in" />
       </Language>
+      <GoalCard />
       {due > 0 && (
         <Review to="/review">
           <span>
@@ -45,7 +53,11 @@ export function LearnPage() {
             <span>Level {unit.level}</span>
             <h2 id={`unit-${unit.level}`}>{unit.name}</h2>
             <small>
-              {unit.done} of {unit.skills.length} skills done
+              {unit.needed === unit.skills.length
+                ? `${unit.done} of ${unit.skills.length} skills done`
+                : unit.needed === 0
+                  ? `Optional for your goal · ${unit.done} of ${unit.skills.length} skills done`
+                  : `${unit.neededDone} of ${unit.needed} skills for your goal done · ${unit.skills.length - unit.needed} optional`}
             </small>
             {!unit.unlocked && (
               <Anyway type="button" onClick={() => unlockLevel(unit.level)}>

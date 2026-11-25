@@ -14,7 +14,9 @@ export function SkillNode({ item, index }: { item: SkillProgress; index: number 
       ? `${skill.name}, locked`
       : status === 'done'
         ? `${skill.name}, done, practise again`
-        : `${skill.name}, lesson ${completed + 1} of ${total}`
+        : status === 'optional'
+          ? `${skill.name}, optional for your goal, lesson ${completed + 1} of ${total}`
+          : `${skill.name}, lesson ${completed + 1} of ${total}`
 
   return (
     <Row style={{ paddingLeft: `calc(50% - 160px + ${offset}px)` }}>
@@ -42,6 +44,7 @@ export function SkillNode({ item, index }: { item: SkillProgress; index: number 
         <Name $locked={status === 'locked'}>{skill.name}</Name>
         <Terms>{skill.terms}</Terms>
         <Meta>
+          {status === 'optional' && <Optional>Optional · </Optional>}
           {completed} of {total} lessons
         </Meta>
         {status === 'current' && <Start to={`/learn/${item.nextLessonId}`}>{completed === 0 ? 'Start' : 'Continue'}</Start>}
@@ -95,6 +98,25 @@ const Circle = styled(Link)<{ $status: SkillProgress['status'] }>`
       outline: 4px solid ${theme.color.accentSoft};
       outline-offset: 4px;
     `}
+
+  /* Not needed for the learner's goal: open, but quieter than the skills that are. */
+  ${({ theme, $status }) =>
+    $status === 'optional' &&
+    css`
+      background: ${theme.color.surface};
+      border: 2px dashed ${theme.color.accent};
+      box-shadow: none;
+      color: ${theme.color.accent};
+
+      &:active {
+        box-shadow: none;
+      }
+    `}
+`
+
+const Optional = styled.b`
+  font-weight: 600;
+  color: ${({ theme }) => theme.color.accentStrong};
 `
 
 const Text = styled.span`

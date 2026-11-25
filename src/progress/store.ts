@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import type { Goal } from '../content/goals'
 
 /**
  * The learner's progress, kept on this device (localStorage) until accounts exist.
@@ -32,12 +33,16 @@ export interface ProgressState {
   seenDatasets: string[]
   /** The SQL dialect lesson tasks are shown in, where a version exists. */
   dialect: Dialect
-  /** When the daily goal, dialect or onboarding last changed: when two devices merge, the newer settings win. */
+  /** When the daily goal, goal, dialect or onboarding last changed: when two devices merge, the newer settings win. */
   settingsAt: string
   /** Labs: the exercise ids of the steps solved, per lab id. */
   labs: Record<string, string[]>
   /** Write SQL: exercise id → when it was first written correctly. */
   written: Record<string, string>
+  /** What the learner wants SQL for: decides which skills the path needs and which are optional. */
+  goal: Goal
+  /** The daily goal was picked (after the first lesson); until then it is the lightest one, and asked once. */
+  dailyGoalChosen: boolean
 }
 
 export type Dialect = 'postgres' | 'mysql'
@@ -63,14 +68,16 @@ export const DAILY_GOALS = [
   { xp: 100, name: 'Intense', about: 'Five lessons a day.' },
 ] as const
 
-const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres', settingsAt: '', labs: {}, written: {} }
+const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres', settingsAt: '', labs: {}, written: {}, goal: 'learn', dailyGoalChosen: false }
 
 function load(): ProgressState {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as Partial<ProgressState>
-    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', settingsAt: parsed.settingsAt ?? '', labs: parsed.labs ?? {}, written: parsed.written ?? {}, onboarded: parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0, version: 1 }
+    const onboarded = parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0
+    // Learners who onboarded before the goal question picked their daily goal there.
+    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', settingsAt: parsed.settingsAt ?? '', labs: parsed.labs ?? {}, written: parsed.written ?? {}, onboarded, goal: parsed.goal ?? 'learn', dailyGoalChosen: parsed.dailyGoalChosen ?? onboarded, version: 1 }
   } catch {
     return EMPTY
   }
@@ -170,7 +177,11 @@ export function dueReviews(review: Record<string, ReviewEntry>, today = localDat
 }
 
 export function setDailyGoal(xp: number) {
-  save({ ...state, dailyGoal: xp, settingsAt: new Date().toISOString() })
+  save({ ...state, dailyGoal: xp, dailyGoalChosen: true, settingsAt: new Date().toISOString() })
+}
+
+export function setGoal(goal: Goal) {
+  save({ ...state, goal, settingsAt: new Date().toISOString() })
 }
 
 export function setDialect(dialect: Dialect) {
@@ -181,10 +192,14 @@ export function unlockLevel(level: number) {
   if (!state.unlockedLevels.includes(level)) save({ ...state, unlockedLevels: [...state.unlockedLevels, level] })
 }
 
-/** First launch: the daily goal, the levels the learner says they already know, and the SQL dialect. */
-export function finishOnboarding(dailyGoal: number, knownLevels: number, dialect: Dialect = 'postgres') {
-  const unlocked = Array.from({ length: knownLevels }, (_, i) => i + 2)
-  save({ ...state, dailyGoal, dialect, onboarded: true, settingsAt: new Date().toISOString(), unlockedLevels: [...new Set([...state.unlockedLevels, ...unlocked])] })
+/** First launch: what SQL is for and the dialect. The level comes from the level check, the daily goal later. */
+export function finishOnboarding(goal: Goal, dialect: Dialect) {
+  save({ ...state, goal, dialect, onboarded: true, settingsAt: new Date().toISOString() })
+}
+
+/** The level check: opens the levels after the ones answered right. Levels already open stay open. */
+export function openLevels(levels: number[]) {
+  save({ ...state, unlockedLevels: [...new Set([...state.unlockedLevels, ...levels])].sort((a, b) => a - b) })
 }
 
 export function markDatasetSeen(id: string) {

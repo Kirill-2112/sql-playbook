@@ -2,21 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { onRadioGroupKeyDown, radioTabIndex } from '../utils/radioGroup'
 import styled, { css } from 'styled-components'
-import { DAILY_GOALS, finishOnboarding, type Dialect } from '../progress/store'
-
-const WHY = [
-  ['A job interview', 'Practise what interviews ask, with MySQL differences shown.'],
-  ['My work', 'Reports, analytics and cleaning the data you have.'],
-  ['Studies', 'Follow a course and practise what it covers.'],
-  ['Just curious', 'See what databases can do, at your own pace.'],
-] as const
-
-const LEVEL = [
-  ["I'm new to it", 'Start at Level 1, Basics.', 0],
-  ['SELECT and WHERE are fine', 'Level 2 (joins and grouping) opens too.', 1],
-  ['Joins and GROUP BY too', 'Levels 2 and 3 (analytics) open too.', 2],
-  ['Window functions too', 'Everything up to Level 4 opens.', 3],
-] as const
+import { GOALS, goalInfo } from '../content/goals'
+import { finishOnboarding, type Dialect } from '../progress/store'
 
 const DIALECT: readonly (readonly [string, string, Dialect])[] = [
   ['PostgreSQL', 'The most popular open-source database for new projects. Your queries run right here in the browser.', 'postgres'],
@@ -24,25 +11,27 @@ const DIALECT: readonly (readonly [string, string, Dialect])[] = [
   ['Not sure yet', 'Start with PostgreSQL: the basics are the same in both, and you can switch at any time.', 'postgres'],
 ]
 
-type Step = 0 | 1 | 2 | 3 | 4
-const LAST: Step = 4
+type Step = 0 | 1 | 2 | 3
+const LAST: Step = 3
 
-// First launch: three questions, then the path. Everything can be changed later.
+function levelList(levels: number[]): string {
+  return levels.length === 1 ? `Level ${levels[0]}` : `Levels ${levels.slice(0, -1).join(', ')} and ${levels.at(-1)}`
+}
+
+/**
+ * First launch: what SQL is for (it decides which skills the path needs), the dialect (every task is shown in it),
+ * then the level check or Level 1. The daily goal is asked after the first lesson, when XP means something.
+ */
 export function WelcomePage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>(0)
-  const [why, setWhy] = useState<number | null>(null)
-  const [level, setLevel] = useState<number | null>(null)
-  const [dialect, setDialect] = useState<number | null>(null)
-  const [goal, setGoal] = useState<number | null>(null)
+  const [goal, setGoalChoice] = useState<number | null>(null)
+  const [dialect, setDialectChoice] = useState<number | null>(null)
+  const chosenGoal = GOALS[goal ?? 0]!
 
-  function finish(skip = false) {
-    finishOnboarding(
-      skip ? 20 : (DAILY_GOALS[goal ?? 0]?.xp ?? 20),
-      skip ? 0 : (LEVEL[level ?? 0]?.[2] ?? 0),
-      skip ? 'postgres' : (DIALECT[dialect ?? 0]?.[2] ?? 'postgres'),
-    )
-    navigate('/', { replace: true })
+  function finish(to: '/' | '/level-check') {
+    finishOnboarding(chosenGoal.id, DIALECT[dialect ?? 0]?.[2] ?? 'postgres')
+    navigate(to, { replace: true })
   }
 
   if (step === 0) {
@@ -65,7 +54,13 @@ export function WelcomePage() {
           <Primary type="button" onClick={() => setStep(1)}>
             Get started
           </Primary>
-          <Ghost type="button" onClick={() => finish(true)}>
+          <Ghost
+            type="button"
+            onClick={() => {
+              finishOnboarding('learn', 'postgres')
+              navigate('/', { replace: true })
+            }}
+          >
             Skip, go straight to the path
           </Ghost>
           <Ghost type="button" onClick={() => navigate('/progress')}>
@@ -76,30 +71,50 @@ export function WelcomePage() {
     )
   }
 
+  const top = (
+    <Top>
+      <Back type="button" aria-label="Back" onClick={() => setStep((step - 1) as Step)}>
+        ←
+      </Back>
+      <Bar role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={LAST} aria-valuenow={step}>
+        <Fill style={{ width: `${(100 * step) / LAST}%` }} />
+      </Bar>
+    </Top>
+  )
+
+  if (step === LAST) {
+    const levels = goalInfo(chosenGoal.id).checkLevels
+    return (
+      <Screen>
+        {top}
+        <Body>
+          <h1>Where should you start?</h1>
+          <Lead>
+            A short check finds out. Two questions for each of {levelList(levels)}, about 3 minutes. It stops at the first
+            mistake and opens the levels you already know.
+          </Lead>
+          <Note>Every level can also be opened later from the path.</Note>
+        </Body>
+        <Footer>
+          <Primary type="button" onClick={() => finish('/level-check')}>
+            Check my level
+          </Primary>
+          <Secondary type="button" onClick={() => finish('/')}>
+            I&apos;m new to SQL: start at Level 1
+          </Secondary>
+        </Footer>
+      </Screen>
+    )
+  }
+
   const question =
     step === 1
-      ? { title: 'Why are you learning SQL?', options: WHY.map(([t, d]) => [t, d] as const), value: why, set: setWhy }
-      : step === 2
-        ? { title: 'How much SQL do you know?', options: LEVEL.map(([t, d]) => [t, d] as const), value: level, set: setLevel }
-        : step === 3
-          ? { title: 'Which database do you want to learn?', options: DIALECT.map(([t, d]) => [t, d] as const), value: dialect, set: setDialect }
-          : {
-            title: 'How much time a day?',
-            options: DAILY_GOALS.map((g) => [`${g.name} · ${g.xp} XP`, g.about] as const),
-            value: goal,
-            set: setGoal,
-          }
+      ? { title: 'What do you want SQL for?', options: GOALS.map((g) => [g.title, g.about] as const), value: goal, set: setGoalChoice }
+      : { title: 'Which database do you want to learn?', options: DIALECT.map(([t, d]) => [t, d] as const), value: dialect, set: setDialectChoice }
 
   return (
     <Screen>
-      <Top>
-        <Back type="button" aria-label="Back" onClick={() => setStep((step - 1) as Step)}>
-          ←
-        </Back>
-        <Bar role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={LAST} aria-valuenow={step}>
-          <Fill style={{ width: `${(100 * step) / LAST}%` }} />
-        </Bar>
-      </Top>
+      {top}
       <Body>
         <h1>{question.title}</h1>
         <Options role="radiogroup" aria-label={question.title} onKeyDown={onRadioGroupKeyDown}>
@@ -110,12 +125,12 @@ export function WelcomePage() {
             </Option>
           ))}
         </Options>
-        {step === 2 && <Note>You can open any level later from the path, too.</Note>}
-        {step === 3 && <Note>Most SQL is the same in both. Where they differ, every lesson shows your choice. You can switch at the top of the path.</Note>}
+        {step === 1 && <Note>It decides which skills your path needs. The rest stay open as optional. You can change it on the Progress page.</Note>}
+        {step === 2 && <Note>Most SQL is the same in both. Where they differ, every lesson shows your choice. You can switch at the top of the path.</Note>}
       </Body>
       <Footer>
-        <Primary type="button" disabled={question.value === null} onClick={() => (step === LAST ? finish() : setStep((step + 1) as Step))}>
-          {step === LAST ? 'Start learning' : 'Continue'}
+        <Primary type="button" disabled={question.value === null} onClick={() => setStep((step + 1) as Step)}>
+          Continue
         </Primary>
       </Footer>
     </Screen>
@@ -242,6 +257,23 @@ const Option = styled.button<{ $on: boolean }>`
       border-color: ${theme.color.accent};
       background: ${theme.color.accentSoft};
     `}
+`
+
+const Lead = styled.p`
+  font-size: ${({ theme }) => theme.size.md};
+  line-height: 1.55;
+`
+
+const Secondary = styled.button`
+  min-height: 52px;
+  border: 2px solid ${({ theme }) => theme.color.line};
+  border-bottom-width: 4px;
+  border-radius: ${({ theme }) => theme.radius.lg};
+  background: ${({ theme }) => theme.color.surface};
+  color: ${({ theme }) => theme.color.accentStrong};
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
 `
 
 const Note = styled.p`

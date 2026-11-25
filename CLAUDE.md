@@ -232,6 +232,14 @@ Audit of 2026-10-15:
   up to 3 wrong pieces (ALTERNATIVES keywords, the opposite comparison, unused columns of the same tables), each
   run in place of the piece it imitates on PGlite (and MySQL for the mysql version) and kept only if the result
   changes. It takes the 4th slot of a lesson and never uses the lesson's write exercise.
+- Goals and level check (2026-11-25): first launch asks the goal (`src/content/goals.ts`: learn / interview /
+  data / build, each with the exact list of topics it needs), then the dialect, then the level check (`/level-check`,
+  LevelCheckPage: two "fill the gap" tasks per level from `CHECK_TASKS`, levels per goal, stops at the first mistake;
+  passed levels open the next one) or "I'm new". Only gap tasks: "which result is right" often needs the data.
+  `pathProgress` marks skills outside the goal "optional" (open, never blocking); a level the goal does not need
+  passes straight on. GoalCard on the path; goal choice and "Check my level again" on Progress (`#goal`). The daily
+  goal is asked once on LessonComplete (`dailyGoalChosen`). The owner wants goals to be exact: change topic lists
+  only with a reason. App map of every screen (to review in order): https://claude.ai/artifact/LWZwaYjfw43mPqARucJWog
 - QA, design and accessibility reports of 2026-11-19 live in `qa-bug-hunt/` (git-ignored, local only).
 - iCloud Desktop sync can create "<name> 2.ts" copies; delete them, never commit them.
 - Next: more labs (level 4, and level 3 on other datasets), two replacement datasets.

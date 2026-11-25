@@ -1,5 +1,8 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
+import { DAILY_GOALS, setDailyGoal, useProgress } from '../progress/store'
+import { onRadioGroupKeyDown, radioTabIndex } from '../utils/radioGroup'
 
 interface Props {
   skillName: string
@@ -15,6 +18,10 @@ interface Props {
 export function LessonComplete({ skillName, xp, correct, total, streak, goal, today }: Props) {
   const goalReached = xp > 0 && today >= goal && today - xp < goal
   const accuracy = Math.round((100 * correct) / Math.max(total, 1))
+  // The daily goal is asked once, after the first lesson: now "XP" means something.
+  const ask = !useProgress().dailyGoalChosen
+  const [pick, setPick] = useState(0)
+  const picked = DAILY_GOALS[pick]!
   return (
     <Wrap>
       <svg width="96" height="96" viewBox="0 0 96 96" aria-hidden="true">
@@ -45,7 +52,25 @@ export function LessonComplete({ skillName, xp, correct, total, streak, goal, to
         </Stat>
       </Stats>
       {correct < total && <p>The tasks you missed came back later in the lesson, and they will come back in Review tomorrow.</p>}
-      <Primary to="/">Continue</Primary>
+      {ask && (
+        <Ask>
+          <h2 id="daily-goal">How much a day?</h2>
+          <Goals role="radiogroup" aria-labelledby="daily-goal" onKeyDown={onRadioGroupKeyDown}>
+            {DAILY_GOALS.map((g, i) => (
+              <GoalOption key={g.xp} type="button" role="radio" aria-checked={pick === i} tabIndex={radioTabIndex(i, pick)} $on={pick === i} onClick={() => setPick(i)}>
+                <strong>{g.xp} XP</strong>
+                <small>{g.name}</small>
+              </GoalOption>
+            ))}
+          </Goals>
+          <p>
+            This lesson gave {xp} XP. {picked.about} Change it any time on the Progress page.
+          </p>
+        </Ask>
+      )}
+      <Primary to="/" onClick={() => ask && setDailyGoal(picked.xp)}>
+        Continue
+      </Primary>
     </Wrap>
   )
 }
@@ -91,6 +116,48 @@ const Goal = styled.p`
   background: ${({ theme }) => theme.color.goodSoft};
   color: ${({ theme }) => theme.color.goodStrong};
   font-weight: 700;
+`
+
+const Ask = styled.section`
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space.sm};
+  padding: ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  background: ${({ theme }) => theme.color.bg};
+
+  h2 {
+    font-size: ${({ theme }) => theme.size.md};
+  }
+
+  p {
+    font-size: ${({ theme }) => theme.size.sm};
+  }
+`
+
+const Goals = styled.div`
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: ${({ theme }) => theme.space.sm};
+`
+
+const GoalOption = styled.button<{ $on: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 56px;
+  border-radius: ${({ theme }) => theme.radius.md};
+  border: 2px solid ${({ theme, $on }) => ($on ? theme.color.accent : theme.color.line)};
+  background: ${({ theme, $on }) => ($on ? theme.color.accentSoft : theme.color.surface)};
+  color: ${({ theme, $on }) => ($on ? theme.color.accentStrong : theme.color.ink)};
+  font: inherit;
+  cursor: pointer;
+
+  small {
+    font-size: ${({ theme }) => theme.size.xs};
+  }
 `
 
 const Stats = styled.div`

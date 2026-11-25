@@ -1,7 +1,9 @@
+import { coreTopics } from '../content/goals'
 import type { Course, LessonTask, Skill } from '../content/types'
 import { dueReviews, type ProgressState } from './store'
 
-export type SkillStatus = 'done' | 'current' | 'open' | 'locked'
+/** optional: a skill the learner's goal does not need; open whenever its level is, and never in the way. */
+export type SkillStatus = 'done' | 'current' | 'open' | 'optional' | 'locked'
 
 export interface SkillProgress {
   skill: Skill
@@ -17,13 +19,19 @@ export interface UnitProgress {
   unlocked: boolean
   skills: SkillProgress[]
   done: number
+  /** The skills the learner's goal needs in this level, and how many of them are done. */
+  needed: number
+  neededDone: number
 }
 
 /**
- * Where the learner is on the path. A level opens when the previous one is finished (or was opened early); inside an
- * open level the first unfinished skill is "current", the ones after it stay locked until it is done.
+ * Where the learner is on the path. A level opens when the skills the learner's goal needs in the level before are
+ * done (or it was opened early, or by the level check); a level the goal does not need at all passes straight on.
+ * Inside an open level the first unfinished needed skill is "current" and the needed ones after it stay locked; the
+ * skills the goal does not need are "optional": open, but they never hold anything back.
  */
 export function pathProgress(course: Course, progress: ProgressState): UnitProgress[] {
+  const core = coreTopics(progress.goal)
   const units: UnitProgress[] = []
   let previousDone: boolean = true
   for (const unit of course.units) {
@@ -38,15 +46,18 @@ export function pathProgress(course: Course, progress: ProgressState): UnitProgr
       let status: SkillStatus
       if (!unlocked) status = 'locked'
       else if (done) status = 'done'
+      else if (core && !core.has(skill.topic)) status = 'optional'
       else if (!currentFound) {
         status = 'current'
         currentFound = true
       } else status = 'locked'
       return { skill, status, completed, nextLessonId: next.id }
     })
+    const neededSkills = skills.filter((s) => !core || core.has(s.skill.topic))
+    const neededDone = neededSkills.filter((s) => s.status === 'done').length
     const doneCount = skills.filter((s) => s.status === 'done').length
-    units.push({ level: unit.level, name: unit.name, unlocked, skills, done: doneCount })
-    previousDone = unlocked && doneCount === skills.length
+    units.push({ level: unit.level, name: unit.name, unlocked, skills, done: doneCount, needed: neededSkills.length, neededDone })
+    previousDone = unlocked && neededDone === neededSkills.length
   }
   return units
 }

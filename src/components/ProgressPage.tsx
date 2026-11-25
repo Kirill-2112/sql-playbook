@@ -1,8 +1,11 @@
-import { Link } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
-import { DAILY_GOALS, localDate, resetProgress, setDailyGoal, streak, useProgress } from '../progress/store'
+import { GOALS } from '../content/goals'
+import { DAILY_GOALS, localDate, resetProgress, setDailyGoal, setGoal, streak, useProgress } from '../progress/store'
+import { onRadioGroupKeyDown, radioTabIndex } from '../utils/radioGroup'
 import { AccountCard } from './AccountCard'
 import { DialectCard } from './DialectCard'
 import { RemindersCard } from './RemindersCard'
@@ -26,6 +29,13 @@ export function ProgressPage() {
     return { key, label: WEEKDAY.format(d), xp: progress.days[key] ?? 0, today: i === 6 }
   })
   const max = Math.max(progress.dailyGoal, ...week.map((d) => d.xp))
+  const goalIndex = GOALS.findIndex((g) => g.id === progress.goal)
+
+  // "Change" on the path's goal card opens this page at the goal.
+  const { hash } = useLocation()
+  useEffect(() => {
+    if (hash === '#goal') document.getElementById('goal')?.scrollIntoView({ block: 'start' })
+  }, [hash])
 
   return (
     <Page>
@@ -73,6 +83,22 @@ export function ProgressPage() {
           </strong>
         </Number>
       </Numbers>
+
+      <Card id="goal" aria-labelledby="goal-heading">
+        <h2 id="goal-heading">Your goal</h2>
+        <GoalList role="radiogroup" aria-labelledby="goal-heading" onKeyDown={onRadioGroupKeyDown}>
+          {GOALS.map((g, i) => (
+            <GoalChoice key={g.id} type="button" role="radio" aria-checked={i === goalIndex} tabIndex={radioTabIndex(i, goalIndex)} $on={i === goalIndex} onClick={() => setGoal(g.id)}>
+              <strong>{g.title}</strong>
+              <small>{g.about}</small>
+            </GoalChoice>
+          ))}
+        </GoalList>
+        <Muted>
+          It decides which skills your path needs; the others stay open as optional. Changing it keeps everything you
+          have done. <Link to="/level-check">Check my level again</Link>
+        </Muted>
+      </Card>
 
       <Card>
         <h2>Daily goal</h2>
@@ -230,6 +256,32 @@ const Goal = styled.button<{ $on: boolean }>`
 
   small {
     font-size: ${({ theme }) => theme.size.xs};
+  }
+`
+
+const GoalList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space.sm};
+`
+
+const GoalChoice = styled.button<{ $on: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.md};
+  border: 2px solid ${({ theme, $on }) => ($on ? theme.color.accent : theme.color.line)};
+  background: ${({ theme, $on }) => ($on ? theme.color.accentSoft : theme.color.surface)};
+  color: ${({ theme }) => theme.color.ink};
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  small {
+    font-size: ${({ theme }) => theme.size.sm};
+    color: ${({ theme }) => theme.color.muted};
   }
 `
 

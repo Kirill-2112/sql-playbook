@@ -4,12 +4,15 @@ import type { Lab } from '../content/labs'
 import { useProgress } from '../progress/store'
 
 // A lab at the end of its level on the path: title, the question, and how many steps are solved.
-export function LabCard({ lab }: { lab: Lab }) {
+export function LabCard({ lab, showLevel = false }: { lab: Lab; showLevel?: boolean }) {
   const solved = useProgress().labs[lab.id]?.length ?? 0
   const done = solved >= lab.steps.length
   return (
     <Card to={`/labs/${lab.id}`} $done={done}>
-      <small>Lab · {lab.steps.length} queries</small>
+      <small>
+        Lab · {showLevel && `Level ${lab.level} · `}
+        {lab.steps.length} queries
+      </small>
       <strong>{lab.title}</strong>
       <span>{done ? 'Solved. Open it again any time.' : solved > 0 ? `${solved} of ${lab.steps.length} steps solved` : lab.story.split('. ')[0] + '.'}</span>
     </Card>

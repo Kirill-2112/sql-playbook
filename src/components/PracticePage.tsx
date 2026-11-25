@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import styled, { css } from 'styled-components'
+import { LABS } from '../content/labs'
 import type { ReferenceEntry, ReferenceGenerated, ReferenceGroupId } from '../content/types'
 import { useReference } from '../hooks/useReference'
+import { LabCard } from './LabCard'
 
 // Groups whose keywords are about querying, used for "most used" (DDL and admin keywords are counted but not ranked).
 const QUERYING: ReferenceGroupId[] = ['query', 'joins', 'conditional', 'aggregates', 'window', 'strings', 'numbers', 'dates', 'types']
@@ -39,6 +41,15 @@ export function PracticePage() {
         </span>
         <b aria-hidden="true">→</b>
       </WriteCard>
+      <Section aria-labelledby="practice-labs">
+        <h2 id="practice-labs">Labs</h2>
+        <Muted>A real question, answered in a few queries, each building on the last.</Muted>
+        <Labs>
+          {LABS.map((lab) => (
+            <LabCard key={lab.id} lab={lab} showLevel />
+          ))}
+        </Labs>
+      </Section>
       <Tabs role="tablist" aria-label="Practice mode">
         <TabNow role="tab" aria-selected="true">
           By keyword
@@ -275,6 +286,12 @@ const GroupButton = styled.button`
 const Muted = styled.p`
   font-size: ${({ theme }) => theme.size.sm};
   color: ${({ theme }) => theme.color.muted};
+`
+
+const Labs = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space.sm};
 `
 
 const WriteCard = styled(Link)`

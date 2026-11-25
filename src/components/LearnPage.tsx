@@ -58,7 +58,10 @@ export function LearnPage() {
               <SkillNode key={item.skill.topic} item={item} index={i} />
             ))}
           </Path>
-          {unit.unlocked && LABS.filter((lab) => lab.level === unit.level).map((lab) => <LabCard key={lab.id} lab={lab} />)}
+          {/* Shown on locked levels too: a lab is a good reason to open a level. */}
+          {LABS.filter((lab) => lab.level === unit.level).map((lab) => (
+            <LabCard key={lab.id} lab={lab} />
+          ))}
         </Unit>
       ))}
       {course && (

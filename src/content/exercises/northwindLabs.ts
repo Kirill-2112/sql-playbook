@@ -297,4 +297,199 @@ limit 5;`,
   ),
 ]
 
-export const northwindLabs: Exercise[] = [...salesLab, ...lateLab]
+// Lab "A supplier's new price list" (level 4): look, clean, report, and only then update.
+// The list as it arrives: stray spaces, a comma for the decimal point, a product twice, a price missing, an unknown
+// product. Every step gets a fresh copy of it.
+const PRICE_LIST = `create table price_list (line int primary key, product varchar(60), price varchar(10));
+insert into price_list values
+  (1, 'Chai', '19.50'),
+  (2, ' chang ', '20,00'),
+  (3, 'Aniseed Syrup', '10.00'),
+  (4, 'TOFU', '25,25'),
+  (5, 'Chai', '19.00'),
+  (6, 'Ikura', '33.00'),
+  (7, 'Green Tea Deluxe', '15.00'),
+  (8, 'Konbu', '');`
+
+// The cleaned price: spaces trimmed, a decimal comma made a point, an empty price made NULL.
+const CLEAN_PG = "cast(nullif(replace(trim(l.price), ',', '.'), '') as numeric(10, 2))"
+const CLEAN_MY = "cast(nullif(replace(trim(l.price), ',', '.'), '') as decimal(10, 2))"
+// A product's name in the list, matched to the catalogue whatever the spaces and capitals.
+const MATCH = 'lower(p.product_name) = lower(trim(l.product))'
+
+const CLEANING_DOCS = [
+  { label: 'PostgreSQL: string functions', url: PG + 'functions-string.html' },
+  { label: 'MySQL: string functions', url: MY + 'string-functions.html' },
+]
+const UPDATE_DOCS = [
+  { label: 'PostgreSQL: UPDATE', url: PG + 'sql-update.html' },
+  { label: 'MySQL: UPDATE', url: MY + 'update.html' },
+]
+
+function priceStep(
+  id: string,
+  topics: string[],
+  title: string,
+  prompt: string,
+  postgres: string,
+  mysql: string,
+  approach: string,
+  explanation: string,
+  docs: Exercise['docs'],
+  checkSql?: string,
+): Exercise {
+  return {
+    id,
+    dataset: 'northwind',
+    level: 4,
+    topics,
+    title,
+    prompt,
+    orderMatters: true,
+    setupSql: PRICE_LIST,
+    ...(checkSql && { checkSql }),
+    solutions: [{ approach, postgres, mysql, explanation }],
+    docs,
+  }
+}
+
+const priceLab: Exercise[] = [
+  priceStep(
+    'northwind-205',
+    ['data-cleaning', 'joins'],
+    'Lines that match no product',
+    'A supplier sent new prices in price_list (created for you). Which lines name a product we do not have? Match names ignoring spaces at the ends and capital letters. Show line and product, by line.',
+    `select l.line, l.product
+from price_list l
+left join products p on ${MATCH}
+where p.product_id is null
+order by l.line;`,
+    `select l.line, l.product
+from price_list l
+left join products p on ${MATCH}
+where p.product_id is null
+order by l.line;`,
+    'LEFT JOIN … IS NULL on a cleaned name',
+    'Comparing trimmed, lower-cased names finds " chang " and "TOFU". What is still unmatched after that is a product we do not sell: a question for the supplier, not something to load.',
+    CLEANING_DOCS,
+  ),
+  priceStep(
+    'northwind-206',
+    ['data-cleaning', 'casting'],
+    'Prices as numbers',
+    'For the lines that match a product: line, product_id, product_name and the price as a number with 2 decimals (a comma counts as the decimal point, an empty price becomes NULL), by line.',
+    `select l.line, p.product_id, p.product_name,
+       ${CLEAN_PG} as new_price
+from price_list l
+join products p on ${MATCH}
+order by l.line;`,
+    `select l.line, p.product_id, p.product_name,
+       ${CLEAN_MY} as new_price
+from price_list l
+join products p on ${MATCH}
+order by l.line;`,
+    'TRIM, REPLACE, NULLIF, then CAST',
+    'Text that looks like a number is not one: "20,00" would fail or be misread. Replace the comma, turn the empty text into NULL, then cast: the order of these steps matters.',
+    CLEANING_DOCS,
+  ),
+  priceStep(
+    'northwind-207',
+    ['data-cleaning', 'group-by'],
+    'A product listed twice',
+    'Which products appear on more than one line? Show product_name, the number of lines (line_count), the first and the last line, by product_name.',
+    `select p.product_name,
+       count(*) as line_count,
+       min(l.line) as first_line,
+       max(l.line) as last_line
+from price_list l
+join products p on ${MATCH}
+group by p.product_id, p.product_name
+having count(*) > 1
+order by p.product_name;`,
+    `select p.product_name,
+       count(*) as line_count,
+       min(l.line) as first_line,
+       max(l.line) as last_line
+from price_list l
+join products p on ${MATCH}
+group by p.product_id, p.product_name
+having count(*) > 1
+order by p.product_name;`,
+    'GROUP BY the matched product, HAVING count(*) > 1',
+    'A product with two prices needs a rule before anything is loaded. Here we take the last line: the supplier corrected the price further down the list.',
+    CLEANING_DOCS,
+  ),
+  priceStep(
+    'northwind-208',
+    ['cte', 'data-cleaning'],
+    'What will change?',
+    'Before updating, show what would change. For each product, take its last line in the list, skipping lines with no price. Show product_name, old_price, new_price and the change in percent (1 decimal), by product_id.',
+    `with clean as (
+  select p.product_id, l.line, ${CLEAN_PG} as price
+  from price_list l
+  join products p on ${MATCH}
+),
+latest as (
+  select c.product_id, c.price
+  from clean c
+  where c.line = (select max(c2.line) from clean c2 where c2.product_id = c.product_id)
+    and c.price is not null
+)
+select p.product_name,
+       p.unit_price as old_price,
+       n.price as new_price,
+       round(100.0 * (n.price - p.unit_price) / p.unit_price, 1) as change_pct
+from latest n
+join products p on p.product_id = n.product_id
+order by p.product_id;`,
+    `with clean as (
+  select p.product_id, l.line, ${CLEAN_MY} as price
+  from price_list l
+  join products p on ${MATCH}
+),
+latest as (
+  select c.product_id, c.price
+  from clean c
+  where c.line = (select max(c2.line) from clean c2 where c2.product_id = c.product_id)
+    and c.price is not null
+)
+select p.product_name,
+       p.unit_price as old_price,
+       n.price as new_price,
+       round(100.0 * (n.price - p.unit_price) / p.unit_price, 1) as change_pct
+from latest n
+join products p on p.product_id = n.product_id
+order by p.product_id;`,
+    'Two CTEs: clean, then keep the last line',
+    'A report of the change, read before running the UPDATE, catches the surprises: a price ten times too high, a product that would be set to NULL. Konbu has no new price, so it is left out instead of being blanked.',
+    [
+      { label: 'PostgreSQL: WITH queries', url: PG + 'queries-with.html' },
+      { label: 'MySQL: WITH (common table expressions)', url: MY + 'with.html' },
+    ],
+  ),
+  priceStep(
+    'northwind-209',
+    ['dml', 'data-cleaning'],
+    'Load the new prices',
+    'Now update products: each matched product gets the price from its last line in the list; lines with no price change nothing.',
+    `update products p
+set unit_price = ${CLEAN_PG.replace('l.price', 'l.price')}
+from price_list l
+where ${MATCH}
+  and l.line = (select max(l2.line) from price_list l2
+                where lower(trim(l2.product)) = lower(p.product_name))
+  and trim(l.price) <> '';`,
+    `update products p
+join price_list l on ${MATCH}
+set p.unit_price = ${CLEAN_MY}
+where l.line = (select max(l2.line) from price_list l2
+                where lower(trim(l2.product)) = lower(p.product_name))
+  and trim(l.price) <> '';`,
+    'UPDATE … FROM (PostgreSQL), UPDATE … JOIN (MySQL)',
+    'The same three rules as the report: match the cleaned name, take the last line, skip an empty price. Write the UPDATE only after the report looks right.',
+    UPDATE_DOCS,
+    'select product_id, product_name, unit_price from products where product_id in (1, 2, 3, 10, 13, 14) order by product_id',
+  ),
+]
+
+export const northwindLabs: Exercise[] = [...salesLab, ...lateLab, ...priceLab]

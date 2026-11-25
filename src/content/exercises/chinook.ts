@@ -1,6 +1,7 @@
 import type { Exercise } from '../types'
 import { chinookPractice } from './chinookPractice'
 import { chinookAdvanced } from './chinookAdvanced'
+import { chinookLabs } from './chinookLabs'
 
 const PG = 'https://www.postgresql.org/docs/current/'
 const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
@@ -1218,4 +1219,4 @@ order by g.genre_id, t.place;`,
   },
 ]
 
-export const chinookExercises: Exercise[] = [...basics, ...chinookAdvanced, ...chinookPractice]
+export const chinookExercises: Exercise[] = [...basics, ...chinookAdvanced, ...chinookPractice, ...chinookLabs]

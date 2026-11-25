@@ -1,6 +1,7 @@
 import type { Exercise } from '../types'
 import { sakilaPractice } from './sakilaPractice'
 import { sakilaAdvanced } from './sakilaAdvanced'
+import { sakilaLabs } from './sakilaLabs'
 
 const PG = 'https://www.postgresql.org/docs/current/'
 const MY = 'https://dev.mysql.com/doc/refman/8.4/en/'
@@ -1424,4 +1425,4 @@ from rental;`,
   },
 ]
 
-export const sakilaExercises: Exercise[] = [...basics, ...sakilaAdvanced, ...sakilaPractice]
+export const sakilaExercises: Exercise[] = [...basics, ...sakilaAdvanced, ...sakilaPractice, ...sakilaLabs]

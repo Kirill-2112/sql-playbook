@@ -11741,42 +11741,43 @@
                 },
                 {
                   "kind": "bug",
-                  "exerciseId": "employees-066",
-                  "prompt": "With a chain of CTEs: current staff per department, the company-wide average department size, and the departments larger than that average. Show dept_name and staff.",
+                  "exerciseId": "sakila-135",
+                  "prompt": "Compare the late share now (1 decimal) with the share there would be if every film could be kept 7 days (1 decimal): late_now_pct and late_if_7_days_pct.",
                   "lines": [
-                    "with staff as (",
-                    "  select dept_no, count(*) as n from dept_emp where to_date = '9999-01-01' group by dept_no",
-                    "),",
-                    "average as (",
-                    "  select avg(n) as avg_n from staff",
-                    "),",
-                    "large as (",
-                    "  select s.dept_no, s.n from staff s, average a where s.n > a.avg_n",
+                    "with returned as (",
+                    "  select i.store_id,",
+                    "         f.rental_duration,",
+                    "         r.return_date::date - r.rental_date::date as days_kept",
+                    "  from rental r",
+                    "  natural join inventory i on i.inventory_id = r.inventory_id",
+                    "  join film f on f.film_id = i.film_id",
+                    "  where r.return_date is not null",
                     ")",
-                    "select d.dept_name, l.n as staff",
-                    "from large l cross join departments d on d.dept_no = l.dept_no",
-                    "order by l.n desc, d.dept_name;"
+                    "select round(100.0 * sum(case when days_kept > rental_duration then 1 else 0 end) / count(*), 1) as late_now_pct,",
+                    "       round(100.0 * sum(case when days_kept > 7 then 1 else 0 end) / count(*), 1) as late_if_7_days_pct",
+                    "from returned;"
                   ],
-                  "answer": 10,
-                  "fixed": "from large l join departments d on d.dept_no = l.dept_no",
-                  "explanation": "Each CTE may use the ones before it, so a report reads top to bottom in named steps instead of nested subqueries.",
+                  "answer": 5,
+                  "fixed": "join inventory i on i.inventory_id = r.inventory_id",
+                  "explanation": "The data already holds the answer to \"what if\": the same rentals, judged by another rule. No change to the database is needed to see the effect of a new policy.",
                   "mysql": {
                     "lines": [
-                      "with staff as (",
-                      "  select dept_no, count(*) as n from dept_emp where to_date = '9999-01-01' group by dept_no",
-                      "),",
-                      "average as (",
-                      "  select avg(n) as avg_n from staff",
-                      "),",
-                      "large as (",
-                      "  select s.dept_no, s.n from staff s, average a where s.n > a.avg_n",
+                      "with returned as (",
+                      "  select i.store_id,",
+                      "         f.rental_duration,",
+                      "         datediff(r.return_date, r.rental_date) as days_kept",
+                      "  from rental r",
+                      "  full join inventory i on i.inventory_id = r.inventory_id",
+                      "  join film f on f.film_id = i.film_id",
+                      "  where r.return_date is not null",
                       ")",
-                      "select d.dept_name, l.n as staff",
-                      "from large l right join departments d on d.dept_no = l.dept_no",
-                      "order by l.n desc, d.dept_name;"
+                      "select round(100.0 * sum(case when days_kept > rental_duration then 1 else 0 end) / count(*), 1) as late_now_pct,",
+                      "       round(100.0 * sum(case when days_kept > 7 then 1 else 0 end) / count(*), 1) as late_if_7_days_pct",
+                      "from returned;"
                     ],
-                    "answer": 10,
-                    "fixed": "from large l join departments d on d.dept_no = l.dept_no"
+                    "answer": 5,
+                    "fixed": "join inventory i on i.inventory_id = r.inventory_id",
+                    "note": "Days between two dates: DATEDIFF(later, earlier) in MySQL, later::date − earlier::date in PostgreSQL."
                   }
                 },
                 {
@@ -11899,22 +11900,22 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "sakila-085",
-                  "prompt": "For customers 1 to 5: the film category they rented most often, and how many rentals that was. On a tie, take the alphabetically first category. Order by customer_id.",
-                  "code": "with per_category as (\n  select r.customer_id, c.name as category, count(*) as rentals\n  from rental r\n  ⟦?⟧ inventory i on i.inventory_id = r.inventory_id\n  join film_category fc on fc.film_id = i.film_id\n  join category c on c.category_id = fc.category_id\n  where r.customer_id between 1 and 5\n  group by r.customer_id, c.name\n),\nranked as (\n  select customer_id, category, rentals,\n         row_number() over (partition by customer_id order by rentals desc, category) as n\n  from per_category\n)\nselect customer_id, category, rentals\nfrom ranked\nwhere n = 1\norder by customer_id;",
+                  "exerciseId": "chinook-133",
+                  "prompt": "For genres with at least 50 tracks: the genre name, its tracks, its revenue (rounded to 2), the revenue per track in the catalog (3 decimals), and its place by revenue per track (rank, best first). Order by place, then genre_id.",
+                  "code": "with revenue as (\n  select t.genre_id, sum(il.unit_price * il.quantity) as revenue\n  from invoice_line il\n  ⟦?⟧ track t on t.track_id = il.track_id\n  group by t.genre_id\n),\ncatalog as (\n  select genre_id, count(*) as tracks\n  from track\n  group by genre_id\n)\nselect g.name as genre,\n       c.tracks,\n       round(r.revenue, 2) as revenue,\n       round(r.revenue / c.tracks, 3) as per_track,\n       rank() over (order by round(r.revenue / c.tracks, 3) desc) as place\nfrom catalog c\njoin genre g on g.genre_id = c.genre_id\njoin revenue r on r.genre_id = c.genre_id\nwhere c.tracks >= 50\norder by place, g.genre_id;",
                   "options": [
                     "cross join",
                     "join",
                     "natural join"
                   ],
                   "answer": 1,
-                  "explanation": "The first CTE answers \"how many per category\", the second \"which is first\", and the final query only filters. Each step can be run and checked on its own, which is the main reason to write queries this way.",
+                  "explanation": "Revenue alone rewards the biggest shelf. Dividing by the number of tracks in the catalog compares genres fairly: how much a track of that genre earns, on average.",
                   "mysql": {
-                    "code": "with per_category as (\n  select r.customer_id, c.name as category, count(*) as rentals\n  from rental r\n  ⟦?⟧ inventory i on i.inventory_id = r.inventory_id\n  join film_category fc on fc.film_id = i.film_id\n  join category c on c.category_id = fc.category_id\n  where r.customer_id between 1 and 5\n  group by r.customer_id, c.name\n),\nranked as (\n  select customer_id, category, rentals,\n         row_number() over (partition by customer_id order by rentals desc, category) as n\n  from per_category\n)\nselect customer_id, category, rentals\nfrom ranked\nwhere n = 1\norder by customer_id;",
+                    "code": "with revenue as (\n  select t.genre_id, sum(il.unit_price * il.quantity) as revenue\n  from invoice_line il\n  ⟦?⟧ track t on t.track_id = il.track_id\n  group by t.genre_id\n),\ncatalog as (\n  select genre_id, count(*) as tracks\n  from track\n  group by genre_id\n)\nselect g.name as genre,\n       c.tracks,\n       round(r.revenue, 2) as revenue,\n       round(r.revenue / c.tracks, 3) as per_track,\n       rank() over (order by round(r.revenue / c.tracks, 3) desc) as place\nfrom catalog c\njoin genre g on g.genre_id = c.genre_id\njoin revenue r on r.genre_id = c.genre_id\nwhere c.tracks >= 50\norder by place, g.genre_id;",
                     "options": [
-                      "natural join",
+                      "full join",
                       "join",
-                      "full join"
+                      "natural join"
                     ],
                     "answer": 1
                   }
@@ -11958,6 +11959,172 @@
                       "group by",
                       "split by",
                       "order by"
+                    ],
+                    "answer": 0
+                  }
+                },
+                {
+                  "kind": "predict",
+                  "exerciseId": "chinook-130",
+                  "prompt": "For each genre that sold anything: the genre name, its revenue (unit_price × quantity over invoice lines, rounded to 2) and its share of all revenue in percent (1 decimal), biggest first, ties by genre_id.",
+                  "code": "select g.name as genre,\n       round(sum(il.unit_price * il.quantity), 2) as revenue,\n       round(100.0 * sum(il.unit_price * il.quantity)\n             / sum(sum(il.unit_price * il.quantity)) over (), 1) as share_pct\nfrom invoice_line il\njoin track t on t.track_id = il.track_id\njoin genre g on g.genre_id = t.genre_id\ngroup by g.genre_id, g.name\norder by revenue desc, g.genre_id;",
+                  "options": [
+                    {
+                      "columns": [
+                        "genre",
+                        "revenue",
+                        "share_pct"
+                      ],
+                      "rows": [
+                        [
+                          "Rock",
+                          "826.65",
+                          "35.5"
+                        ],
+                        [
+                          "Latin",
+                          "382.14",
+                          "16.4"
+                        ],
+                        [
+                          "Metal",
+                          "261.36",
+                          "11.2"
+                        ]
+                      ],
+                      "total": 24
+                    },
+                    {
+                      "columns": [
+                        "genre",
+                        "revenue",
+                        "share_pct"
+                      ],
+                      "rows": [
+                        [
+                          "Rock And Roll",
+                          "5.94",
+                          "0.3"
+                        ],
+                        [
+                          "Easy Listening",
+                          "9.90",
+                          "0.4"
+                        ],
+                        [
+                          "Heavy Metal",
+                          "11.88",
+                          "0.5"
+                        ]
+                      ],
+                      "total": 24
+                    },
+                    {
+                      "columns": [
+                        "genre",
+                        "revenue",
+                        "share_pct"
+                      ],
+                      "rows": [
+                        [
+                          "Rock",
+                          "835.00",
+                          "35.5"
+                        ],
+                        [
+                          "Latin",
+                          "386.00",
+                          "16.4"
+                        ],
+                        [
+                          "Metal",
+                          "264.00",
+                          "11.2"
+                        ]
+                      ],
+                      "total": 24
+                    }
+                  ],
+                  "answer": 0,
+                  "explanation": "sum(...) over () adds up the per-genre sums, so each row can be divided by the grand total in the same query.",
+                  "mysql": {
+                    "code": "select g.name as genre,\n       round(sum(il.unit_price * il.quantity), 2) as revenue,\n       round(100.0 * sum(il.unit_price * il.quantity)\n             / sum(sum(il.unit_price * il.quantity)) over (), 1) as share_pct\nfrom invoice_line il\njoin track t on t.track_id = il.track_id\njoin genre g on g.genre_id = t.genre_id\ngroup by g.genre_id, g.name\norder by revenue desc, g.genre_id;"
+                  }
+                },
+                {
+                  "kind": "order",
+                  "exerciseId": "lahman-024",
+                  "prompt": "For every team in 2016, show its highest-paid player and the salary. Ties: lowest player_id.",
+                  "lines": [
+                    "from salaries",
+                    "where year_id = 2016",
+                    "order by team_id, salary desc, player_id",
+                    "select distinct on (team_id) team_id, player_id, salary"
+                  ],
+                  "answer": [
+                    3,
+                    0,
+                    1,
+                    2
+                  ],
+                  "explanation": "SQL clauses always come in this order: SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. The database runs them in a different order (FROM and WHERE first), which is why SELECT aliases are not visible in WHERE."
+                },
+                {
+                  "kind": "gap",
+                  "exerciseId": "northwind-125",
+                  "prompt": "For 1997: the 3 categories with the most revenue, their share of all 1997 revenue (1 decimal) and their best-selling product by revenue.",
+                  "code": "with product_rev as (\n  select p.category_id, p.product_name, sum(d.unit_price * d.quantity * (1 - d.discount)) as revenue\n  from order_details d\n  join orders o on o.order_id = d.order_id\n  join products p on p.product_id = d.product_id\n  where o.order_date >= '1997-01-01' and o.order_date < '1998-01-01'\n  group by p.category_id, p.product_name\n),\ncategory_rev as (\n  select category_id, sum(revenue) as revenue from product_rev group by category_id\n),\nbest as (\n  select category_id, product_name,\n         row_number() over (⟦?⟧ category_id order by revenue desc, product_name) as n\n  from product_rev\n)\nselect c.category_name, round(cr.revenue, 2) as revenue,\n       round(100 * cr.revenue / sum(cr.revenue) over (), 1) as share_pct,\n       b.product_name as best_product\nfrom category_rev cr\njoin categories c on c.category_id = cr.category_id\njoin best b on b.category_id = cr.category_id and b.n = 1\norder by cr.revenue desc\nlimit 3;",
+                  "options": [
+                    "partition by",
+                    "order by",
+                    "split by",
+                    "group by"
+                  ],
+                  "answer": 0,
+                  "explanation": "The window SUM(…) OVER () is computed before LIMIT, so the share is of all categories, not of the three shown. Dairy leads with 18.7%, carried by Raclette Courdavault; Côte de Blaye alone makes Beverages second.",
+                  "mysql": {
+                    "code": "with product_rev as (\n  select p.category_id, p.product_name, sum(d.unit_price * d.quantity * (1 - d.discount)) as revenue\n  from order_details d\n  join orders o on o.order_id = d.order_id\n  join products p on p.product_id = d.product_id\n  where o.order_date >= '1997-01-01' and o.order_date < '1998-01-01'\n  group by p.category_id, p.product_name\n),\ncategory_rev as (\n  select category_id, sum(revenue) as revenue from product_rev group by category_id\n),\nbest as (\n  select category_id, product_name,\n         row_number() over (⟦?⟧ category_id order by revenue desc, product_name) as n\n  from product_rev\n)\nselect c.category_name, round(cr.revenue, 2) as revenue,\n       round(100 * cr.revenue / sum(cr.revenue) over (), 1) as share_pct,\n       b.product_name as best_product\nfrom category_rev cr\njoin categories c on c.category_id = cr.category_id\njoin best b on b.category_id = cr.category_id and b.n = 1\norder by cr.revenue desc\nlimit 3;",
+                    "options": [
+                      "partition by",
+                      "group by",
+                      "order by",
+                      "split by"
+                    ],
+                    "answer": 0
+                  }
+                },
+                {
+                  "kind": "write",
+                  "exerciseId": "chinook-070"
+                }
+              ]
+            },
+            {
+              "id": "ranking-2",
+              "topic": "ranking",
+              "level": 3,
+              "index": 2,
+              "tasks": [
+                {
+                  "kind": "gap",
+                  "exerciseId": "northwind-154",
+                  "prompt": "For each category show the products with the three highest prices; products with the same price share a place, so a category may show more than three. Show category_name, product_id, product_name, unit_price and the price rank.",
+                  "code": "with ranked as (\n  select c.category_name, p.product_id, p.product_name, p.unit_price,\n         dense_rank() over (⟦?⟧ p.category_id order by p.unit_price desc) as price_rank\n  from products p\n  join categories c on c.category_id = p.category_id\n)\nselect category_name, product_id, product_name, unit_price, price_rank\nfrom ranked\nwhere price_rank <= 3\norder by category_name, price_rank, product_id;",
+                  "options": [
+                    "order by",
+                    "split by",
+                    "partition by",
+                    "group by"
+                  ],
+                  "answer": 2,
+                  "explanation": "DENSE_RANK gives equal prices the same rank and does not skip numbers, so \"top 3 prices\" keeps every tie. ROW_NUMBER would cut ties arbitrarily; RANK would skip a place after a tie. A favourite interview question.",
+                  "mysql": {
+                    "code": "with ranked as (\n  select c.category_name, p.product_id, p.product_name, p.unit_price,\n         dense_rank() over (⟦?⟧ p.category_id order by p.unit_price desc) as price_rank\n  from products p\n  join categories c on c.category_id = p.category_id\n)\nselect category_name, product_id, product_name, unit_price, price_rank\nfrom ranked\nwhere price_rank <= 3\norder by category_name, price_rank, product_id;",
+                    "options": [
+                      "partition by",
+                      "group by",
+                      "order by",
+                      "split by"
                     ],
                     "answer": 0
                   }
@@ -12052,139 +12219,39 @@
                   }
                 },
                 {
-                  "kind": "order",
-                  "exerciseId": "lahman-024",
-                  "prompt": "For every team in 2016, show its highest-paid player and the salary. Ties: lowest player_id.",
-                  "lines": [
-                    "from salaries",
-                    "where year_id = 2016",
-                    "order by team_id, salary desc, player_id",
-                    "select distinct on (team_id) team_id, player_id, salary"
-                  ],
-                  "answer": [
-                    3,
-                    0,
-                    1,
-                    2
-                  ],
-                  "explanation": "SQL clauses always come in this order: SELECT, FROM, JOIN, WHERE, GROUP BY, HAVING, ORDER BY, LIMIT. The database runs them in a different order (FROM and WHERE first), which is why SELECT aliases are not visible in WHERE."
-                },
-                {
-                  "kind": "gap",
-                  "exerciseId": "northwind-125",
-                  "prompt": "For 1997: the 3 categories with the most revenue, their share of all 1997 revenue (1 decimal) and their best-selling product by revenue.",
-                  "code": "with product_rev as (\n  select p.category_id, p.product_name, sum(d.unit_price * d.quantity * (1 - d.discount)) as revenue\n  from order_details d\n  join orders o on o.order_id = d.order_id\n  join products p on p.product_id = d.product_id\n  where o.order_date >= '1997-01-01' and o.order_date < '1998-01-01'\n  group by p.category_id, p.product_name\n),\ncategory_rev as (\n  select category_id, sum(revenue) as revenue from product_rev group by category_id\n),\nbest as (\n  select category_id, product_name,\n         row_number() over (⟦?⟧ category_id order by revenue desc, product_name) as n\n  from product_rev\n)\nselect c.category_name, round(cr.revenue, 2) as revenue,\n       round(100 * cr.revenue / sum(cr.revenue) over (), 1) as share_pct,\n       b.product_name as best_product\nfrom category_rev cr\njoin categories c on c.category_id = cr.category_id\njoin best b on b.category_id = cr.category_id and b.n = 1\norder by cr.revenue desc\nlimit 3;",
-                  "options": [
-                    "partition by",
-                    "order by",
-                    "split by",
-                    "group by"
-                  ],
-                  "answer": 0,
-                  "explanation": "The window SUM(…) OVER () is computed before LIMIT, so the share is of all categories, not of the three shown. Dairy leads with 18.7%, carried by Raclette Courdavault; Côte de Blaye alone makes Beverages second.",
-                  "mysql": {
-                    "code": "with product_rev as (\n  select p.category_id, p.product_name, sum(d.unit_price * d.quantity * (1 - d.discount)) as revenue\n  from order_details d\n  join orders o on o.order_id = d.order_id\n  join products p on p.product_id = d.product_id\n  where o.order_date >= '1997-01-01' and o.order_date < '1998-01-01'\n  group by p.category_id, p.product_name\n),\ncategory_rev as (\n  select category_id, sum(revenue) as revenue from product_rev group by category_id\n),\nbest as (\n  select category_id, product_name,\n         row_number() over (⟦?⟧ category_id order by revenue desc, product_name) as n\n  from product_rev\n)\nselect c.category_name, round(cr.revenue, 2) as revenue,\n       round(100 * cr.revenue / sum(cr.revenue) over (), 1) as share_pct,\n       b.product_name as best_product\nfrom category_rev cr\njoin categories c on c.category_id = cr.category_id\njoin best b on b.category_id = cr.category_id and b.n = 1\norder by cr.revenue desc\nlimit 3;",
-                    "options": [
-                      "partition by",
-                      "group by",
-                      "order by",
-                      "split by"
-                    ],
-                    "answer": 0
-                  }
-                },
-                {
-                  "kind": "write",
-                  "exerciseId": "chinook-070"
-                }
-              ]
-            },
-            {
-              "id": "ranking-2",
-              "topic": "ranking",
-              "level": 3,
-              "index": 2,
-              "tasks": [
-                {
-                  "kind": "gap",
-                  "exerciseId": "northwind-154",
-                  "prompt": "For each category show the products with the three highest prices; products with the same price share a place, so a category may show more than three. Show category_name, product_id, product_name, unit_price and the price rank.",
-                  "code": "with ranked as (\n  select c.category_name, p.product_id, p.product_name, p.unit_price,\n         dense_rank() over (⟦?⟧ p.category_id order by p.unit_price desc) as price_rank\n  from products p\n  join categories c on c.category_id = p.category_id\n)\nselect category_name, product_id, product_name, unit_price, price_rank\nfrom ranked\nwhere price_rank <= 3\norder by category_name, price_rank, product_id;",
-                  "options": [
-                    "order by",
-                    "split by",
-                    "partition by",
-                    "group by"
-                  ],
-                  "answer": 2,
-                  "explanation": "DENSE_RANK gives equal prices the same rank and does not skip numbers, so \"top 3 prices\" keeps every tie. ROW_NUMBER would cut ties arbitrarily; RANK would skip a place after a tie. A favourite interview question.",
-                  "mysql": {
-                    "code": "with ranked as (\n  select c.category_name, p.product_id, p.product_name, p.unit_price,\n         dense_rank() over (⟦?⟧ p.category_id order by p.unit_price desc) as price_rank\n  from products p\n  join categories c on c.category_id = p.category_id\n)\nselect category_name, product_id, product_name, unit_price, price_rank\nfrom ranked\nwhere price_rank <= 3\norder by category_name, price_rank, product_id;",
-                    "options": [
-                      "partition by",
-                      "group by",
-                      "order by",
-                      "split by"
-                    ],
-                    "answer": 0
-                  }
-                },
-                {
-                  "kind": "gap",
+                  "kind": "bug",
                   "exerciseId": "northwind-155",
                   "prompt": "In each category, find the product(s) with the second highest price: category_name, product_id, product_name, unit_price.",
-                  "code": "with ranked as (\n  select category_id, product_id, product_name, unit_price,\n         dense_rank() over (⟦?⟧ category_id order by unit_price desc) as rnk\n  from products\n)\nselect c.category_name, r.product_id, r.product_name, r.unit_price\nfrom ranked r\njoin categories c on c.category_id = r.category_id\nwhere r.rnk = 2\norder by c.category_name, r.product_id;",
-                  "options": [
-                    "split by",
-                    "partition by",
-                    "order by",
-                    "group by"
+                  "lines": [
+                    "with ranked as (",
+                    "  select category_id, product_id, product_name, unit_price,",
+                    "         dense_rank() over (order by category_id order by unit_price desc) as rnk",
+                    "  from products",
+                    ")",
+                    "select c.category_name, r.product_id, r.product_name, r.unit_price",
+                    "from ranked r",
+                    "join categories c on c.category_id = r.category_id",
+                    "where r.rnk = 2",
+                    "order by c.category_name, r.product_id;"
                   ],
-                  "answer": 1,
+                  "answer": 2,
+                  "fixed": "dense_rank() over (partition by category_id order by unit_price desc) as rnk",
                   "explanation": "\"N-th highest\" is DENSE_RANK = N: if two products tie for the top price, the next price is still the second highest.",
                   "mysql": {
-                    "code": "with ranked as (\n  select category_id, product_id, product_name, unit_price,\n         dense_rank() over (⟦?⟧ category_id order by unit_price desc) as rnk\n  from products\n)\nselect c.category_name, r.product_id, r.product_name, r.unit_price\nfrom ranked r\njoin categories c on c.category_id = r.category_id\nwhere r.rnk = 2\norder by c.category_name, r.product_id;",
-                    "options": [
-                      "order by",
-                      "split by",
-                      "partition by",
-                      "group by"
-                    ],
-                    "answer": 2
-                  }
-                },
-                {
-                  "kind": "bug",
-                  "exerciseId": "chinook-030",
-                  "prompt": "For each genre, show its two longest tracks: genre name, track name, milliseconds and place (1 or 2). Ties go to the lower track_id. Order by genre_id, then place.",
-                  "lines": [
-                    "select genre, track, milliseconds, place",
-                    "from (",
-                    "  select g.genre_id, g.name as genre, t.name as track, t.milliseconds,",
-                    "         row_number() over (order by g.genre_id order by t.milliseconds desc, t.track_id) as place",
-                    "  from genre g",
-                    "  join track t on t.genre_id = g.genre_id",
-                    ") ranked",
-                    "where place <= 2",
-                    "order by genre_id, place;"
-                  ],
-                  "answer": 3,
-                  "fixed": "row_number() over (partition by g.genre_id order by t.milliseconds desc, t.track_id) as place",
-                  "explanation": "Rank tracks inside each genre and keep the first two.",
-                  "mysql": {
                     "lines": [
-                      "select genre, track, milliseconds, place",
-                      "from (",
-                      "  select g.genre_id, g.name as genre, t.name as track, t.milliseconds,",
-                      "         row_number() over (order by g.genre_id order by t.milliseconds desc, t.track_id) as place",
-                      "  from genre g",
-                      "  join track t on t.genre_id = g.genre_id",
-                      ") ranked",
-                      "where place <= 2",
-                      "order by genre_id, place;"
+                      "with ranked as (",
+                      "  select category_id, product_id, product_name, unit_price,",
+                      "         dense_rank() over (order by category_id order by unit_price desc) as rnk",
+                      "  from products",
+                      ")",
+                      "select c.category_name, r.product_id, r.product_name, r.unit_price",
+                      "from ranked r",
+                      "join categories c on c.category_id = r.category_id",
+                      "where r.rnk = 2",
+                      "order by c.category_name, r.product_id;"
                     ],
-                    "answer": 3,
-                    "fixed": "row_number() over (partition by g.genre_id order by t.milliseconds desc, t.track_id) as place"
+                    "answer": 2,
+                    "fixed": "dense_rank() over (partition by category_id order by unit_price desc) as rnk"
                   }
                 },
                 {
@@ -12225,6 +12292,30 @@
               "tasks": [
                 {
                   "kind": "gap",
+                  "exerciseId": "northwind-155",
+                  "prompt": "In each category, find the product(s) with the second highest price: category_name, product_id, product_name, unit_price.",
+                  "code": "with ranked as (\n  select category_id, product_id, product_name, unit_price,\n         dense_rank() over (⟦?⟧ category_id order by unit_price desc) as rnk\n  from products\n)\nselect c.category_name, r.product_id, r.product_name, r.unit_price\nfrom ranked r\njoin categories c on c.category_id = r.category_id\nwhere r.rnk = 2\norder by c.category_name, r.product_id;",
+                  "options": [
+                    "split by",
+                    "partition by",
+                    "order by",
+                    "group by"
+                  ],
+                  "answer": 1,
+                  "explanation": "\"N-th highest\" is DENSE_RANK = N: if two products tie for the top price, the next price is still the second highest.",
+                  "mysql": {
+                    "code": "with ranked as (\n  select category_id, product_id, product_name, unit_price,\n         dense_rank() over (⟦?⟧ category_id order by unit_price desc) as rnk\n  from products\n)\nselect c.category_name, r.product_id, r.product_name, r.unit_price\nfrom ranked r\njoin categories c on c.category_id = r.category_id\nwhere r.rnk = 2\norder by c.category_name, r.product_id;",
+                    "options": [
+                      "order by",
+                      "split by",
+                      "partition by",
+                      "group by"
+                    ],
+                    "answer": 2
+                  }
+                },
+                {
+                  "kind": "gap",
                   "exerciseId": "chinook-030",
                   "prompt": "For each genre, show its two longest tracks: genre name, track name, milliseconds and place (1 or 2). Ties go to the lower track_id. Order by genre_id, then place.",
                   "code": "select genre, track, milliseconds, place\nfrom (\n  select g.genre_id, g.name as genre, t.name as track, t.milliseconds,\n         row_number() over (⟦?⟧ g.genre_id order by t.milliseconds desc, t.track_id) as place\n  from genre g\n  join track t on t.genre_id = g.genre_id\n) ranked\nwhere place <= 2\norder by genre_id, place;",
@@ -12245,30 +12336,6 @@
                       "group by"
                     ],
                     "answer": 1
-                  }
-                },
-                {
-                  "kind": "gap",
-                  "exerciseId": "chinook-107",
-                  "prompt": "For each support rep: last_name, customers, revenue (invoice totals of their customers), share of all revenue in percent (1 decimal), and their highest-spending customer's id. Order by revenue descending.",
-                  "code": "with per_customer as (\n  select c.support_rep_id, c.customer_id, sum(i.total) as spent\n  from customer c\n  join invoice i on i.customer_id = c.customer_id\n  group by c.support_rep_id, c.customer_id\n),\nper_rep as (\n  select support_rep_id, count(*) as customers, sum(spent) as revenue\n  from per_customer\n  group by support_rep_id\n),\nbest as (\n  select support_rep_id, customer_id,\n         row_number() over (⟦?⟧ support_rep_id order by spent desc, customer_id) as n\n  from per_customer\n)\nselect e.last_name, r.customers, r.revenue,\n       round(100 * r.revenue / sum(r.revenue) over (), 1) as share_pct,\n       b.customer_id as best_customer\nfrom per_rep r\njoin employee e on e.employee_id = r.support_rep_id\njoin best b on b.support_rep_id = r.support_rep_id and b.n = 1\norder by r.revenue desc;",
-                  "options": [
-                    "partition by",
-                    "split by",
-                    "order by",
-                    "group by"
-                  ],
-                  "answer": 0,
-                  "explanation": "per_customer is computed once and used twice: summed per rep and ranked per rep. SUM(…) OVER () with an empty window adds up all reps for the share. Peacock leads with 21 customers and 833.04.",
-                  "mysql": {
-                    "code": "with per_customer as (\n  select c.support_rep_id, c.customer_id, sum(i.total) as spent\n  from customer c\n  join invoice i on i.customer_id = c.customer_id\n  group by c.support_rep_id, c.customer_id\n),\nper_rep as (\n  select support_rep_id, count(*) as customers, sum(spent) as revenue\n  from per_customer\n  group by support_rep_id\n),\nbest as (\n  select support_rep_id, customer_id,\n         row_number() over (⟦?⟧ support_rep_id order by spent desc, customer_id) as n\n  from per_customer\n)\nselect e.last_name, r.customers, r.revenue,\n       round(100 * r.revenue / sum(r.revenue) over (), 1) as share_pct,\n       b.customer_id as best_customer\nfrom per_rep r\njoin employee e on e.employee_id = r.support_rep_id\njoin best b on b.support_rep_id = r.support_rep_id and b.n = 1\norder by r.revenue desc;",
-                    "options": [
-                      "partition by",
-                      "group by",
-                      "order by",
-                      "split by"
-                    ],
-                    "answer": 0
                   }
                 },
                 {
@@ -12309,27 +12376,26 @@
                 },
                 {
                   "kind": "gap",
-                  "exerciseId": "sakila-022",
-                  "prompt": "For every category, find the 3 most rented films. Show category, title, rentals and place (1–3). Break ties by title. Order by category, then place.",
-                  "code": "with film_rentals as (\n  select c.name as category, f.title, count(*) as rentals\n  from rental r\n  join inventory i      on i.inventory_id = r.inventory_id\n  join film f           on f.film_id = i.film_id\n  join film_category fc on fc.film_id = f.film_id\n  join category c       on c.category_id = fc.category_id\n  group by c.name, f.film_id, f.title\n)\nselect category, title, rentals, place\nfrom (\n  select *, row_number() over (⟦?⟧ category order by rentals desc, title) as place\n  from film_rentals\n) ranked\nwhere place <= 3\norder by category, place;",
+                  "exerciseId": "chinook-107",
+                  "prompt": "For each support rep: last_name, customers, revenue (invoice totals of their customers), share of all revenue in percent (1 decimal), and their highest-spending customer's id. Order by revenue descending.",
+                  "code": "with per_customer as (\n  select c.support_rep_id, c.customer_id, sum(i.total) as spent\n  from customer c\n  join invoice i on i.customer_id = c.customer_id\n  group by c.support_rep_id, c.customer_id\n),\nper_rep as (\n  select support_rep_id, count(*) as customers, sum(spent) as revenue\n  from per_customer\n  group by support_rep_id\n),\nbest as (\n  select support_rep_id, customer_id,\n         row_number() over (⟦?⟧ support_rep_id order by spent desc, customer_id) as n\n  from per_customer\n)\nselect e.last_name, r.customers, r.revenue,\n       round(100 * r.revenue / sum(r.revenue) over (), 1) as share_pct,\n       b.customer_id as best_customer\nfrom per_rep r\njoin employee e on e.employee_id = r.support_rep_id\njoin best b on b.support_rep_id = r.support_rep_id and b.n = 1\norder by r.revenue desc;",
                   "options": [
                     "partition by",
-                    "group by",
+                    "split by",
                     "order by",
-                    "split by"
+                    "group by"
                   ],
                   "answer": 0,
-                  "explanation": "ROW_NUMBER restarts at 1 in each category. The ranking happens in a subquery because window functions are calculated after WHERE.",
+                  "explanation": "per_customer is computed once and used twice: summed per rep and ranked per rep. SUM(…) OVER () with an empty window adds up all reps for the share. Peacock leads with 21 customers and 833.04.",
                   "mysql": {
-                    "code": "with film_rentals as (\n  select c.name as category, f.title, count(*) as rentals\n  from rental r\n  join inventory i      on i.inventory_id = r.inventory_id\n  join film f           on f.film_id = i.film_id\n  join film_category fc on fc.film_id = f.film_id\n  join category c       on c.category_id = fc.category_id\n  group by c.name, f.film_id, f.title\n)\nselect category, title, rentals, place\nfrom (\n  select film_rentals.*, row_number() over (⟦?⟧ category order by rentals desc, title) as place\n  from film_rentals\n) ranked\nwhere place <= 3\norder by category, place;",
+                    "code": "with per_customer as (\n  select c.support_rep_id, c.customer_id, sum(i.total) as spent\n  from customer c\n  join invoice i on i.customer_id = c.customer_id\n  group by c.support_rep_id, c.customer_id\n),\nper_rep as (\n  select support_rep_id, count(*) as customers, sum(spent) as revenue\n  from per_customer\n  group by support_rep_id\n),\nbest as (\n  select support_rep_id, customer_id,\n         row_number() over (⟦?⟧ support_rep_id order by spent desc, customer_id) as n\n  from per_customer\n)\nselect e.last_name, r.customers, r.revenue,\n       round(100 * r.revenue / sum(r.revenue) over (), 1) as share_pct,\n       b.customer_id as best_customer\nfrom per_rep r\njoin employee e on e.employee_id = r.support_rep_id\njoin best b on b.support_rep_id = r.support_rep_id and b.n = 1\norder by r.revenue desc;",
                     "options": [
                       "partition by",
-                      "split by",
+                      "group by",
                       "order by",
-                      "group by"
+                      "split by"
                     ],
-                    "answer": 0,
-                    "note": "MySQL does not allow * next to other columns without a table qualifier, so it is written film_rentals.*."
+                    "answer": 0
                   }
                 },
                 {

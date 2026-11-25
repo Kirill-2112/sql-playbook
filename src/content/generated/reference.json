@@ -18,7 +18,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 940,
+    "exerciseCount": 953,
     "exercises": [
       {
         "id": "sakila-001",
@@ -75,7 +75,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 754,
+    "exerciseCount": 762,
     "exercises": [
       {
         "id": "sakila-001",
@@ -132,7 +132,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 56,
+    "exerciseCount": 57,
     "exercises": [
       {
         "id": "sakila-003",
@@ -239,7 +239,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 602,
+    "exerciseCount": 612,
     "exercises": [
       {
         "id": "sakila-001",
@@ -403,7 +403,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 403,
+    "exerciseCount": 410,
     "exercises": [
       {
         "id": "sakila-003",
@@ -459,7 +459,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 43,
+    "exerciseCount": 44,
     "exercises": [
       {
         "id": "employees-072",
@@ -645,7 +645,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 135,
+    "exerciseCount": 141,
     "exercises": [
       {
         "id": "sakila-018",
@@ -899,7 +899,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 370,
+    "exerciseCount": 379,
     "exercises": [
       {
         "id": "chinook-070",
@@ -1004,7 +1004,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 403,
+    "exerciseCount": 416,
     "exercises": [
       {
         "id": "lahman-004",
@@ -1072,7 +1072,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 58,
+    "exerciseCount": 61,
     "exercises": [
       {
         "id": "delivery-058",
@@ -1580,7 +1580,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 65,
+    "exerciseCount": 66,
     "exercises": [
       {
         "id": "sakila-017",
@@ -1644,7 +1644,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 80,
+    "exerciseCount": 84,
     "exercises": [
       {
         "id": "sakila-006",
@@ -1708,7 +1708,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 53,
+    "exerciseCount": 54,
     "exercises": [
       {
         "id": "sakila-084",
@@ -1768,7 +1768,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 10,
+    "exerciseCount": 13,
     "exercises": [
       {
         "id": "employees-073",
@@ -1796,18 +1796,18 @@
         "level": 3
       },
       {
+        "id": "northwind-206",
+        "title": "Prices as numbers",
+        "level": 4
+      },
+      {
         "id": "lahman-039",
         "title": "Batting average as a column",
         "level": 4
       },
       {
-        "id": "lahman-065",
-        "title": "Team seasons with percentages",
-        "level": 4
-      },
-      {
-        "id": "lahman-101",
-        "title": "Strikeouts per nine innings as a column",
+        "id": "northwind-208",
+        "title": "What will change?",
         "level": 4
       }
     ]
@@ -1882,7 +1882,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 109,
+    "exerciseCount": 115,
     "exercises": [
       {
         "id": "sakila-004",
@@ -2204,7 +2204,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 369,
+    "exerciseCount": 377,
     "exercises": [
       {
         "id": "sakila-084",
@@ -2267,7 +2267,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 236,
+    "exerciseCount": 243,
     "exercises": [
       {
         "id": "sakila-082",
@@ -2325,7 +2325,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 81,
+    "exerciseCount": 84,
     "exercises": [
       {
         "id": "chinook-073",
@@ -2639,7 +2639,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 124,
+    "exerciseCount": 126,
     "exercises": [
       {
         "id": "chinook-070",
@@ -2807,7 +2807,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 11,
+    "exerciseCount": 12,
     "exercises": [
       {
         "id": "chinook-070",
@@ -2818,6 +2818,11 @@
         "id": "northwind-079",
         "title": "Top 11 prices, ties included",
         "level": 1
+      },
+      {
+        "id": "chinook-133",
+        "title": "Revenue per track in the catalog",
+        "level": 3
       },
       {
         "id": "northwind-154",
@@ -2842,11 +2847,6 @@
       {
         "id": "delivery-121",
         "title": "Top three restaurants of every city",
-        "level": 3
-      },
-      {
-        "id": "airlines-019",
-        "title": "The longest route from each Russian airport",
         "level": 3
       }
     ]
@@ -3434,7 +3434,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 13,
+    "exerciseCount": 18,
     "exercises": [
       {
         "id": "sakila-005",
@@ -3490,7 +3490,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 8,
+    "exerciseCount": 13,
     "exercises": [
       {
         "id": "northwind-137",
@@ -3523,14 +3523,14 @@
         "level": 4
       },
       {
-        "id": "lahman-051",
-        "title": "Clean names on the way in",
-        "level": 5
+        "id": "northwind-205",
+        "title": "Lines that match no product",
+        "level": 4
       },
       {
-        "id": "delivery-049",
-        "title": "Emails in lower case",
-        "level": 5
+        "id": "northwind-206",
+        "title": "Prices as numbers",
+        "level": 4
       }
     ]
   },
@@ -3635,7 +3635,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 3,
+    "exerciseCount": 6,
     "exercises": [
       {
         "id": "lahman-048",
@@ -3648,8 +3648,23 @@
         "level": 3
       },
       {
+        "id": "northwind-206",
+        "title": "Prices as numbers",
+        "level": 4
+      },
+      {
         "id": "delivery-105",
         "title": "An email built from other columns",
+        "level": 4
+      },
+      {
+        "id": "northwind-208",
+        "title": "What will change?",
+        "level": 4
+      },
+      {
+        "id": "northwind-209",
+        "title": "Load the new prices",
         "level": 4
       }
     ]
@@ -3999,7 +4014,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 142,
+    "exerciseCount": 150,
     "exercises": [
       {
         "id": "chinook-008",
@@ -4545,7 +4560,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 22,
+    "exerciseCount": 26,
     "exercises": [
       {
         "id": "northwind-020",
@@ -4568,6 +4583,11 @@
         "level": 2
       },
       {
+        "id": "sakila-132",
+        "title": "How many rentals come back late?",
+        "level": 3
+      },
+      {
         "id": "chinook-028",
         "title": "Days between purchases",
         "level": 3
@@ -4580,11 +4600,6 @@
       {
         "id": "employees-064",
         "title": "The longest wait for a raise",
-        "level": 3
-      },
-      {
-        "id": "adventureworks-018",
-        "title": "Shipping speed by method",
         "level": 3
       }
     ]
@@ -4896,7 +4911,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 188,
+    "exerciseCount": 195,
     "exercises": [
       {
         "id": "sakila-003",
@@ -4952,7 +4967,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 57,
+    "exerciseCount": 60,
     "exercises": [
       {
         "id": "employees-060",
@@ -6030,7 +6045,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 71,
+    "exerciseCount": 72,
     "exercises": [
       {
         "id": "sakila-034",
@@ -6090,7 +6105,7 @@
       ]
     ],
     "mysqlChecked": true,
-    "exerciseCount": 18,
+    "exerciseCount": 19,
     "exercises": [
       {
         "id": "sakila-034",

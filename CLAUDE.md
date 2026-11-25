@@ -161,6 +161,14 @@ Audit of 2026-10-15:
   the path. The intro shows only step numbers: leads reveal what the previous step found.
   Level 3 lab "Is the retention chart right?" on Delivery (`exercises/deliveryLabs.ts`, delivery-125..128): cohorts,
   retention, then a data check (orders dated before sign-up). 1,110 exercises.
+- More labs (2026-11-25): level 3 "Should we buy more Rock?" (Chinook, `exercises/chinookLabs.ts`, chinook-130..133),
+  level 3 "Who returns films late?" (Sakila, `sakilaLabs.ts`, sakila-132..135), level 4 "A supplier's new price list"
+  (Northwind, northwind-205..209 in northwindLabs.ts: a messy `price_list` via setupSql; look, clean, report, then
+  UPDATE with checkSql). Conclusions quote the steps' real results; recheck them if the data changes.
+- Write SQL (2026-11-25): `/write` (WriteTrackPage, entry card on Practice) lists every topic by level with
+  "written / total", plus "Interview classics" (`INTERVIEW_IDS` in `src/content/writeTrack.ts`). `/write/:set`
+  (WriteSessionPage) plays the next 5 exercises of the set not yet written, as write tasks; each success is saved at
+  once via LessonPlayer's `onTaskDone` into `written` (exercise id → first success, merged across devices).
 - Captcha: Cloudflare Turnstile on the email sign-in form (TurnstileWidget, loaded only there). The site key comes from
   TURNSTILE_SITE_KEY via api/config; with no key the form works without it. Supabase checks the token once the
   owner turns on Attack Protection → captcha with the secret key; the provider there must be "Turnstile" (the

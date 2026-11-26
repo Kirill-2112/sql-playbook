@@ -30,9 +30,8 @@ export function ReferencePage() {
   return (
     <Page>
       <Header>
-        <Eyebrow>Reference</Eyebrow>
-        <h1>Functions &amp; keywords</h1>
-        <p>Every keyword with an example you can run.</p>
+        <h1>Reference</h1>
+        <p>Every function, with an example.</p>
       </Header>
 
       <Search
@@ -68,39 +67,31 @@ const Page = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.space.lg};
+  max-width: 560px;
+  margin: 0 auto;
 `
 
 const Header = styled.header`
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: ${({ theme }) => theme.space.sm};
+  gap: ${({ theme }) => theme.space.xs};
 
   h1 {
     font-size: ${({ theme }) => theme.size.xl};
   }
 
   p {
-    font-size: ${({ theme }) => theme.size.lg};
     color: ${({ theme }) => theme.color.muted};
-    max-width: 65ch;
   }
 `
 
-const Eyebrow = styled.span`
-  font-size: ${({ theme }) => theme.size.xs};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: ${({ theme }) => theme.color.accent};
-`
 
 const Search = styled.input`
   width: 100%;
-  max-width: 480px;
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
+  min-height: 48px;
+  padding: 0 ${({ theme }) => theme.space.md};
   border: 1px solid ${({ theme }) => theme.color.line};
-  border-radius: ${({ theme }) => theme.radius.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.color.surface};
   color: ${({ theme }) => theme.color.ink};
   font: inherit;
@@ -112,13 +103,13 @@ const Section = styled.section`
   gap: ${({ theme }) => theme.space.sm};
 
   h2 {
-    font-size: ${({ theme }) => theme.size.lg};
+    font-size: ${({ theme }) => theme.size.md};
   }
 `
 
 const List = styled.div`
   border: 1px solid ${({ theme }) => theme.color.line};
-  border-radius: ${({ theme }) => theme.radius.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.color.surface};
   overflow: hidden;
 `

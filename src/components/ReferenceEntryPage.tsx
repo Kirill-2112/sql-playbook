@@ -5,6 +5,7 @@ import { entryName } from '../progress/dialect'
 import { useProgress } from '../progress/store'
 import { CodeBlock } from './CodeBlock'
 import { ExampleResult } from './ExampleResult'
+import { DRILL_SIZE } from './DrillPage'
 import { MysqlSupportPill } from './MysqlSupportPill'
 
 export function ReferenceEntryPage() {
@@ -29,29 +30,29 @@ export function ReferenceEntryPage() {
 
   return (
     <Page>
-      <Back to="/reference">← Functions &amp; keywords</Back>
+      <Back to="/reference">← Reference</Back>
 
       <Header>
-        <Eyebrow>{group?.name}</Eyebrow>
+        <small>{group?.name}</small>
         <h1>{entryName(entry, dialect)}</h1>
         <p>{entry.summary}</p>
         <MysqlSupportPill entry={entry} />
-        {/* Its exercises as a drill: the keyword practice, reached from where the keyword is explained. */}
+        {/* A drill of its easiest exercises, written in full, started right from where the keyword is explained. */}
         {generated && generated.exerciseCount > 0 && (
-          <PracticeLink to={`/practice/${entry.id}`}>Practice · {generated.exerciseCount} exercises</PracticeLink>
+          <PracticeLink to={`/practice/${entry.id}/drill`}>Practice · {Math.min(DRILL_SIZE, generated.exerciseCount)} exercises</PracticeLink>
         )}
       </Header>
 
-      <Section>
-        <h2>Syntax</h2>
+      <Section aria-labelledby="ref-syntax">
+        <h2 id="ref-syntax">Syntax</h2>
         <CodeBlock sql={syntax} />
         {mysql && entry.mysqlNote && <Note>{entry.mysqlNote}</Note>}
         {dialect === 'mysql' && entry.mysql === null && <Note>MySQL has no direct equivalent. This is the PostgreSQL syntax.</Note>}
       </Section>
 
       {example !== null && (
-        <Section>
-          <h2>Example</h2>
+        <Section aria-labelledby="ref-example">
+          <h2 id="ref-example">Example</h2>
           <CodeBlock sql={example} />
           {generated && (
             <>
@@ -91,18 +92,22 @@ export function ReferenceEntryPage() {
   )
 }
 
+// The same frame as the other pages: a page title, plain text, white cards, one kind of button.
 const Page = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.space.xl};
+  gap: ${({ theme }) => theme.space.lg};
+  max-width: 560px;
+  margin: 0 auto;
 `
 
 const PracticeLink = styled(Link)`
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 ${({ theme }) => theme.space.md};
-  border-radius: ${({ theme }) => theme.radius.md};
+  align-self: stretch;
+  min-height: 52px;
+  display: grid;
+  place-items: center;
+  margin-top: ${({ theme }) => theme.space.sm};
+  border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.color.good};
   box-shadow: 0 4px 0 ${({ theme }) => theme.color.goodStrong};
   color: ${({ theme }) => theme.color.surface};
@@ -111,7 +116,14 @@ const PracticeLink = styled(Link)`
 `
 
 const Back = styled(Link)`
+  align-self: flex-start;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  margin-bottom: -${({ theme }) => theme.space.md};
   font-size: ${({ theme }) => theme.size.sm};
+  font-weight: 600;
+  color: ${({ theme }) => theme.color.accent};
   text-decoration: none;
 `
 
@@ -119,60 +131,49 @@ const Header = styled.header`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: ${({ theme }) => theme.space.sm};
+  gap: ${({ theme }) => theme.space.xs};
+
+  small {
+    font-size: ${({ theme }) => theme.size.sm};
+    color: ${({ theme }) => theme.color.muted};
+  }
 
   h1 {
-    font-family: ${({ theme }) => theme.font.mono};
     font-size: ${({ theme }) => theme.size.xl};
-    font-weight: 500;
+    line-height: 1.2;
+    overflow-wrap: anywhere;
   }
 
   p {
-    font-size: ${({ theme }) => theme.size.lg};
-    color: ${({ theme }) => theme.color.muted};
-    max-width: 65ch;
+    line-height: 1.5;
   }
-`
-
-const Eyebrow = styled.span`
-  font-size: ${({ theme }) => theme.size.xs};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: ${({ theme }) => theme.color.accent};
 `
 
 const Section = styled.section`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.space.sm};
+  padding: ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: 1px solid ${({ theme }) => theme.color.line};
+  background: ${({ theme }) => theme.color.surface};
 
   h2 {
-    font-size: ${({ theme }) => theme.size.lg};
+    font-size: ${({ theme }) => theme.size.md};
   }
 `
 
-
-
 const Label = styled.span`
-  font-size: ${({ theme }) => theme.size.xs};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: ${({ theme }) => theme.color.muted};
   margin-top: ${({ theme }) => theme.space.xs};
+  font-size: ${({ theme }) => theme.size.sm};
+  color: ${({ theme }) => theme.color.muted};
 `
-
 
 const Note = styled.p`
   font-size: ${({ theme }) => theme.size.sm};
   color: ${({ theme }) => theme.color.muted};
   max-width: 75ch;
 `
-
-
-
-
 
 const Card = styled.a`
   display: grid;

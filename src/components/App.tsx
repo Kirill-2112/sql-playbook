@@ -16,7 +16,7 @@ import { LevelCheckPage } from './LevelCheckPage'
 import { LessonPage } from './LessonPage'
 import { LicensesPage } from './LicensesPage'
 import { DrillPage } from './DrillPage'
-import { KeywordPage } from './KeywordPage'
+import { KeywordRedirect } from './KeywordRedirect'
 import { LabPage } from './LabPage'
 import { WriteSessionPage } from './WriteSessionPage'
 import { WriteTrackPage } from './WriteTrackPage'
@@ -56,7 +56,7 @@ export function App() {
             <Route path="settings" element={<SettingsPage />} />
             <Route path="practice" element={<WriteTrackPage />} />
             <Route path="write" element={<Navigate to="/practice" replace />} />
-            <Route path="practice/:id" element={<KeywordPage />} />
+            <Route path="practice/:id" element={<KeywordRedirect />} />
             <Route path="exercises" element={<ExercisesPage />} />
             <Route path="exercises/:id" element={<ExercisePage />} />
             <Route path="datasets/:id" element={<DatasetPage />} />

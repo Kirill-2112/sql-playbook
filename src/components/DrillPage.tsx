@@ -3,8 +3,10 @@ import { Navigate, useParams } from 'react-router-dom'
 import { useReference } from '../hooks/useReference'
 import { entryName } from '../progress/dialect'
 import { recordPractice, useProgress } from '../progress/store'
-import { DRILL_SIZE } from './KeywordPage'
 import { LessonPlayer, Screen, type PlayerTask } from './LessonPlayer'
+
+/** How many exercises a keyword drill plays. */
+export const DRILL_SIZE = 5
 
 // A practice drill for one keyword: its easiest exercises, written in full, one after another.
 export function DrillPage() {
@@ -21,5 +23,5 @@ export function DrillPage() {
 
   if (!data) return <Screen>Loading…</Screen>
   if (!entry || tasks.length === 0) return <Navigate to="/reference" replace />
-  return <LessonPlayer title={entryName(entry, dialect)} tasks={tasks} onFinish={finish} exitTo={`/practice/${entry.id}`} />
+  return <LessonPlayer title={entryName(entry, dialect)} tasks={tasks} onFinish={finish} exitTo={`/reference/${entry.id}`} />
 }

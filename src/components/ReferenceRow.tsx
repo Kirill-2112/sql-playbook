@@ -45,9 +45,7 @@ const Row = styled(Link)`
 `
 
 const Name = styled.span`
-  font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.size.sm};
-  font-weight: 500;
+  font-weight: 600;
 `
 
 const Summary = styled.span`

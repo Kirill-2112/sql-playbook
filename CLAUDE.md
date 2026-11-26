@@ -111,8 +111,9 @@ Audit of 2026-10-15:
 - Learning app v1 (2026-10-22): path for levels 1–2 (62 lessons), XP, streak, daily goal, bottom tabs on phones.
 - PWA: public/manifest.webmanifest, public/icons/, public/sw.js (cache-first for hashed assets, network-first otherwise).
 - Reviews: missed tasks go into Leitner boxes (`review` in the store), due 1, 2, 4, 8 days later; `/review`.
-- Practice by keyword: `/practice/:id` (from the "Practice" button on a reference entry), `/practice/:id/drill`
-  (the entry's easiest exercises as write tasks). `LessonPlayer` plays lessons, reviews and drills alike.
+- Practice by keyword: the "Practice" button on a reference entry starts `/practice/:id/drill` (the entry's 5 easiest
+  exercises as write tasks; leaving returns to the entry). `/practice/:id` redirects to the entry. The reference pages
+  share the app's frame (page title, white cards, one button style; 2026-11-26). `LessonPlayer` plays lessons, reviews and drills alike.
 - Levels 1–5 in the path (170 lessons). First launch (`/welcome`, `onboarded` in the store) asks why, what the learner
   knows (opens levels) and the daily goal. `MeetDatabase` introduces a dataset before its first task (`seenDatasets`).
   Generator: solutions with recursion or loops only vary keywords that cannot break termination (PGlite has no

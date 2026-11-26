@@ -42,10 +42,6 @@ export function ReferenceEntryPage() {
         <h1>{entryName(entry, dialect)}</h1>
         <p>{entry.summary}</p>
         <MysqlSupportPill entry={entry} />
-        {/* A drill of its easiest exercises, written in full, started right from where the keyword is explained. */}
-        {generated && generated.exerciseCount > 0 && (
-          <PracticeLink to={`/practice/${entry.id}/drill`}>Practice · {Math.min(DRILL_SIZE, generated.exerciseCount)} exercises</PracticeLink>
-        )}
       </Header>
 
       <Section aria-labelledby="ref-syntax">
@@ -59,13 +55,19 @@ export function ReferenceEntryPage() {
         <Section aria-labelledby="ref-example">
           <h2 id="ref-example">Example</h2>
           <CodeBlock sql={example} />
-          {generated && (
-            <>
-              <Label>Result</Label>
-              <ExampleResult result={generated} />
-            </>
-          )}
         </Section>
+      )}
+
+      {example !== null && generated && (
+        <Section aria-labelledby="ref-result">
+          <h2 id="ref-result">Result</h2>
+          <ExampleResult result={generated} />
+        </Section>
+      )}
+
+      {/* After the explanation, the drill: its easiest exercises, written in full. */}
+      {generated && generated.exerciseCount > 0 && (
+        <PracticeLink to={`/practice/${entry.id}/drill`}>Practice · {Math.min(DRILL_SIZE, generated.exerciseCount)} exercises</PracticeLink>
       )}
 
       {/* The official page for the learner's dialect, then the neighbours: cards like the rest of the app. */}
@@ -107,11 +109,9 @@ const Page = styled.div`
 `
 
 const PracticeLink = styled(Link)`
-  align-self: stretch;
   min-height: 52px;
   display: grid;
   place-items: center;
-  margin-top: ${({ theme }) => theme.space.sm};
   border-radius: ${({ theme }) => theme.radius.lg};
   background: ${({ theme }) => theme.color.good};
   box-shadow: 0 4px 0 ${({ theme }) => theme.color.goodStrong};
@@ -168,14 +168,8 @@ const Section = styled.section`
   }
 `
 
-const Label = styled.span`
-  margin-top: ${({ theme }) => theme.space.xs};
-  font-size: ${({ theme }) => theme.size.sm};
-  color: ${({ theme }) => theme.color.muted};
-`
 
 const Note = styled.p`
-  font-size: ${({ theme }) => theme.size.sm};
   color: ${({ theme }) => theme.color.muted};
   max-width: 75ch;
 `
@@ -192,8 +186,9 @@ const Card = styled.a`
   color: ${({ theme }) => theme.color.ink};
   text-decoration: none;
 
+  /* One size in every card: the label is the same text, only grey. */
   small {
-    font-size: ${({ theme }) => theme.size.xs};
+    font-size: inherit;
     color: ${({ theme }) => theme.color.muted};
   }
 
@@ -229,7 +224,7 @@ const PagerLink = styled(Link)`
   text-decoration: none;
 
   small {
-    font-size: ${({ theme }) => theme.size.xs};
+    font-size: inherit;
     color: ${({ theme }) => theme.color.muted};
   }
 

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled, { css } from 'styled-components'
 import { CHECK_LEVELS } from '../content/levelCheck'
-import { useCourse } from '../hooks/useCourse'
 import { finishOnboarding, type Dialect } from '../progress/store'
 
 const DIALECT: readonly (readonly [string, string, Dialect])[] = [
@@ -15,16 +14,14 @@ type Step = 0 | 1 | 2
 const LAST: Step = 2
 
 /**
- * First launch: the dialect (every task is shown in it), then where to start: the first lesson or the level check,
- * which opens the levels the learner already knows. The daily goal is asked after
+ * First launch: the dialect (every task is shown in it), then where to start: the home screen from Level 1, or the
+ * level check, which opens the levels the learner already knows. The daily goal is asked after
  * the first lesson, when XP means something.
  */
 export function WelcomePage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>(0)
   const [dialect, setDialectChoice] = useState<number | null>(null)
-  // "I'm new" opens the very first lesson; the path is one tap away from it.
-  const firstLesson = useCourse()?.units[0]?.skills[0]?.lessons[0]?.id
 
   function finish(to: string) {
     finishOnboarding(DIALECT[dialect ?? 0]?.[2] ?? 'postgres')
@@ -68,10 +65,10 @@ export function WelcomePage() {
         <Body>
           <h1 id="welcome-start">Where should you start?</h1>
           <Options role="group" aria-labelledby="welcome-start">
-            <Option type="button" $on={false} onClick={() => finish(firstLesson ? `/learn/${firstLesson}` : '/path')}>
+            <Option type="button" $on={false} onClick={() => finish('/')}>
               <span>
                 <strong>I&apos;m new to SQL</strong>
-                <small>Start with the first lesson.</small>
+                <small>Start from the basics.</small>
               </span>
             </Option>
             <Option type="button" $on={false} onClick={() => finish('/level-check')}>

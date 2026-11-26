@@ -3,6 +3,7 @@ import styled from 'styled-components'
 import { useReference } from '../hooks/useReference'
 import { entryName } from '../progress/dialect'
 import { useProgress } from '../progress/store'
+import { BackButton } from './BackButton'
 import { CodeBlock } from './CodeBlock'
 import { ExampleResult } from './ExampleResult'
 import { DRILL_SIZE } from './DrillPage'
@@ -23,7 +24,6 @@ export function ReferenceEntryPage() {
   const entry = data.entries[index]
   if (!entry) return <Navigate to="/reference" replace />
   const generated = data.generated[entry.id]
-  const group = data.groups.find((g) => g.id === entry.group)
   const previous = data.entries[index - 1]
   const next = data.entries[index + 1]
   // Shown in the learner's dialect only. In MySQL mode: the MySQL syntax and example (the example's text is the same
@@ -35,10 +35,9 @@ export function ReferenceEntryPage() {
 
   return (
     <Page>
-      <Back to="/reference">← Reference</Back>
+      <BackButton to="/reference" label="Back to the reference" />
 
       <Header>
-        <small>{group?.name}</small>
         <h1>{entryName(entry, dialect)}</h1>
         <p>{entry.summary}</p>
         <MysqlSupportPill entry={entry} />
@@ -120,28 +119,12 @@ const PracticeLink = styled(Link)`
   text-decoration: none;
 `
 
-const Back = styled(Link)`
-  align-self: flex-start;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  margin-bottom: -${({ theme }) => theme.space.md};
-  font-size: ${({ theme }) => theme.size.sm};
-  font-weight: 600;
-  color: ${({ theme }) => theme.color.accent};
-  text-decoration: none;
-`
 
 const Header = styled.header`
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: ${({ theme }) => theme.space.xs};
-
-  small {
-    font-size: ${({ theme }) => theme.size.sm};
-    color: ${({ theme }) => theme.color.muted};
-  }
 
   h1 {
     font-size: ${({ theme }) => theme.size.xl};

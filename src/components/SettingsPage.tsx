@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import { NATIVE } from '../platform'
 import { DAILY_GOALS, resetProgress, setDailyGoal, useProgress } from '../progress/store'
+import { BackButton } from './BackButton'
 import { DialectCard } from './DialectCard'
 import { RemindersCard } from './RemindersCard'
 
@@ -11,7 +12,7 @@ export function SettingsPage() {
 
   return (
     <Page>
-      <Back to="/progress">← Progress</Back>
+      <BackButton to="/progress" label="Back to Progress" />
       <h1>Settings</h1>
 
       <Card>
@@ -73,17 +74,6 @@ const Page = styled.div`
   }
 `
 
-const Back = styled(Link)`
-  align-self: flex-start;
-  min-height: 44px;
-  display: inline-flex;
-  align-items: center;
-  margin-bottom: -${({ theme }) => theme.space.md};
-  font-size: ${({ theme }) => theme.size.sm};
-  font-weight: 600;
-  color: ${({ theme }) => theme.color.accent};
-  text-decoration: none;
-`
 
 const Card = styled.section`
   display: flex;

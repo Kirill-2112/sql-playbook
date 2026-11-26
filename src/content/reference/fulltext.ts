@@ -86,6 +86,7 @@ order by match (body) against ('database') desc, id;`,
   {
     id: 'gin-index',
     name: 'GIN index / FULLTEXT index',
+    mysqlName: 'FULLTEXT index',
     group: 'fulltext',
     summary:
       'Without an index every search parses every row. A GIN index on the tsvector expression makes @@ fast; the query must use exactly the same expression.',

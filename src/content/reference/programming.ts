@@ -12,6 +12,7 @@ export const programmingEntries: ReferenceEntry[] = [
   {
     id: 'create-function-sql',
     name: 'CREATE FUNCTION (SQL)',
+    mysqlName: 'CREATE FUNCTION',
     group: 'programming',
     summary:
       'Saves an expression or query under a name, with parameters, so it can be called like a built-in function. IMMUTABLE/STABLE tell PostgreSQL how much it may optimise.',
@@ -33,6 +34,7 @@ select with_tax(10) as price;`,
   {
     id: 'plpgsql',
     name: 'PL/pgSQL: DECLARE, IF, RETURN',
+    mysqlName: 'Stored programs: DECLARE, IF, RETURN',
     group: 'programming',
     summary:
       'PL/pgSQL adds variables, conditions and loops to functions. The body is a string between $$ … $$: DECLARE lists variables, BEGIN … END holds the statements, := assigns.',
@@ -74,6 +76,7 @@ select grade(95) as a, grade(80) as b, grade(10) as c;`,
   {
     id: 'loops',
     name: 'Loops: FOR, WHILE, LOOP',
+    mysqlName: 'Loops: WHILE, REPEAT, LOOP',
     group: 'programming',
     summary: 'Repeat statements inside a function or procedure. Prefer one set-based SQL statement when you can; loops are for logic that really is step by step.',
     postgres: 'for i in 1..10 loop … end loop;\nwhile x < 100 loop … end loop;\nfor r in select … loop … end loop;',
@@ -112,6 +115,7 @@ select factorial(5) as f5, factorial(10) as f10;`,
   {
     id: 'returns-table',
     name: 'RETURNS TABLE',
+    mysqlName: 'A procedure that returns rows',
     group: 'programming',
     summary: 'A function that returns rows, used in FROM like a table with parameters.',
     postgres: 'create function cheap_items(max_price int)\nreturns table (id int, name varchar)\nlanguage sql as $$\n  select id, name from item where price <= max_price\n$$;\nselect * from cheap_items(5);',
@@ -199,6 +203,7 @@ select count(*) as items from item;`,
   {
     id: 'raise-signal',
     name: 'RAISE EXCEPTION / SIGNAL',
+    mysqlName: 'SIGNAL',
     group: 'programming',
     summary:
       'Stops with an error from inside a function or trigger, with your own message, when data breaks a business rule. The whole statement is rolled back.',
@@ -233,6 +238,7 @@ select checked_qty(3) as ok;`,
   {
     id: 'exception-handler',
     name: 'EXCEPTION WHEN / DECLARE HANDLER',
+    mysqlName: 'DECLARE HANDLER',
     group: 'programming',
     summary: 'Catches an error inside a function and does something else instead, for example returns NULL for text that is not a number.',
     postgres: 'begin\n  return s::int;\nexception\n  when invalid_text_representation then return null;\nend;',

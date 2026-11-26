@@ -110,6 +110,8 @@ export interface ReferenceEntry {
   /** Stable slug used in URLs, e.g. "coalesce". */
   id: string
   name: string
+  /** The name in MySQL, when the PostgreSQL one does not fit (STRING_AGG is GROUP_CONCAT there). */
+  mysqlName?: string
   group: ReferenceGroupId
   /** One or two sentences in our own words. */
   summary: string

@@ -62,6 +62,7 @@ export const stringEntries: ReferenceEntry[] = [
   {
     id: 'upper-lower',
     name: 'UPPER / LOWER / INITCAP',
+    mysqlName: 'UPPER / LOWER',
     group: 'strings',
     summary: 'Change letter case. INITCAP capitalises the first letter of every word (PostgreSQL only).',
     postgres: 'upper(name)\nlower(email)\ninitcap(name)',
@@ -115,6 +116,7 @@ export const stringEntries: ReferenceEntry[] = [
   {
     id: 'position',
     name: 'POSITION / STRPOS',
+    mysqlName: 'POSITION / LOCATE',
     group: 'strings',
     summary: 'Where a substring starts (1-based), or 0 when it is not found.',
     postgres: "position('@' in email)\nstrpos(email, '@')",
@@ -133,6 +135,7 @@ export const stringEntries: ReferenceEntry[] = [
   {
     id: 'replace',
     name: 'REPLACE / TRANSLATE',
+    mysqlName: 'REPLACE',
     group: 'strings',
     summary: 'REPLACE swaps every occurrence of a substring. TRANSLATE maps single characters one to one (PostgreSQL only).',
     postgres: "replace(phone, '-', '')\ntranslate(s, 'áé', 'ae')",
@@ -167,6 +170,7 @@ export const stringEntries: ReferenceEntry[] = [
   {
     id: 'split-part',
     name: 'SPLIT_PART',
+    mysqlName: 'SUBSTRING_INDEX',
     group: 'strings',
     summary: 'Splits a string by a delimiter and returns the n-th piece, e.g. the domain of an e-mail address.',
     postgres: "split_part(email, '@', 2)",
@@ -202,6 +206,7 @@ export const stringEntries: ReferenceEntry[] = [
   {
     id: 'format',
     name: 'FORMAT',
+    mysqlName: 'CONCAT into a sentence',
     group: 'strings',
     summary:
       'PostgreSQL: builds a string from a template, like printf (%s for a value, %I for a quoted identifier, %L for a quoted literal). MySQL\'s FORMAT is different: it formats a number with thousands separators.',
@@ -261,6 +266,7 @@ select code, regexp_like(code, '^[A-Z]{2}[0-9]+$', 'c') as valid from t order by
   {
     id: 'string-to-array',
     name: 'STRING_TO_ARRAY / REGEXP_SPLIT_TO_TABLE',
+    mysqlName: 'JSON_TABLE to split a string',
     group: 'strings',
     summary: 'Splits a delimited string into an array, or straight into rows, so a list stored in one column can be joined and counted.',
     postgres: "string_to_array(tags, ',')\nunnest(string_to_array(tags, ','))\nregexp_split_to_table(tags, ',')",

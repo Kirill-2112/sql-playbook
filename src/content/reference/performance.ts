@@ -98,6 +98,7 @@ select id from customer where active and city = 'Oslo' order by id;`,
   {
     id: 'covering-index',
     name: 'Covering index (INCLUDE)',
+    mysqlName: 'Covering index',
     group: 'performance',
     summary:
       'When an index holds every column a query needs, the database can answer from the index alone (an index-only scan). INCLUDE adds columns to the index without sorting by them.',

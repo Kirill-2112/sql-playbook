@@ -107,6 +107,7 @@ select id, status from ticket order by id;`,
   {
     id: 'identity',
     name: 'IDENTITY / AUTO_INCREMENT',
+    mysqlName: 'AUTO_INCREMENT',
     group: 'ddl',
     summary:
       'A column that numbers new rows automatically. GENERATED ALWAYS AS IDENTITY is the modern PostgreSQL form (serial is the older one).',
@@ -254,6 +255,7 @@ select (select count(*) from pricey) as before_refresh;`,
   {
     id: 'schema',
     name: 'CREATE SCHEMA',
+    mysqlName: 'CREATE DATABASE',
     group: 'ddl',
     summary: 'A schema is a namespace for tables inside one database: sales.orders and hr.orders can coexist. search_path decides which schemas a bare name looks in.',
     postgres: 'create schema sales;\ncreate table sales.orders (…);',
@@ -326,6 +328,7 @@ select (select count(*) from event partition (p2025)) as in_2025, (select count(
   {
     id: 'drop',
     name: 'DROP … IF EXISTS / CASCADE',
+    mysqlName: 'DROP … IF EXISTS',
     group: 'ddl',
     summary: 'Deletes a table, view or other object with its data. IF EXISTS avoids an error when it is missing; CASCADE also drops objects that depend on it.',
     postgres: 'drop table if exists staging cascade;',

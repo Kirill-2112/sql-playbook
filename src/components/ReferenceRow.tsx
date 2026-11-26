@@ -1,12 +1,15 @@
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import type { ReferenceEntry } from '../content/types'
+import { entryName } from '../progress/dialect'
+import { useProgress } from '../progress/store'
 import { MysqlSupportPill } from './MysqlSupportPill'
 
 export function ReferenceRow({ entry }: { entry: ReferenceEntry }) {
+  const { dialect } = useProgress()
   return (
     <Row to={`/reference/${entry.id}`}>
-      <Name>{entry.name}</Name>
+      <Name>{entryName(entry, dialect)}</Name>
       <Summary>{entry.summary}</Summary>
       <Side>
         <MysqlSupportPill entry={entry} />

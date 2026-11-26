@@ -1,7 +1,12 @@
-import type { LessonTask } from '../content/types'
+import type { LessonTask, ReferenceEntry } from '../content/types'
 import type { Dialect } from './store'
 
 export const DIALECT_NAMES: Record<Dialect, string> = { postgres: 'PostgreSQL', mysql: 'MySQL' }
+
+/** A reference entry's name as the learner's dialect calls it. */
+export function entryName(entry: ReferenceEntry, dialect: Dialect): string {
+  return dialect === 'mysql' && entry.mysqlName ? entry.mysqlName : entry.name
+}
 
 /**
  * A lesson task in the learner's dialect: in MySQL mode, the MySQL version built by the lesson generator replaces

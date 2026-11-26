@@ -100,6 +100,7 @@ where rn = 1;`,
   {
     id: 'order-by',
     name: 'ORDER BY … NULLS FIRST / LAST',
+    mysqlName: 'ORDER BY … IS NULL',
     group: 'query',
     summary:
       'Sorts the result. Without ORDER BY the row order is not guaranteed. PostgreSQL puts NULLs last when sorting up, MySQL puts them first; NULLS FIRST/LAST makes it explicit.',

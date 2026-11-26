@@ -72,6 +72,7 @@ from sale;`,
   {
     id: 'filter',
     name: 'FILTER (WHERE …)',
+    mysqlName: 'SUM(CASE WHEN …)',
     group: 'aggregates',
     summary:
       'Restricts one aggregate to the rows that match, so one query can count several things side by side ("conditional aggregation").',
@@ -103,6 +104,7 @@ order by shop;`,
   {
     id: 'string-agg',
     name: 'STRING_AGG',
+    mysqlName: 'GROUP_CONCAT',
     group: 'aggregates',
     summary: 'Joins the values of a group into one string with a separator, in the order you choose.',
     postgres: "string_agg(name, ', ' order by name)",
@@ -129,6 +131,7 @@ order by shop;`,
   {
     id: 'bool-and-or',
     name: 'BOOL_AND / BOOL_OR',
+    mysqlName: 'MIN / MAX of true or false',
     group: 'aggregates',
     summary: 'True when the condition holds for every row of the group (BOOL_AND) or for at least one (BOOL_OR).',
     postgres: 'bool_and(paid)\nbool_or(amount > 100)',

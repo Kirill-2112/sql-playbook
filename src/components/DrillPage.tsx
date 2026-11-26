@@ -1,7 +1,8 @@
 import { useCallback, useMemo } from 'react'
 import { Navigate, useParams } from 'react-router-dom'
 import { useReference } from '../hooks/useReference'
-import { recordPractice } from '../progress/store'
+import { entryName } from '../progress/dialect'
+import { recordPractice, useProgress } from '../progress/store'
 import { DRILL_SIZE } from './KeywordPage'
 import { LessonPlayer, Screen, type PlayerTask } from './LessonPlayer'
 
@@ -9,6 +10,7 @@ import { LessonPlayer, Screen, type PlayerTask } from './LessonPlayer'
 export function DrillPage() {
   const { id = '' } = useParams()
   const data = useReference()
+  const { dialect } = useProgress()
   const entry = data?.entries.find((e) => e.id === id)
   const tasks = useMemo<PlayerTask[]>(
     () =>
@@ -19,5 +21,5 @@ export function DrillPage() {
 
   if (!data) return <Screen>Loading…</Screen>
   if (!entry || tasks.length === 0) return <Navigate to="/practice" replace />
-  return <LessonPlayer title={entry.name} tasks={tasks} onFinish={finish} exitTo={`/practice/${entry.id}`} />
+  return <LessonPlayer title={entryName(entry, dialect)} tasks={tasks} onFinish={finish} exitTo={`/practice/${entry.id}`} />
 }

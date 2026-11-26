@@ -113,6 +113,7 @@ order by name;`,
   {
     id: 'is-distinct-from',
     name: 'IS DISTINCT FROM',
+    mysqlName: '<=> (NULL-safe equals)',
     group: 'conditional',
     summary: 'A comparison that treats NULL as an ordinary value: NULL is not distinct from NULL, and 1 is distinct from NULL. Handy for "did this value change?".',
     postgres: 'where old_value is distinct from new_value',
@@ -170,6 +171,7 @@ select id from t where status in ('new', 'paid') order by id;`,
   {
     id: 'like-ilike',
     name: 'LIKE / ILIKE',
+    mysqlName: 'LIKE',
     group: 'conditional',
     summary:
       'Pattern matching: % stands for any run of characters, _ for exactly one. LIKE is case-sensitive in PostgreSQL; ILIKE ignores case.',

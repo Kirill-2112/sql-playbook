@@ -1,6 +1,8 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { useReference } from '../hooks/useReference'
+import { entryName } from '../progress/dialect'
+import { useProgress } from '../progress/store'
 import { CodeBlock } from './CodeBlock'
 import { ExampleResult } from './ExampleResult'
 import { LevelBadge } from './LevelBadge'
@@ -9,6 +11,7 @@ import { MysqlSupportPill } from './MysqlSupportPill'
 export function ReferenceEntryPage() {
   const { id } = useParams()
   const data = useReference()
+  const { dialect } = useProgress()
   if (data === null) return <Muted>Loading…</Muted>
 
   const index = data.entries.findIndex((e) => e.id === id)
@@ -18,7 +21,11 @@ export function ReferenceEntryPage() {
   const group = data.groups.find((g) => g.id === entry.group)
   const previous = data.entries[index - 1]
   const next = data.entries[index + 1]
-  const mysqlExample = entry.example.mysql === undefined ? null : entry.example.mysql
+  // Shown in the learner's dialect only. In MySQL mode: the MySQL syntax and example (the example's text is the same
+  // when `example.mysql` is undefined, absent when null); a feature MySQL lacks keeps its PostgreSQL syntax, marked.
+  const mysql = dialect === 'mysql' && entry.mysql !== null
+  const syntax = mysql ? entry.mysql! : entry.postgres
+  const example = mysql ? (entry.example.mysql === undefined ? entry.example.postgres : entry.example.mysql) : entry.example.postgres
 
   return (
     <Page>
@@ -26,44 +33,30 @@ export function ReferenceEntryPage() {
 
       <Header>
         <Eyebrow>{group?.name}</Eyebrow>
-        <h1>{entry.name}</h1>
+        <h1>{entryName(entry, dialect)}</h1>
         <p>{entry.summary}</p>
         <MysqlSupportPill entry={entry} />
       </Header>
 
       <Section>
         <h2>Syntax</h2>
-        <Columns>
-          <Column>
-            <Label>PostgreSQL</Label>
-            <CodeBlock sql={entry.postgres} />
-          </Column>
-          <Column>
-            <Label>MySQL 8.4</Label>
-            {entry.mysql === null ? <Missing>No direct equivalent.</Missing> : <CodeBlock sql={entry.mysql} />}
-          </Column>
-        </Columns>
-        {entry.mysqlNote && <Note>{entry.mysqlNote}</Note>}
+        <CodeBlock sql={syntax} />
+        {mysql && entry.mysqlNote && <Note>{entry.mysqlNote}</Note>}
+        {dialect === 'mysql' && entry.mysql === null && <Note>MySQL has no direct equivalent. This is the PostgreSQL syntax.</Note>}
       </Section>
 
-      <Section>
-        <h2>Example</h2>
-        <CodeBlock sql={entry.example.postgres} />
-        {generated && (
-          <>
-            <Label>Result</Label>
-            <ExampleResult result={generated} />
-          </>
-        )}
-        {entry.example.mysql === undefined && <Note>The same query runs on MySQL 8.4 and returns the same rows.</Note>}
-        {mysqlExample !== null && (
-          <>
-            <Label>MySQL 8.4 version, same rows</Label>
-            <CodeBlock sql={mysqlExample} />
-          </>
-        )}
-        {entry.example.mysql === null && <Note>This example has no MySQL version.</Note>}
-      </Section>
+      {example !== null && (
+        <Section>
+          <h2>Example</h2>
+          <CodeBlock sql={example} />
+          {generated && (
+            <>
+              <Label>Result</Label>
+              <ExampleResult result={generated} />
+            </>
+          )}
+        </Section>
+      )}
 
       <Section>
         <h2>Used in exercises</h2>
@@ -104,8 +97,8 @@ export function ReferenceEntryPage() {
       </Section>
 
       <Pager>
-        {previous ? <Link to={`/reference/${previous.id}`}>← {previous.name}</Link> : <span />}
-        {next && <Link to={`/reference/${next.id}`}>{next.name} →</Link>}
+        {previous ? <Link to={`/reference/${previous.id}`}>← {entryName(previous, dialect)}</Link> : <span />}
+        {next && <Link to={`/reference/${next.id}`}>{entryName(next, dialect)} →</Link>}
       </Pager>
     </Page>
   )
@@ -159,22 +152,7 @@ const Section = styled.section`
   }
 `
 
-const Columns = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: ${({ theme }) => theme.space.md};
 
-  @media (max-width: 800px) {
-    grid-template-columns: 1fr;
-  }
-`
-
-const Column = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.space.xs};
-  min-width: 0;
-`
 
 const Label = styled.span`
   font-size: ${({ theme }) => theme.size.xs};
@@ -185,13 +163,6 @@ const Label = styled.span`
   margin-top: ${({ theme }) => theme.space.xs};
 `
 
-const Missing = styled.div`
-  padding: ${({ theme }) => theme.space.md};
-  border: 1px dashed ${({ theme }) => theme.color.line};
-  border-radius: ${({ theme }) => theme.radius.md};
-  color: ${({ theme }) => theme.color.muted};
-  font-size: ${({ theme }) => theme.size.sm};
-`
 
 const Note = styled.p`
   font-size: ${({ theme }) => theme.size.sm};

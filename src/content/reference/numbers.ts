@@ -97,6 +97,7 @@ export const numberEntries: ReferenceEntry[] = [
   {
     id: 'random',
     name: 'RANDOM',
+    mysqlName: 'RAND',
     group: 'numbers',
     summary: 'A random number from 0 (inclusive) to 1 (exclusive). ORDER BY random() LIMIT n picks random rows, but it reads the whole table.',
     postgres: 'random()\norder by random() limit 5',
@@ -115,6 +116,7 @@ export const numberEntries: ReferenceEntry[] = [
   {
     id: 'generate-series',
     name: 'GENERATE_SERIES',
+    mysqlName: 'Number series with a recursive CTE',
     group: 'numbers',
     summary:
       'Produces a series of numbers or timestamps as rows. Join it to your data with LEFT JOIN to show days or months that have no rows.',
@@ -131,6 +133,7 @@ export const numberEntries: ReferenceEntry[] = [
   {
     id: 'width-bucket',
     name: 'WIDTH_BUCKET',
+    mysqlName: 'FLOOR into buckets',
     group: 'numbers',
     summary: 'Puts a value into one of n equal-width buckets between a low and a high bound. A quick way to build a histogram.',
     postgres: 'width_bucket(price, 0, 100, 4)',

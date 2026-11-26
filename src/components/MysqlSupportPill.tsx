@@ -1,9 +1,14 @@
 import type { ReferenceEntry } from '../content/types'
+import { useProgress } from '../progress/store'
 import { StatusPill } from './StatusPill'
 
-// Whether a reference entry works unchanged in MySQL, needs another spelling, or has no equivalent.
+/**
+ * The reference speaks the learner's dialect, so there is nothing to compare: the only mark left is on a feature
+ * MySQL does not have, shown when learning MySQL (such entries are hidden from the MySQL list, but links still lead
+ * to them).
+ */
 export function MysqlSupportPill({ entry }: { entry: ReferenceEntry }) {
-  if (entry.mysql === null) return <StatusPill $tone="bad">Not in MySQL</StatusPill>
-  if (entry.mysql === entry.postgres) return <StatusPill $tone="good">Same in MySQL</StatusPill>
-  return <StatusPill $tone="warn">Different in MySQL</StatusPill>
+  const { dialect } = useProgress()
+  if (dialect !== 'mysql' || entry.mysql !== null) return null
+  return <StatusPill $tone="bad">Not in MySQL</StatusPill>
 }

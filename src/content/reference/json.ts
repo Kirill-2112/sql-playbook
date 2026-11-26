@@ -94,6 +94,7 @@ select json_contains_path(doc, 'one', '$.name') as has_name, json_contains_path(
   {
     id: 'json-build-object',
     name: 'JSONB_BUILD_OBJECT / JSONB_BUILD_ARRAY',
+    mysqlName: 'JSON_OBJECT / JSON_ARRAY',
     group: 'json',
     summary: 'Builds a JSON object from key/value pairs, or an array from values, inside a query.',
     postgres: "jsonb_build_object('id', id, 'name', name)\njsonb_build_array(a, b)",
@@ -111,6 +112,7 @@ select json_contains_path(doc, 'one', '$.name') as has_name, json_contains_path(
   {
     id: 'json-agg',
     name: 'JSONB_AGG / JSONB_OBJECT_AGG',
+    mysqlName: 'JSON_ARRAYAGG / JSON_OBJECTAGG',
     group: 'json',
     summary: 'Aggregates rows into a JSON array, or key/value pairs into one JSON object. Useful for returning nested data in one row per parent.',
     postgres: 'jsonb_agg(name order by name)\njsonb_object_agg(key, value)',
@@ -131,6 +133,7 @@ select json_length(json_arrayagg(k)) as n, json_extract(json_objectagg(k, v), '$
   {
     id: 'json-array-elements',
     name: 'JSONB_ARRAY_ELEMENTS / JSON_TABLE',
+    mysqlName: 'JSON_TABLE',
     group: 'json',
     summary: 'Turns a JSON array into rows, one per element, so you can filter, join and count them like a table.',
     postgres: "select t.id, tag\nfrom t, jsonb_array_elements_text(t.doc -> 'tags') as tag",
@@ -151,6 +154,7 @@ select j.tag from t, json_table(t.doc, '$.tags[*]' columns (tag varchar(50) path
   {
     id: 'json-each-keys',
     name: 'JSONB_EACH / JSONB_OBJECT_KEYS',
+    mysqlName: 'JSON_KEYS',
     group: 'json',
     summary: 'Turns the keys (and values) of a JSON object into rows. Handy when every row stores different attributes.',
     postgres: 'select key, value from jsonb_each(doc)\nselect jsonb_object_keys(doc)',
@@ -171,6 +175,7 @@ select j.k from t, json_table(json_keys(t.doc), '$[*]' columns (k varchar(50) pa
   {
     id: 'jsonb-set',
     name: 'JSONB_SET and || (merge)',
+    mysqlName: 'JSON_SET / JSON_MERGE_PATCH',
     group: 'json',
     summary: 'Changes one value inside a JSON document, or merges two objects (keys on the right win). The original is not modified unless you UPDATE with the result.',
     postgres: "jsonb_set(doc, '{address,city}', '\"Rome\"')\ndoc || '{\"vip\": true}'",
@@ -194,6 +199,7 @@ from t;`,
   {
     id: 'json-types',
     name: 'JSON vs JSONB',
+    mysqlName: 'The JSON type',
     group: 'json',
     summary:
       'PostgreSQL has two JSON types: json keeps the text exactly as written; jsonb stores a parsed binary form that drops duplicate keys, sorts keys and supports indexes and @>. Use jsonb.',

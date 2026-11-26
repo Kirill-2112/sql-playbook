@@ -108,6 +108,7 @@ select id, name from item;`,
   {
     id: 'upsert',
     name: 'ON CONFLICT (upsert)',
+    mysqlName: 'ON DUPLICATE KEY UPDATE (upsert)',
     group: 'modify',
     summary:
       'Inserts a row, or updates the existing one when it would break a unique key. EXCLUDED is the row you tried to insert. DO NOTHING just skips duplicates.',
@@ -227,6 +228,7 @@ select (select count(*) from item) as kept, (select count(*) from archive) as ar
   {
     id: 'copy',
     name: 'COPY / LOAD DATA',
+    mysqlName: 'LOAD DATA',
     group: 'modify',
     summary:
       'Loads a whole file (CSV or text) into a table in one statement, far faster than row-by-row INSERTs. Real data usually arrives this way; load into a staging table first, then clean and apply.',

@@ -4,6 +4,8 @@ import styled, { css } from 'styled-components'
 import { LABS } from '../content/labs'
 import type { ReferenceEntry, ReferenceGenerated, ReferenceGroupId } from '../content/types'
 import { useReference } from '../hooks/useReference'
+import { entryName } from '../progress/dialect'
+import { useProgress } from '../progress/store'
 import { LabCard } from './LabCard'
 
 // Groups whose keywords are about querying, used for "most used" (DDL and admin keywords are counted but not ranked).
@@ -27,7 +29,7 @@ export function PracticePage() {
     .sort((a, b) => count(b) - count(a))
     .slice(0, more ? TOP * 2 : TOP)
   const results = query
-    ? withExercises.filter((e) => `${e.name} ${e.id.replace(/-/g, ' ')}`.toLowerCase().includes(query)).sort((a, b) => count(b) - count(a))
+    ? withExercises.filter((e) => `${e.name} ${e.mysqlName ?? ''} ${e.id.replace(/-/g, ' ')}`.toLowerCase().includes(query)).sort((a, b) => count(b) - count(a))
     : []
 
   return (
@@ -124,10 +126,11 @@ export function PracticePage() {
 }
 
 function Chip({ entry, generated }: { entry: ReferenceEntry; generated: ReferenceGenerated | undefined }) {
+  const { dialect } = useProgress()
   const n = generated?.exerciseCount ?? 0
   return (
     <ChipLink to={`/practice/${entry.id}`}>
-      <strong>{entry.name}</strong>
+      <strong>{entryName(entry, dialect)}</strong>
       <small>
         {n} exercise{n === 1 ? '' : 's'}
       </small>

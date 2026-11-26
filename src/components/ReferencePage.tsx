@@ -2,16 +2,18 @@ import { useSearchParams } from 'react-router-dom'
 import styled from 'styled-components'
 import type { ReferenceEntry } from '../content/types'
 import { useReference } from '../hooks/useReference'
+import { useProgress } from '../progress/store'
 import { ReferenceRow } from './ReferenceRow'
 
 function matches(entry: ReferenceEntry, query: string): boolean {
   const q = query.trim().toLowerCase()
   if (!q) return true
-  return [entry.name, entry.summary, entry.postgres, entry.mysql ?? ''].some((text) => text.toLowerCase().includes(q))
+  return [entry.name, entry.mysqlName ?? '', entry.summary, entry.postgres, entry.mysql ?? ''].some((text) => text.toLowerCase().includes(q))
 }
 
 export function ReferencePage() {
   const data = useReference()
+  const { dialect } = useProgress()
   const [params, setParams] = useSearchParams()
   const query = params.get('q') ?? ''
 
@@ -22,7 +24,8 @@ export function ReferencePage() {
     setParams(next, { replace: true })
   }
 
-  const shown = data?.entries.filter((e) => matches(e, query)) ?? []
+  // In MySQL mode the list has only what MySQL has.
+  const shown = data?.entries.filter((e) => matches(e, query) && (dialect !== 'mysql' || e.mysql !== null)) ?? []
 
   return (
     <Page>

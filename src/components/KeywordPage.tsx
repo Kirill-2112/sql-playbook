@@ -1,6 +1,8 @@
 import { Link, Navigate, useParams } from 'react-router-dom'
 import styled from 'styled-components'
 import { useReference } from '../hooks/useReference'
+import { entryName } from '../progress/dialect'
+import { useProgress } from '../progress/store'
 import { LevelBadge } from './LevelBadge'
 import { MysqlSupportPill } from './MysqlSupportPill'
 
@@ -10,6 +12,7 @@ export const DRILL_SIZE = 5
 export function KeywordPage() {
   const { id = '' } = useParams()
   const data = useReference()
+  const { dialect } = useProgress()
   if (!data) return <Muted>Loading…</Muted>
   const entry = data.entries.find((e) => e.id === id)
   if (!entry) return <Navigate to="/practice" replace />
@@ -20,7 +23,7 @@ export function KeywordPage() {
   return (
     <Page>
       <Back to="/practice">← Practice</Back>
-      <h1>{entry.name}</h1>
+      <h1>{entryName(entry, dialect)}</h1>
       <p>{entry.summary}</p>
       <MysqlSupportPill entry={entry} />
       <Actions>

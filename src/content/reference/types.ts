@@ -26,6 +26,7 @@ export const typeEntries: ReferenceEntry[] = [
   {
     id: 'numeric-types',
     name: 'NUMERIC vs double precision',
+    mysqlName: 'DECIMAL vs DOUBLE',
     group: 'types',
     summary:
       'numeric(p, s) / decimal stores exact decimals, right for money. real and double precision are binary floating point: fast but 0.1 + 0.2 is not exactly 0.3.',
@@ -64,6 +65,7 @@ select sum(n > 10) as big_ones, max(n > 20) as any_huge from t;`,
   {
     id: 'date-types',
     name: 'DATE, TIMESTAMP, TIMESTAMPTZ',
+    mysqlName: 'DATE, DATETIME, TIMESTAMP',
     group: 'types',
     summary:
       'date has no time; timestamp is a wall-clock time with no zone; timestamptz is a moment in time, stored as UTC and shown in the session\'s time zone.',

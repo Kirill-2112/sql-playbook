@@ -12,6 +12,7 @@ export const transactionEntries: ReferenceEntry[] = [
   {
     id: 'transaction',
     name: 'BEGIN / COMMIT',
+    mysqlName: 'START TRANSACTION / COMMIT',
     group: 'transactions',
     summary:
       'Groups statements so they succeed or fail together: a transfer must debit one account and credit the other, never just one. Other sessions see the changes only after COMMIT.',
@@ -172,6 +173,7 @@ commit;`,
   {
     id: 'advisory-lock',
     name: 'Advisory locks',
+    mysqlName: 'GET_LOCK / RELEASE_LOCK',
     group: 'transactions',
     summary: 'Locks on a number or name that you choose, not on rows. Used to make sure only one copy of a job runs at a time.',
     postgres: 'select pg_try_advisory_lock(42);\nselect pg_advisory_unlock(42);',

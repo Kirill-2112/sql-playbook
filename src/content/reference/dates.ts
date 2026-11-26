@@ -27,6 +27,7 @@ export const dateEntries: ReferenceEntry[] = [
   {
     id: 'date-trunc',
     name: 'DATE_TRUNC',
+    mysqlName: 'DATE_FORMAT to the start of a month',
     group: 'dates',
     summary: 'Cuts a date or timestamp down to the start of its year, month, week, day or hour. The standard way to group by month.',
     postgres: "date_trunc('month', order_date)",
@@ -45,6 +46,7 @@ export const dateEntries: ReferenceEntry[] = [
   {
     id: 'extract',
     name: 'EXTRACT / DATE_PART',
+    mysqlName: 'EXTRACT / DAYOFWEEK / MONTH',
     group: 'dates',
     summary:
       'Pulls one field out of a date: year, month, day, hour, day of week… Day-of-week numbering differs: PostgreSQL dow is 0 for Sunday, isodow is 7 for Sunday.',
@@ -120,6 +122,7 @@ export const dateEntries: ReferenceEntry[] = [
   {
     id: 'age',
     name: 'AGE',
+    mysqlName: 'TIMESTAMPDIFF',
     group: 'dates',
     summary: 'The difference between two dates in years, months and days, counted the way people count birthdays.',
     postgres: 'age(current_date, birth_date)\nextract(year from age(hire_date, birth_date))',
@@ -137,6 +140,7 @@ export const dateEntries: ReferenceEntry[] = [
   {
     id: 'to-char',
     name: 'TO_CHAR (dates)',
+    mysqlName: 'DATE_FORMAT',
     group: 'dates',
     summary: 'Formats a date as text with a pattern: YYYY, MM, DD, Mon, Day, HH24:MI… The FM prefix removes padding spaces.',
     postgres: "to_char(d, 'DD.MM.YYYY')\nto_char(d, 'FMMonth YYYY')",
@@ -155,6 +159,7 @@ export const dateEntries: ReferenceEntry[] = [
   {
     id: 'to-date',
     name: 'TO_DATE / TO_TIMESTAMP',
+    mysqlName: 'STR_TO_DATE',
     group: 'dates',
     summary: 'Parses text into a date or timestamp using a pattern, for dates stored as strings in an odd format.',
     postgres: "to_date('07/03/2025', 'DD/MM/YYYY')\nto_timestamp('2025-03-07 14:05', 'YYYY-MM-DD HH24:MI')",
@@ -172,6 +177,7 @@ export const dateEntries: ReferenceEntry[] = [
   {
     id: 'make-date',
     name: 'MAKE_DATE',
+    mysqlName: 'STR_TO_DATE to build a date',
     group: 'dates',
     summary: 'Builds a date from year, month and day numbers, for tables that store them in separate columns.',
     postgres: 'make_date(year, month, 1)',
@@ -207,6 +213,7 @@ export const dateEntries: ReferenceEntry[] = [
   {
     id: 'at-time-zone',
     name: 'AT TIME ZONE',
+    mysqlName: 'CONVERT_TZ',
     group: 'dates',
     summary:
       'Converts between time zones. timestamptz AT TIME ZONE \'Europe/Oslo\' gives the local wall-clock time there; a plain timestamp AT TIME ZONE \'UTC\' says "this was UTC".',

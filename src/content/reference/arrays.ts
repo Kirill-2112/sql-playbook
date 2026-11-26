@@ -27,6 +27,7 @@ export const arrayEntries: ReferenceEntry[] = [
   {
     id: 'unnest',
     name: 'UNNEST',
+    mysqlName: 'JSON_TABLE to turn an array into rows',
     group: 'arrays',
     summary: 'Expands an array into rows. WITH ORDINALITY adds each element\'s position.',
     postgres: 'select tag from t, unnest(t.tags) as tag\nunnest(arr) with ordinality as u(value, pos)',
@@ -46,6 +47,7 @@ from json_table(json_array('a', 'b', 'c'), '$[*]' columns (pos for ordinality, v
   {
     id: 'any-array',
     name: '= ANY(array)',
+    mysqlName: 'MEMBER OF',
     group: 'arrays',
     summary: 'True when the value equals at least one element of the array. Unlike IN, the list can be a column or a single parameter.',
     postgres: "where 'vip' = any(tags)\nwhere id = any($1)",
@@ -64,6 +66,7 @@ from json_table(json_array('a', 'b', 'c'), '$[*]' columns (pos for ordinality, v
   {
     id: 'array-length',
     name: 'CARDINALITY / ARRAY_LENGTH',
+    mysqlName: 'JSON_LENGTH',
     group: 'arrays',
     summary: 'Number of elements. cardinality counts all of them; array_length(arr, 1) returns NULL for an empty array.',
     postgres: 'cardinality(tags)\narray_length(tags, 1)',
@@ -100,6 +103,7 @@ from json_table(json_array('a', 'b', 'c'), '$[*]' columns (pos for ordinality, v
   {
     id: 'array-agg',
     name: 'ARRAY_AGG',
+    mysqlName: 'JSON_ARRAYAGG',
     group: 'arrays',
     summary: 'Collects the values of a group into an array, in the order you choose.',
     postgres: 'array_agg(name order by name)',
@@ -120,6 +124,7 @@ select team, json_length(json_arrayagg(player)) as players from t group by team 
   {
     id: 'array-position',
     name: 'ARRAY_POSITION / ARRAY_TO_STRING',
+    mysqlName: 'JSON_SEARCH',
     group: 'arrays',
     summary: 'array_position finds where a value sits in an array; array_to_string joins the elements into text.',
     postgres: "array_position(stops, 'OSL')\narray_to_string(tags, ', ')",
@@ -139,6 +144,7 @@ select team, json_length(json_arrayagg(player)) as players from t group by team 
   {
     id: 'array-append',
     name: 'ARRAY_APPEND / ARRAY_REMOVE / ||',
+    mysqlName: 'JSON_ARRAY_APPEND',
     group: 'arrays',
     summary: 'Adds an element to the end, removes every copy of a value, or concatenates two arrays with ||.',
     postgres: "array_append(tags, 'vip')\narray_remove(tags, 'new')\narr1 || arr2",

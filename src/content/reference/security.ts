@@ -84,6 +84,7 @@ ${MY_GRANTS('clerk')}`,
   {
     id: 'grant-all-tables',
     name: 'GRANT ON ALL TABLES / db.*',
+    mysqlName: 'GRANT ON db.*',
     group: 'security',
     summary:
       'Grants a privilege on every table at once. PostgreSQL expands it to the tables that exist now (ALTER DEFAULT PRIVILEGES covers future ones); a MySQL db.* grant applies to future tables too.',

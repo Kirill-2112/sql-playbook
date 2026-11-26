@@ -5,7 +5,6 @@ import { entryName } from '../progress/dialect'
 import { useProgress } from '../progress/store'
 import { CodeBlock } from './CodeBlock'
 import { ExampleResult } from './ExampleResult'
-import { LevelBadge } from './LevelBadge'
 import { MysqlSupportPill } from './MysqlSupportPill'
 
 export function ReferenceEntryPage() {
@@ -25,6 +24,7 @@ export function ReferenceEntryPage() {
   // when `example.mysql` is undefined, absent when null); a feature MySQL lacks keeps its PostgreSQL syntax, marked.
   const mysql = dialect === 'mysql' && entry.mysql !== null
   const syntax = mysql ? entry.mysql! : entry.postgres
+  const doc = entry.docs.find((d) => d.url.includes(dialect === 'mysql' ? 'mysql.com' : 'postgresql.org')) ?? entry.docs[0]
   const example = mysql ? (entry.example.mysql === undefined ? entry.example.postgres : entry.example.mysql) : entry.example.postgres
 
   return (
@@ -62,47 +62,30 @@ export function ReferenceEntryPage() {
         </Section>
       )}
 
-      <Section>
-        <h2>Used in exercises</h2>
-        {generated && generated.exerciseCount > 0 ? (
-          <>
-            <List>
-              {generated.exercises.map((ex) => (
-                <ExerciseLink key={ex.id} to={`/exercises/${ex.id}`}>
-                  <LevelBadge level={ex.level} />
-                  <span>{ex.title}</span>
-                  <Id>{ex.id}</Id>
-                </ExerciseLink>
-              ))}
-            </List>
-            {generated.exerciseCount > generated.exercises.length && (
-              <Note>
-                …and {generated.exerciseCount - generated.exercises.length} more. These are the easiest ones, from different
-                datasets.
-              </Note>
-            )}
-          </>
+      {/* The official page for the learner's dialect, then the neighbours: cards like the rest of the app. */}
+      {doc && (
+        <Card href={doc.url} target="_blank" rel="noreferrer">
+          <small>Documentation</small>
+          <strong>{doc.label.replace(/^(PostgreSQL|MySQL): /, '')}</strong>
+          <span aria-hidden="true">↗</span>
+        </Card>
+      )}
+
+      <Pager aria-label="More functions">
+        {previous ? (
+          <PagerLink to={`/reference/${previous.id}`}>
+            <small>Previous</small>
+            <strong>{entryName(previous, dialect)}</strong>
+          </PagerLink>
         ) : (
-          <Note>No exercise uses it yet.</Note>
+          <span />
         )}
-      </Section>
-
-      <Section>
-        <h2>Documentation</h2>
-        <Docs>
-          {entry.docs.map((d) => (
-            <li key={d.url}>
-              <a href={d.url} target="_blank" rel="noreferrer">
-                {d.label}
-              </a>
-            </li>
-          ))}
-        </Docs>
-      </Section>
-
-      <Pager>
-        {previous ? <Link to={`/reference/${previous.id}`}>← {entryName(previous, dialect)}</Link> : <span />}
-        {next && <Link to={`/reference/${next.id}`}>{entryName(next, dialect)} →</Link>}
+        {next && (
+          <PagerLink to={`/reference/${next.id}`} $next>
+            <small>Next</small>
+            <strong>{entryName(next, dialect)}</strong>
+          </PagerLink>
+        )}
       </Pager>
     </Page>
   )
@@ -187,55 +170,68 @@ const Note = styled.p`
   max-width: 75ch;
 `
 
-const List = styled.div`
-  border: 1px solid ${({ theme }) => theme.color.line};
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.surface};
-  overflow: hidden;
-`
 
-const ExerciseLink = styled(Link)`
+
+
+
+const Card = styled.a`
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: ${({ theme }) => theme.space.sm};
+  grid-template-columns: 1fr auto;
   align-items: center;
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
-  border-top: 1px solid ${({ theme }) => theme.color.line};
+  gap: 2px ${({ theme }) => theme.space.md};
+  padding: ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: 1px solid ${({ theme }) => theme.color.line};
+  background: ${({ theme }) => theme.color.surface};
   color: ${({ theme }) => theme.color.ink};
   text-decoration: none;
 
-  &:first-child {
-    border-top: 0;
+  small {
+    font-size: ${({ theme }) => theme.size.xs};
+    color: ${({ theme }) => theme.color.muted};
   }
 
-  &:hover {
-    background: ${({ theme }) => theme.color.bg};
+  strong {
+    grid-row: 2;
   }
-`
 
-const Id = styled.span`
-  font-family: ${({ theme }) => theme.font.mono};
-  font-size: ${({ theme }) => theme.size.xs};
-  color: ${({ theme }) => theme.color.muted};
-`
-
-const Docs = styled.ul`
-  margin: 0;
-  padding-left: ${({ theme }) => theme.space.lg};
-  font-size: ${({ theme }) => theme.size.sm};
+  span {
+    grid-row: 1 / 3;
+    grid-column: 2;
+    color: ${({ theme }) => theme.color.muted};
+  }
 `
 
 const Pager = styled.nav`
-  display: flex;
-  justify-content: space-between;
-  gap: ${({ theme }) => theme.space.md};
-  padding-top: ${({ theme }) => theme.space.md};
-  border-top: 1px solid ${({ theme }) => theme.color.line};
-  font-size: ${({ theme }) => theme.size.sm};
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: ${({ theme }) => theme.space.sm};
+`
 
-  a {
-    font-family: ${({ theme }) => theme.font.mono};
-    text-decoration: none;
+const PagerLink = styled(Link)<{ $next?: boolean }>`
+  display: flex;
+  flex-direction: column;
+  align-items: ${({ $next }) => ($next ? 'flex-end' : 'flex-start')};
+  gap: 2px;
+  min-width: 0;
+  padding: ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: 1px solid ${({ theme }) => theme.color.line};
+  background: ${({ theme }) => theme.color.surface};
+  color: ${({ theme }) => theme.color.ink};
+  text-align: ${({ $next }) => ($next ? 'right' : 'left')};
+  text-decoration: none;
+
+  small {
+    font-size: ${({ theme }) => theme.size.xs};
+    color: ${({ theme }) => theme.color.muted};
+  }
+
+  strong {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 `
 

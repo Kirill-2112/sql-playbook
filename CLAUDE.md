@@ -111,7 +111,7 @@ Audit of 2026-10-15:
 - Learning app v1 (2026-10-22): path for levels 1–2 (62 lessons), XP, streak, daily goal, bottom tabs on phones.
 - PWA: public/manifest.webmanifest, public/icons/, public/sw.js (cache-first for hashed assets, network-first otherwise).
 - Reviews: missed tasks go into Leitner boxes (`review` in the store), due 1, 2, 4, 8 days later; `/review`.
-- Practice by keyword: `/practice` (most used + all reference groups), `/practice/:id`, `/practice/:id/drill`
+- Practice by keyword: `/practice/:id` (from the "Practice" button on a reference entry), `/practice/:id/drill`
   (the entry's easiest exercises as write tasks). `LessonPlayer` plays lessons, reviews and drills alike.
 - Levels 1–5 in the path (170 lessons). First launch (`/welcome`, `onboarded` in the store) asks why, what the learner
   knows (opens levels) and the daily goal. `MeetDatabase` introduces a dataset before its first task (`seenDatasets`).
@@ -165,7 +165,8 @@ Audit of 2026-10-15:
   level 3 "Who returns films late?" (Sakila, `sakilaLabs.ts`, sakila-132..135), level 4 "A supplier's new price list"
   (Northwind, northwind-205..209 in northwindLabs.ts: a messy `price_list` via setupSql; look, clean, report, then
   UPDATE with checkSql). Conclusions quote the steps' real results; recheck them if the data changes.
-- Write SQL (2026-11-25): `/write` (WriteTrackPage, entry card on Practice) lists every topic by level with
+- Write SQL (2026-11-25): `/practice` (WriteTrackPage, the Practice tab; `/write` redirects there; labs live on the
+  path and home only, 2026-11-26) lists every topic by level with
   "written / total", plus "Interview classics" (`INTERVIEW_IDS` in `src/content/writeTrack.ts`). `/write/:set`
   (WriteSessionPage) plays the next 5 exercises of the set not yet written, as write tasks; each success is saved at
   once via LessonPlayer's `onTaskDone` into `written` (exercise id → first success, merged across devices).

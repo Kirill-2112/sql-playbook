@@ -18,7 +18,6 @@ import { LicensesPage } from './LicensesPage'
 import { DrillPage } from './DrillPage'
 import { KeywordPage } from './KeywordPage'
 import { LabPage } from './LabPage'
-import { PracticePage } from './PracticePage'
 import { WriteSessionPage } from './WriteSessionPage'
 import { WriteTrackPage } from './WriteTrackPage'
 import { PrivacyPage } from './PrivacyPage'
@@ -55,8 +54,8 @@ export function App() {
             <Route path="overview" element={<HomePage />} />
             <Route path="progress" element={<ProgressPage />} />
             <Route path="settings" element={<SettingsPage />} />
-            <Route path="practice" element={<PracticePage />} />
-            <Route path="write" element={<WriteTrackPage />} />
+            <Route path="practice" element={<WriteTrackPage />} />
+            <Route path="write" element={<Navigate to="/practice" replace />} />
             <Route path="practice/:id" element={<KeywordPage />} />
             <Route path="exercises" element={<ExercisesPage />} />
             <Route path="exercises/:id" element={<ExercisePage />} />

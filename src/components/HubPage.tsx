@@ -98,10 +98,7 @@ export function HubPage() {
 
       {labs.length > 0 && (
         <Section aria-labelledby="hub-labs">
-          <Head>
-            <h2 id="hub-labs">Labs</h2>
-            <Link to="/practice">All labs</Link>
-          </Head>
+          <h2 id="hub-labs">Labs</h2>
           {labs.map((lab) => (
             <LabCard key={lab.id} lab={lab} showLevel />
           ))}
@@ -306,20 +303,6 @@ const Section = styled.section`
   gap: ${({ theme }) => theme.space.sm};
 `
 
-const Head = styled.div`
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-
-  a {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    font-size: ${({ theme }) => theme.size.sm};
-    font-weight: 600;
-    color: ${({ theme }) => theme.color.accent};
-  }
-`
 
 // The page's heading for screen readers.
 const HiddenTitle = styled.h1`

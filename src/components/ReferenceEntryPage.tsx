@@ -36,6 +36,10 @@ export function ReferenceEntryPage() {
         <h1>{entryName(entry, dialect)}</h1>
         <p>{entry.summary}</p>
         <MysqlSupportPill entry={entry} />
+        {/* Its exercises as a drill: the keyword practice, reached from where the keyword is explained. */}
+        {generated && generated.exerciseCount > 0 && (
+          <PracticeLink to={`/practice/${entry.id}`}>Practice · {generated.exerciseCount} exercises</PracticeLink>
+        )}
       </Header>
 
       <Section>
@@ -108,6 +112,19 @@ const Page = styled.div`
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.space.xl};
+`
+
+const PracticeLink = styled(Link)`
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.md};
+  background: ${({ theme }) => theme.color.good};
+  box-shadow: 0 4px 0 ${({ theme }) => theme.color.goodStrong};
+  color: ${({ theme }) => theme.color.surface};
+  font-weight: 700;
+  text-decoration: none;
 `
 
 const Back = styled(Link)`

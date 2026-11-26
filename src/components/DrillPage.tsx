@@ -20,6 +20,6 @@ export function DrillPage() {
   const finish = useCallback((results: { key: string; correct: boolean }[]) => recordPractice(results.filter((r) => r.correct).length), [])
 
   if (!data) return <Screen>Loading…</Screen>
-  if (!entry || tasks.length === 0) return <Navigate to="/practice" replace />
+  if (!entry || tasks.length === 0) return <Navigate to="/reference" replace />
   return <LessonPlayer title={entryName(entry, dialect)} tasks={tasks} onFinish={finish} exitTo={`/practice/${entry.id}`} />
 }

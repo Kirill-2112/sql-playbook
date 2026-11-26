@@ -20,7 +20,7 @@ export function Sidebar() {
         <Link to="/path">Lessons</Link>
         <Link to="/reference">Reference</Link>
         <Link to="/progress">Progress</Link>
-        <Link to="/practice">Practice by keyword</Link>
+        <Link to="/practice">Practice</Link>
       </Section>
 
       <Section>

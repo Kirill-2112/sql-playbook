@@ -23,7 +23,7 @@ export function WriteTrackPage() {
   return (
     <Page>
       <header>
-        <h1>Write SQL</h1>
+        <h1>Practice</h1>
         <Lead>Write whole queries, like in an interview.</Lead>
       </header>
 

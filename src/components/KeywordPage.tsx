@@ -15,14 +15,14 @@ export function KeywordPage() {
   const { dialect } = useProgress()
   if (!data) return <Muted>Loading…</Muted>
   const entry = data.entries.find((e) => e.id === id)
-  if (!entry) return <Navigate to="/practice" replace />
+  if (!entry) return <Navigate to="/reference" replace />
   const generated = data.generated[entry.id]
   const exercises = generated?.exercises ?? []
   const total = generated?.exerciseCount ?? 0
 
   return (
     <Page>
-      <Back to="/practice">← Practice</Back>
+      <Back to={`/reference/${entry.id}`}>← {entryName(entry, dialect)}</Back>
       <h1>{entryName(entry, dialect)}</h1>
       <p>{entry.summary}</p>
       <MysqlSupportPill entry={entry} />

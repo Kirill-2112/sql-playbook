@@ -29,8 +29,8 @@ export function WriteSessionPage() {
   const taskDone = useCallback((key: string, correct: boolean) => correct && markWritten(key.slice(PREFIX.length)), [])
   const finish = useCallback((results: { key: string; correct: boolean }[]) => recordPractice(results.filter((r) => r.correct).length), [])
 
-  if (loaded.status === 'error') return <Navigate to="/write" replace />
+  if (loaded.status === 'error') return <Navigate to="/practice" replace />
   if (!tasks) return <Screen>Loading…</Screen>
-  if (tasks.length === 0) return <Navigate to="/write" replace />
-  return <LessonPlayer title={setName(set)} tasks={tasks} onTaskDone={taskDone} onFinish={finish} exitTo="/write" />
+  if (tasks.length === 0) return <Navigate to="/practice" replace />
+  return <LessonPlayer title={setName(set)} tasks={tasks} onTaskDone={taskDone} onFinish={finish} exitTo="/practice" />
 }

@@ -43,6 +43,33 @@ export const TIME = /^([01]\d|2[0-3]):[0-5]\d$/
 export const DATE = /^\d{4}-\d{2}-\d{2}$/
 export const BASE64URL = /^[A-Za-z0-9_-]+$/
 
+/**
+ * The iOS app (Capacitor) loads the site from capacitor://localhost, so its calls to this API are cross-origin. Only
+ * that origin is allowed, and only on the endpoints the app needs (config, account deletion); the browser site is
+ * same-origin and needs nothing.
+ */
+const APP_ORIGINS = ['capacitor://localhost']
+
+export function cors(request: Request, response: Response): Response {
+  const origin = request.headers.get('origin')
+  if (!origin || !APP_ORIGINS.includes(origin)) return response
+  const headers = new Headers(response.headers)
+  headers.set('Access-Control-Allow-Origin', origin)
+  headers.set('Vary', 'Origin')
+  return new Response(response.body, { status: response.status, headers })
+}
+
+/** The answer to a CORS preflight from the app: which methods and headers it may send. */
+export function preflight(request: Request, methods: string): Response {
+  return cors(
+    request,
+    new Response(null, {
+      status: 204,
+      headers: { 'Access-Control-Allow-Methods': methods, 'Access-Control-Allow-Headers': 'Authorization, Content-Type', 'Access-Control-Max-Age': '86400' },
+    }),
+  )
+}
+
 /** Runs a handler and turns errors into JSON answers; details of server errors stay in the logs. */
 export async function handle(run: () => Promise<Response>): Promise<Response> {
   try {

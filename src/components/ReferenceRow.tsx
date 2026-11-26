@@ -33,9 +33,11 @@ const Row = styled(Link)`
     background: ${({ theme }) => theme.color.bg};
   }
 
+  /* On phones: the name and how MySQL differs; the summary is on the entry's page. */
   @media (max-width: 700px) {
-    grid-template-columns: 1fr;
-    gap: ${({ theme }) => theme.space.xs};
+    grid-template-columns: 1fr auto;
+    min-height: 44px;
+    align-items: center;
   }
 `
 
@@ -52,6 +54,10 @@ const Summary = styled.span`
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+
+  @media (max-width: 700px) {
+    display: none;
+  }
 `
 
 const Side = styled.span`

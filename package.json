@@ -13,9 +13,13 @@
     "licenses": "tsx scripts/licenses.ts",
     "build:reference": "tsx scripts/build-reference.ts",
     "build:lessons": "tsx scripts/build-lessons.ts",
+    "ios:build": "tsc -b && vite build --mode ios --outDir dist-ios && cap sync ios",
+    "ios:open": "cap open ios",
     "build:explanations": "tsx scripts/build-explanations.ts"
   },
   "dependencies": {
+    "@capacitor/core": "8.6.0",
+    "@capacitor/ios": "8.6.0",
     "@electric-sql/pglite": "^0.5.16",
     "@fontsource/ibm-plex-mono": "^5.3.0",
     "@fontsource/ibm-plex-sans": "^5.3.0",
@@ -26,6 +30,7 @@
     "styled-components": "^6.6.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "8.6.0",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",

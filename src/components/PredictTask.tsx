@@ -27,9 +27,7 @@ export function PredictTask({ task, onDone }: { task: Predict; onDone: (correct:
   return (
     <>
       <Body>
-        <Kind>Which result is right?</Kind>
         <Question>Which result does this query return?</Question>
-        <Context>{task.prompt}</Context>
         <Code aria-label="Query">{task.code}</Code>
         <Options role="radiogroup" aria-label="Results" onKeyDown={onRadioGroupKeyDown}>
           {task.options.map((option, i) => (
@@ -78,23 +76,12 @@ const Body = styled.div`
   gap: ${({ theme }) => theme.space.md};
 `
 
-const Kind = styled.span`
-  font-size: ${({ theme }) => theme.size.xs};
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: ${({ theme }) => theme.color.accent};
-`
 
 const Question = styled.h1`
   font-size: ${({ theme }) => theme.size.lg};
   line-height: 1.35;
 `
 
-const Context = styled.p`
-  font-size: ${({ theme }) => theme.size.sm};
-  color: ${({ theme }) => theme.color.muted};
-`
 
 const Code = styled.pre`
   margin: 0;

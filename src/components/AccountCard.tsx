@@ -19,6 +19,8 @@ export function AccountCard() {
   const [captchaRound, setCaptchaRound] = useState(0)
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
+  // Signed out, the card is one line and a button; the form opens on demand.
+  const [open, setOpen] = useState(false)
 
   useEffect(() => {
     void startAccounts()
@@ -43,16 +45,14 @@ export function AccountCard() {
       {account.status === 'loading' && <Muted>Checking your account…</Muted>}
       {account.status === 'unavailable' && (
         <Muted>
-          Accounts work in the app at <a href={APP_URL}>sql.kirillabs.com</a>. Until you sign in there, progress is saved on
-          this device only.
+          Progress is saved on this device. To keep it on every device, sign in at <a href={APP_URL}>sql.kirillabs.com</a>.
         </Muted>
       )}
       {account.status === 'signed-in' && (
         <>
           <Muted>
-            Signed in as <strong>{account.email}</strong>. Your progress is saved to your account and follows you to every
-            device where you sign in.
-            {account.syncedAt && ` Last saved at ${new Date(account.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`}
+            Signed in as <strong>{account.email}</strong>.
+            {account.syncedAt && ` Saved at ${new Date(account.syncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}.`}
           </Muted>
           <Secondary type="button" disabled={busy} onClick={() => void run(() => signOut())}>
             Sign out on this device
@@ -64,7 +64,7 @@ export function AccountCard() {
             type="button"
             disabled={busy}
             onClick={() => {
-              if (window.confirm('Delete your account and the progress saved in it? This cannot be undone. Progress on this device stays.'))
+              if (window.confirm('Delete your account and its saved progress? This cannot be undone.'))
                 void run(deleteAccount, 'Your account was deleted.')
             }}
           >
@@ -72,9 +72,16 @@ export function AccountCard() {
           </Danger>
         </>
       )}
-      {account.status === 'signed-out' && (
+      {account.status === 'signed-out' && !open && (
         <>
-          <Muted>Sign in to keep your progress on every device. Progress you already have here is kept and added to your account.</Muted>
+          <Muted>Sign in to keep your progress on every device.</Muted>
+          <Primary type="button" onClick={() => setOpen(true)}>
+            Sign in
+          </Primary>
+        </>
+      )}
+      {account.status === 'signed-out' && open && (
+        <>
           {account.notice && <Status role="status">{account.notice}</Status>}
           {sentTo === null ? (
             <Form
@@ -96,7 +103,7 @@ export function AccountCard() {
               <input id={emailId} type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
               {account.captchaSiteKey && <TurnstileWidget key={captchaRound} siteKey={account.captchaSiteKey} onToken={setCaptcha} />}
               <Primary type="submit" disabled={busy || !email.trim() || (account.captchaSiteKey !== null && !captcha)}>
-                {busy ? 'Sending…' : 'Email me a sign-in link'}
+                {busy ? 'Sending…' : 'Email me a code'}
               </Primary>
             </Form>
           ) : (
@@ -107,7 +114,7 @@ export function AccountCard() {
               }}
             >
               <Muted>
-                We sent an email to <strong>{sentTo}</strong>. Open its link on this device, or type the code from it here.
+                Enter the code we sent to <strong>{sentTo}</strong>.
               </Muted>
               <label htmlFor={codeId}>Code from the email</label>
               <input id={codeId} inputMode="numeric" autoComplete="one-time-code" maxLength={10} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))} placeholder="12345678" />
@@ -125,8 +132,7 @@ export function AccountCard() {
             </Secondary>
           )}
           <Small>
-            By signing in you agree to the <Link to="/terms">Terms of Use</Link>. How your email and progress are kept:{' '}
-            <Link to="/privacy">Privacy Policy</Link>.
+            By signing in you agree to the <Link to="/terms">Terms</Link> and <Link to="/privacy">Privacy Policy</Link>.
           </Small>
         </>
       )}

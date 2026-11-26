@@ -3,7 +3,6 @@ import styled from 'styled-components'
 import type { ReferenceEntry } from '../content/types'
 import { useReference } from '../hooks/useReference'
 import { ReferenceRow } from './ReferenceRow'
-import { StatusPill } from './StatusPill'
 
 function matches(entry: ReferenceEntry, query: string): boolean {
   const q = query.trim().toLowerCase()
@@ -24,22 +23,13 @@ export function ReferencePage() {
   }
 
   const shown = data?.entries.filter((e) => matches(e, query)) ?? []
-  const mysqlChecked = data ? Object.values(data.generated).filter((g) => g.mysqlChecked).length : 0
 
   return (
     <Page>
       <Header>
         <Eyebrow>Reference</Eyebrow>
         <h1>Functions &amp; keywords</h1>
-        <p>
-          The PostgreSQL features the exercises use, each with its MySQL equivalent, a runnable example and the
-          exercises where it appears.
-        </p>
-        {data && (
-          <StatusPill $tone="good">
-            {data.entries.length} entries · every example run on PostgreSQL, {mysqlChecked} also on MySQL with the same result
-          </StatusPill>
-        )}
+        <p>Every keyword with an example you can run.</p>
       </Header>
 
       <Search

@@ -45,10 +45,9 @@ const Bar = styled(Link)`
   display: flex;
   align-items: center;
   gap: ${({ theme }) => theme.space.md};
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
-  border: 1px solid ${({ theme }) => theme.color.line};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  background: ${({ theme }) => theme.color.surface};
+  /* A plain line, not a card: the lesson card below is the main thing on the screen. */
+  min-height: 44px;
+  padding: 0 ${({ theme }) => theme.space.xs};
   color: ${({ theme }) => theme.color.ink};
   text-decoration: none;
   flex-wrap: wrap;

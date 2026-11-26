@@ -1,9 +1,17 @@
-import { handle, json } from '../_lib/http.js'
+import { cors, handle, json, preflight } from '../_lib/http.js'
 import { rateLimited } from '../_lib/rateLimit.js'
 
 // POST /api/account/delete: deletes the signed-in user. The access token proves who asks; deleting the user also
 // deletes their progress row (on delete cascade in supabase/progress.sql). Needs the secret key, so it runs here.
-export function POST(request: Request): Promise<Response> {
+export async function POST(request: Request): Promise<Response> {
+  return cors(request, await remove(request))
+}
+
+export function OPTIONS(request: Request): Response {
+  return preflight(request, 'POST')
+}
+
+function remove(request: Request): Promise<Response> {
   return handle(async () => {
     const limited = await rateLimited(request, 'delete-account', 5, 3600)
     if (limited) return limited

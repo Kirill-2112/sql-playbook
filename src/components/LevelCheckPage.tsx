@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import styled from 'styled-components'
-import { CHECK_TASKS, coreTopics, goalInfo, levelsOpenedBy } from '../content/goals'
-import { LEVEL_NAMES, TOPICS } from '../content/topics'
+import { CHECK_LEVELS, CHECK_TASKS, levelsOpenedBy } from '../content/levelCheck'
+import { LEVEL_NAMES } from '../content/topics'
 import type { Course, Level, LessonTask } from '../content/types'
 import { useCourse } from '../hooks/useCourse'
 import { inDialect } from '../progress/dialect'
@@ -27,52 +27,34 @@ function checkTasks(course: Course, levels: Level[]): CheckTask[] {
   )
 }
 
-/** The first level the goal needs that the check did not pass: where the learner starts. */
-function startLevel(passed: Level[], core: Set<string> | null): Level | null {
-  for (const level of [1, 2, 3, 4, 5] as Level[]) {
-    if (passed.includes(level)) continue
-    if (!core || TOPICS.some((t) => t.level === level && core.has(t.id))) return level
-  }
-  return null
+/** The first level the check did not pass: where the learner starts. */
+function startLevel(passed: Level[]): Level {
+  return ([1, 2, 3, 4, 5] as Level[]).find((level) => !passed.includes(level)) ?? 5
 }
 
 /**
- * The level check: two tasks per level for the levels the learner's goal asks about. A level counts as known when
- * both are right; the check stops at the first mistake. Known levels open the level after them.
+ * The level check: two tasks per level for levels 1–4. A level counts as known when both are right; the check stops at
+ * the first mistake. Known levels open the level after them, so the path skips lessons the learner does not need.
  */
 export function LevelCheckPage() {
   const course = useCourse()
   const progress = useProgress()
-  const goal = goalInfo(progress.goal)
-  const tasks = useMemo(() => (course ? checkTasks(course, goal.checkLevels) : []), [course, goal])
+  const tasks = useMemo(() => (course ? checkTasks(course, CHECK_LEVELS) : []), [course])
   const [step, setStep] = useState(0)
   const [passed, setPassed] = useState<Level[] | null>(null)
 
   if (!course) return <Screen />
 
   if (passed) {
-    const core = coreTopics(progress.goal)
-    const start = startLevel(passed, core)
+    const start = startLevel(passed)
     const opened = levelsOpenedBy(passed)
     const label = (level: Level) =>
-      passed.includes(level)
-        ? 'You know it'
-        : level === start
-          ? 'Start here'
-          : core && !TOPICS.some((t) => t.level === level && core.has(t.id))
-            ? 'Optional for your goal'
-            : opened.includes(level)
-              ? 'Open'
-              : 'Opens later'
+      passed.includes(level) ? 'You know it' : level === start ? 'Start here' : opened.includes(level) ? 'Open' : 'Opens later'
     return (
       <Screen>
         <Result>
-          <h1>{start ? `Start at Level ${start}` : 'You know what your goal needs'}</h1>
-          <p>
-            {start
-              ? `${LEVEL_NAMES[start]}. ${passed.length === 0 ? 'Every level opens when you finish the one before.' : 'The levels before it stay open: go back to any skill there whenever you like.'}`
-              : 'Every level is open. Keep it sharp by writing whole queries.'}
-          </p>
+          <h1>Start at Level {start}</h1>
+          <p>{LEVEL_NAMES[start]}</p>
           <Levels aria-label="Levels">
             {([1, 2, 3, 4, 5] as Level[]).map((level) => (
               <li key={level} data-state={passed.includes(level) ? 'known' : level === start ? 'start' : 'other'}>
@@ -81,8 +63,8 @@ export function LevelCheckPage() {
               </li>
             ))}
           </Levels>
-          <Primary to={start ? '/' : progress.goal === 'interview' ? '/write' : '/'} state={start ? { level: start } : undefined} replace>
-            {start ? 'Go to the path' : 'Write SQL'}
+          <Primary to="/path" state={{ level: start }} replace>
+            Go to the lessons
           </Primary>
         </Result>
       </Screen>
@@ -97,7 +79,7 @@ export function LevelCheckPage() {
   if (!current) return <Screen />
   const { task } = inDialect(current.task, progress.dialect)
   // Levels whose tasks were all answered before this one (all right: a mistake ends the check).
-  const known = goal.checkLevels.filter((level) => {
+  const known = CHECK_LEVELS.filter((level) => {
     const all = tasks.filter((t) => t.level === level).length
     return all > 0 && tasks.slice(0, step).filter((t) => t.level === level).length === all
   })
@@ -105,7 +87,7 @@ export function LevelCheckPage() {
   function done(correct: boolean) {
     if (!correct) return finish(known)
     const next = tasks[step + 1]
-    if (!next) return finish(goal.checkLevels)
+    if (!next) return finish(CHECK_LEVELS)
     setStep(step + 1)
   }
 

@@ -37,13 +37,12 @@ export function PracticePage() {
       <WriteCard to="/write">
         <span>
           <strong>Write SQL</strong>
-          <small>The whole query from an empty editor, like in an interview. By topic and level, plus interview classics.</small>
+          <small>Whole queries, like in an interview</small>
         </span>
         <b aria-hidden="true">→</b>
       </WriteCard>
       <Section aria-labelledby="practice-labs">
         <h2 id="practice-labs">Labs</h2>
-        <Muted>A real question, answered in a few queries, each building on the last.</Muted>
         <Labs>
           {LABS.map((lab) => (
             <LabCard key={lab.id} lab={lab} showLevel />
@@ -61,7 +60,7 @@ export function PracticePage() {
       <Search
         type="search"
         aria-label="Search keywords"
-        placeholder={`Search ${withExercises.length} keywords: left join, round…`}
+        placeholder="Search: left join, round…"
         value={params.get('q') ?? ''}
         onChange={(e) => setParams(e.target.value ? { q: e.target.value } : {}, { replace: true })}
       />
@@ -79,7 +78,6 @@ export function PracticePage() {
         <>
           <Section>
             <h2>Most used</h2>
-            <Muted>Ranked by how many exercises need them.</Muted>
             <Grid>
               {top.map((e) => (
                 <Chip key={e.id} entry={e} generated={data.generated[e.id]} />

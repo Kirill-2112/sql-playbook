@@ -42,7 +42,6 @@ export function mergeProgress(a: ProgressState, b: ProgressState): ProgressState
     review,
     dailyGoal: settings.dailyGoal,
     dialect: settings.dialect,
-    goal: settings.goal ?? 'learn',
     dailyGoalChosen: a.dailyGoalChosen || b.dailyGoalChosen,
     settingsAt: settings.settingsAt,
     onboarded: a.onboarded || b.onboarded,

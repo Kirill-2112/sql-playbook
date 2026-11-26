@@ -127,7 +127,7 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
     } catch (e) {
       setResult(null)
       setError(e instanceof SqlError ? e : new SqlError(String(e)))
-      setReason('The query did not run. Read the error, fix it and check again.')
+      setReason('The query has an error. Fix it and check again.')
       setState('wrong')
     } finally {
       setBusy(false)
@@ -147,7 +147,7 @@ export function WriteTask({ exerciseId, dialect = 'postgres', onDone }: { exerci
   const showAnswer = () => {
     setRevealed(true)
     setState('wrong')
-    setReason('No problem: read the answer and try the next one. You can come back to this exercise in Practice.')
+    setReason('Here is the answer. Read it, then try the next one.')
   }
 
   return (

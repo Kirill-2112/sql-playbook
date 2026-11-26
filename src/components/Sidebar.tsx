@@ -15,8 +15,11 @@ export function Sidebar() {
       <Section>
         <SectionTitle>Learn</SectionTitle>
         <Link to="/" end>
-          Path
+          Home
         </Link>
+        <Link to="/path">Lessons</Link>
+        <Link to="/write">Solve tasks</Link>
+        <Link to="/reference">Reference</Link>
         <Link to="/progress">Progress</Link>
         <Link to="/practice">Practice by keyword</Link>
       </Section>

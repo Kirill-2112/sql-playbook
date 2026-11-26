@@ -19,5 +19,5 @@ export function DrillPage() {
 
   if (!data) return <Screen>Loading…</Screen>
   if (!entry || tasks.length === 0) return <Navigate to="/practice" replace />
-  return <LessonPlayer title={entry.name} tasks={tasks} onFinish={finish} />
+  return <LessonPlayer title={entry.name} tasks={tasks} onFinish={finish} exitTo={`/practice/${entry.id}`} />
 }

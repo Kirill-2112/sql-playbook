@@ -108,7 +108,7 @@ const Top = styled.header`
   width: 100%;
   max-width: 672px;
   margin: 0 auto;
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
+  padding: calc(${({ theme }) => theme.space.sm} + env(safe-area-inset-top)) ${({ theme }) => theme.space.md} ${({ theme }) => theme.space.sm};
 `
 
 const Close = styled(Link)`

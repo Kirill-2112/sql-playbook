@@ -232,14 +232,26 @@ Audit of 2026-10-15:
   up to 3 wrong pieces (ALTERNATIVES keywords, the opposite comparison, unused columns of the same tables), each
   run in place of the piece it imitates on PGlite (and MySQL for the mysql version) and kept only if the result
   changes. It takes the 4th slot of a lesson and never uses the lesson's write exercise.
-- Goals and level check (2026-11-25): first launch asks the goal (`src/content/goals.ts`: learn / interview /
-  data / build, each with the exact list of topics it needs), then the dialect, then the level check (`/level-check`,
-  LevelCheckPage: two "fill the gap" tasks per level from `CHECK_TASKS`, levels per goal, stops at the first mistake;
-  passed levels open the next one) or "I'm new". Only gap tasks: "which result is right" often needs the data.
-  `pathProgress` marks skills outside the goal "optional" (open, never blocking); a level the goal does not need
-  passes straight on. GoalCard on the path; goal choice and "Check my level again" on Progress (`#goal`). The daily
-  goal is asked once on LessonComplete (`dailyGoalChosen`). The owner wants goals to be exact: change topic lists
-  only with a reason. App map of every screen (to review in order): https://claude.ai/artifact/LWZwaYjfw43mPqARucJWog
+- First launch and home (2026-11-26): the owner dropped learning goals (no goal question, no "optional" skills; one
+  path for everyone). `/welcome`: welcome → SQL dialect → "Where should you start?" ("I'm new" opens the first
+  lesson; "I know some SQL" → `/level-check`, two gap tasks per level 1–4 from `src/content/levelCheck.ts`, stops at
+  the first mistake, passed levels open the next). Daily goal asked once on LessonComplete (`dailyGoalChosen`).
+  `/` is HubPage (lesson card with level segments and Start/Continue, Solve tasks (green) and Reference (orange)
+  tiles, reviews, open labs); the path moved to `/path` (tabs: Home, Lessons, Practice, Reference, Progress).
+  Settings (`/settings`: daily goal, dialect, level check, reminders, reset, legal) are off the Progress page.
+  The owner wants little text: one short line per item, no explanations under headings.
+- Path (2026-11-26): only the current level is open (others fold, tap to open); skills zigzag with the name under
+  the node; the next skill has a "Start"/"Continue" bubble and a ring of its lessons; every skill opens on tap (to
+  brush up on one topic); a skill done ahead shows as done. Labs (PathLab, green square) and a cup (PathTrophy) are
+  stops at the end of each level. Mascot (own SVG, orange database cylinder) stands by the next skill (TrailPath).
+  The owner rejected backgrounds behind the path (road, dots, grid, contours): keep it plain.
+- A lesson left halfway resumes where it was (`src/progress/lessonDraft.ts`, localStorage, this device only).
+- App map of every screen (to review in order): https://claude.ai/artifact/LWZwaYjfw43mPqARucJWog
+- iOS app (Capacitor 8, MIT): `capacitor.config.ts`, `ios/`, `src/platform.ts` (`NATIVE`, `API_ORIGIN`), `.env.ios`
+  (public values only). `npm run ios:build` then Xcode. In the app: no service worker, no Web Push card, no Google
+  sign-in (email code; Sign in with Apple planned, the owner has an Apple Developer account); `api/config` and
+  `api/account/delete` allow CORS from `capacitor://localhost` only. Pages pad for `env(safe-area-inset-top)`.
+  App icon and splash are still Capacitor placeholders.
 - QA, design and accessibility reports of 2026-11-19 live in `qa-bug-hunt/` (git-ignored, local only).
 - iCloud Desktop sync can create "<name> 2.ts" copies; delete them, never commit them.
 - Next: more labs (level 4, and level 3 on other datasets), two replacement datasets.

@@ -34,20 +34,20 @@ function ReviewSession({ course, onFinish }: { course: Course; onFinish: (result
       <Screen>
         <Empty>
           <h1>Nothing to review today</h1>
-          <p>Tasks you miss in a lesson come back here the next day, then after 2, 4 and 8 days.</p>
-          <Link to="/">Back to the path</Link>
+          <p>Tasks you miss in lessons come back here.</p>
+          <Link to="/">Back to home</Link>
         </Empty>
       </Screen>
     )
   }
 
-  return <LessonPlayer title="Review" tasks={tasks} onFinish={onFinish} />
+  return <LessonPlayer title="Review" tasks={tasks} onFinish={onFinish} exitTo="/" />
 }
 
 const Empty = styled.main`
   max-width: 480px;
   margin: 0 auto;
-  padding: ${({ theme }) => theme.space.xl} ${({ theme }) => theme.space.md};
+  padding: calc(${({ theme }) => theme.space.xl} + env(safe-area-inset-top)) ${({ theme }) => theme.space.md} ${({ theme }) => theme.space.xl};
   display: flex;
   flex-direction: column;
   gap: ${({ theme }) => theme.space.md};

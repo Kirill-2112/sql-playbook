@@ -3,9 +3,8 @@ import { DIALECT_NAMES } from '../progress/dialect'
 import { setDialect, useProgress, type Dialect } from '../progress/store'
 
 const ABOUT: Record<Dialect, string> = {
-  postgres: 'Lessons show PostgreSQL. Queries you write run on PostgreSQL in your browser.',
-  mysql:
-    'Tap tasks show MySQL 8.4, with every wrong option checked on a real MySQL. Queries you write are checked on a real MySQL 8.4 server (it needs the internet).',
+  postgres: 'Your queries run right on this device.',
+  mysql: 'Queries you write run on a MySQL server, so you need the internet.',
 }
 
 // Which SQL dialect the lessons are shown in.
@@ -13,7 +12,7 @@ export function DialectCard() {
   const { dialect } = useProgress()
   return (
     <Card>
-      <h2>Learn in</h2>
+      <h2>SQL dialect</h2>
       <Options role="radiogroup" aria-label="SQL dialect">
         {(Object.keys(DIALECT_NAMES) as Dialect[]).map((d) => (
           <Option key={d} type="button" role="radio" aria-checked={dialect === d} $on={dialect === d} onClick={() => setDialect(d)}>

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { API_ORIGIN, NATIVE, SITE_URL } from '../platform'
 import type { AuthClient as AuthClientClass, Session } from '@supabase/auth-js'
 
 type AuthClient = InstanceType<typeof AuthClientClass>
@@ -25,7 +26,7 @@ interface Config {
 }
 
 const STORAGE_KEY = 'sql-playbook.auth'
-const API = `${import.meta.env.BASE_URL}api`
+const API = `${API_ORIGIN}${import.meta.env.BASE_URL}api`
 
 let account: AccountState = { status: 'loading' }
 const listeners = new Set<() => void>()
@@ -71,7 +72,8 @@ export function startAccounts() {
       // PKCE: the link comes back with ?code=, which works next to the app's #/routes.
       flowType: 'pkce',
     })
-    const google = await fetch(`${config.supabaseUrl}/auth/v1/settings`, { headers: { apikey: config.publishableKey } })
+    // Google does not allow its sign-in page inside an app's web view, so the iOS app offers email (and Apple) only.
+    const google = NATIVE ? false : await fetch(`${config.supabaseUrl}/auth/v1/settings`, { headers: { apikey: config.publishableKey } })
       .then((r) => r.json() as Promise<{ external?: Record<string, boolean> }>)
       .then((s) => s.external?.google === true)
       .catch(() => false)
@@ -180,7 +182,8 @@ export function hasAccountActivity(): boolean {
   }
 }
 
-const redirectTo = () => `${location.origin}${import.meta.env.BASE_URL}`
+// In the app the email link opens the website (it cannot reach the app); the code in the same email works in both.
+const redirectTo = () => (NATIVE ? SITE_URL : `${location.origin}${import.meta.env.BASE_URL}`)
 
 export async function sendSignInEmail(email: string, captchaToken?: string): Promise<void> {
   const s = await startAccounts()

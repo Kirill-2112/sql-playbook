@@ -1,8 +1,10 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 
 // On phones the sidebar gives way to app-style tabs at the bottom of the screen.
 export function BottomNav() {
+  // Settings open from Progress, so the Progress tab stays lit there.
+  const inSettings = useLocation().pathname === '/settings'
   return (
     <Nav aria-label="Main">
       <Tab to="/" end>
@@ -10,7 +12,16 @@ export function BottomNav() {
           <path d="M3 11 12 4l9 7v9H3z" />
           <path d="M9 20v-6h6v6" />
         </svg>
-        Learn
+        Home
+      </Tab>
+      <Tab to="/path">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="7" cy="5" r="2.5" />
+          <circle cx="17" cy="12" r="2.5" />
+          <circle cx="7" cy="19" r="2.5" />
+          <path d="M9.2 6.2 14.8 10.8M14.8 13.2 9.2 17.8" />
+        </svg>
+        Lessons
       </Tab>
       <Tab to="/practice">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -26,7 +37,7 @@ export function BottomNav() {
         </svg>
         Reference
       </Tab>
-      <Tab to="/progress">
+      <Tab to="/progress" className={({ isActive }) => (isActive || inSettings ? 'active' : '')}>
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
           <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
         </svg>
@@ -46,7 +57,7 @@ const Nav = styled.nav`
     bottom: 0;
     z-index: 10;
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
     border-top: 1px solid ${({ theme }) => theme.color.line};
     background: ${({ theme }) => theme.color.surface};

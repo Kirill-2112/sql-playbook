@@ -4,6 +4,7 @@ import styled from 'styled-components'
 import type { ExplainCard, LessonTask } from '../content/types'
 import { datasetOf } from '../content/exercises'
 import { inDialect } from '../progress/dialect'
+import { clearLessonDraft, lessonDraft, saveLessonDraft } from '../progress/lessonDraft'
 import { localDate, markDatasetSeen, streak, useProgress } from '../progress/store'
 import { BugTask } from './BugTask'
 import { BuildTask } from './BuildTask'
@@ -36,19 +37,23 @@ interface Props {
   onTaskDone?: (key: string, correct: boolean) => void
   /** Where the close button leads (the path by default). */
   exitTo?: string
+  /** A lesson's id: the place reached is saved after every answer, and a lesson left halfway goes on from there. */
+  resumeKey?: string
 }
 
 /**
  * Plays a list of tasks full screen: lessons, reviews and practice drills. A task answered wrongly comes back once
  * at the end (except a full query, which offers its own retry), so a session always ends on a right answer.
  */
-export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro, onTaskDone, exitTo = '/' }: Props) {
+export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro, onTaskDone, exitTo = '/path', resumeKey }: Props) {
   const progress = useProgress()
-  const [introStep, setIntroStep] = useState<number | null>(intro?.cards.length ? 0 : null)
-  const [queue, setQueue] = useState<number[]>(() => tasks.map((_, i) => i))
-  const [step, setStep] = useState(0)
-  const [firstTry, setFirstTry] = useState<Set<number>>(new Set())
-  const [missed, setMissed] = useState<Set<number>>(new Set())
+  // A lesson left halfway starts where it was left, past the explanation already read.
+  const [draft] = useState(() => (resumeKey ? lessonDraft(resumeKey, tasks.length) : null))
+  const [introStep, setIntroStep] = useState<number | null>(intro?.cards.length && !draft ? 0 : null)
+  const [queue, setQueue] = useState<number[]>(() => draft?.queue ?? tasks.map((_, i) => i))
+  const [step, setStep] = useState(draft?.step ?? 0)
+  const [firstTry, setFirstTry] = useState<Set<number>>(() => new Set(draft?.firstTry))
+  const [missed, setMissed] = useState<Set<number>>(() => new Set(draft?.missed))
   const [earned, setEarned] = useState<number | null>(null)
   const finishedOnce = useRef(false)
   const finished = step >= queue.length
@@ -56,6 +61,12 @@ export function LessonPlayer({ title, step: lessonStep, tasks, onFinish, intro, 
   const current = queue[step] === undefined ? undefined : tasks[queue[step]!]
   const dataset = current ? datasetOf(current.task.exerciseId) : undefined
   const meet = dataset && !progress.seenDatasets.includes(dataset) ? dataset : null
+
+  useEffect(() => {
+    if (!resumeKey) return
+    if (finished) clearLessonDraft(resumeKey)
+    else if (step > 0) saveLessonDraft(resumeKey, { queue, step, firstTry: [...firstTry], missed: [...missed], taskCount: tasks.length })
+  }, [resumeKey, finished, queue, step, firstTry, missed, tasks.length])
 
   useEffect(() => {
     if (finished && !finishedOnce.current) {

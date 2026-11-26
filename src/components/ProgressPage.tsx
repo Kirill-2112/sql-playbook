@@ -1,14 +1,10 @@
-import { useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link } from 'react-router-dom'
+import { NATIVE } from '../platform'
 import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
-import { GOALS } from '../content/goals'
-import { DAILY_GOALS, localDate, resetProgress, setDailyGoal, setGoal, streak, useProgress } from '../progress/store'
-import { onRadioGroupKeyDown, radioTabIndex } from '../utils/radioGroup'
+import { localDate, streak, useProgress } from '../progress/store'
 import { AccountCard } from './AccountCard'
-import { DialectCard } from './DialectCard'
-import { RemindersCard } from './RemindersCard'
 
 const WEEKDAY = new Intl.DateTimeFormat('en', { weekday: 'short' })
 
@@ -29,19 +25,10 @@ export function ProgressPage() {
     return { key, label: WEEKDAY.format(d), xp: progress.days[key] ?? 0, today: i === 6 }
   })
   const max = Math.max(progress.dailyGoal, ...week.map((d) => d.xp))
-  const goalIndex = GOALS.findIndex((g) => g.id === progress.goal)
-
-  // "Change" on the path's goal card opens this page at the goal.
-  const { hash } = useLocation()
-  useEffect(() => {
-    if (hash === '#goal') document.getElementById('goal')?.scrollIntoView({ block: 'start' })
-  }, [hash])
 
   return (
     <Page>
       <h1>Your progress</h1>
-
-      <AccountCard />
 
       <Card>
         <Streak>
@@ -52,7 +39,7 @@ export function ProgressPage() {
             <strong>
               {days}-day streak
             </strong>
-            <small>{days === 0 ? 'Finish a lesson today to start one.' : 'Practise every day to keep it going: a lesson, a review or a drill.'}</small>
+            <small>{days === 0 ? 'Finish a lesson to start one.' : 'Practise every day to keep it.'}</small>
           </span>
         </Streak>
         <Chart role="img" aria-label={`XP in the last 7 days: ${week.map((d) => `${d.label} ${d.xp}`).join(', ')}`}>
@@ -64,7 +51,7 @@ export function ProgressPage() {
             </Day>
           ))}
         </Chart>
-        <Muted>Green days reached the daily goal of {progress.dailyGoal} XP.</Muted>
+        <Muted>Green: daily goal reached</Muted>
       </Card>
 
       <Numbers>
@@ -84,53 +71,13 @@ export function ProgressPage() {
         </Number>
       </Numbers>
 
-      <Card id="goal" aria-labelledby="goal-heading">
-        <h2 id="goal-heading">Your goal</h2>
-        <GoalList role="radiogroup" aria-labelledby="goal-heading" onKeyDown={onRadioGroupKeyDown}>
-          {GOALS.map((g, i) => (
-            <GoalChoice key={g.id} type="button" role="radio" aria-checked={i === goalIndex} tabIndex={radioTabIndex(i, goalIndex)} $on={i === goalIndex} onClick={() => setGoal(g.id)}>
-              <strong>{g.title}</strong>
-              <small>{g.about}</small>
-            </GoalChoice>
-          ))}
-        </GoalList>
-        <Muted>
-          It decides which skills your path needs; the others stay open as optional. Changing it keeps everything you
-          have done. <Link to="/level-check">Check my level again</Link>
-        </Muted>
-      </Card>
+      <AccountCard />
 
-      <Card>
-        <h2>Daily goal</h2>
-        <Goals role="radiogroup" aria-label="Daily goal">
-          {DAILY_GOALS.map((g) => (
-            <Goal key={g.xp} type="button" role="radio" aria-checked={progress.dailyGoal === g.xp} $on={progress.dailyGoal === g.xp} onClick={() => setDailyGoal(g.xp)}>
-              <strong>{g.xp} XP</strong>
-              <small>{g.name}</small>
-            </Goal>
-          ))}
-        </Goals>
-        <Muted>{DAILY_GOALS.find((g) => g.xp === progress.dailyGoal)?.about ?? ''} A lesson gives 10 XP plus 2 for each task right the first time.</Muted>
-      </Card>
-
-      <DialectCard />
-
-      <RemindersCard />
-
-      <Muted>
-        Progress is saved on this device, and in your account when you are signed in.{' '}
-        <Reset
-          type="button"
-          onClick={() => {
-            if (window.confirm('Delete all progress on this device? If you are signed in, it is deleted from your account too.')) resetProgress()
-          }}
-        >
-          Reset progress
-        </Reset>
-      </Muted>
-      <Muted>
-        <Link to="/privacy">Privacy Policy</Link> · <Link to="/terms">Terms of Use</Link> · <Link to="/licenses">Licenses &amp; credits</Link>
-      </Muted>
+      <SettingsLink to="/settings">
+        <span>Settings</span>
+        <small>Daily goal, SQL dialect, level{NATIVE ? '' : ', reminders'}</small>
+        <b aria-hidden="true">→</b>
+      </SettingsLink>
     </Page>
   )
 }
@@ -235,67 +182,40 @@ const Number = styled.div`
   }
 `
 
-const Goals = styled.div`
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: ${({ theme }) => theme.space.sm};
-`
 
-const Goal = styled.button<{ $on: boolean }>`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  min-height: 60px;
-  border-radius: ${({ theme }) => theme.radius.md};
-  border: 2px solid ${({ theme, $on }) => ($on ? theme.color.accent : theme.color.line)};
-  background: ${({ theme, $on }) => ($on ? theme.color.accentSoft : theme.color.surface)};
-  color: ${({ theme, $on }) => ($on ? theme.color.accentStrong : theme.color.ink)};
-  font: inherit;
-  cursor: pointer;
 
-  small {
-    font-size: ${({ theme }) => theme.size.xs};
-  }
-`
 
-const GoalList = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.space.sm};
-`
-
-const GoalChoice = styled.button<{ $on: boolean }>`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
-  border-radius: ${({ theme }) => theme.radius.md};
-  border: 2px solid ${({ theme, $on }) => ($on ? theme.color.accent : theme.color.line)};
-  background: ${({ theme, $on }) => ($on ? theme.color.accentSoft : theme.color.surface)};
-  color: ${({ theme }) => theme.color.ink};
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-
-  small {
-    font-size: ${({ theme }) => theme.size.sm};
-    color: ${({ theme }) => theme.color.muted};
-  }
-`
 
 const Muted = styled.p`
   font-size: ${({ theme }) => theme.size.sm};
   color: ${({ theme }) => theme.color.muted};
 `
 
-const Reset = styled.button`
-  border: 0;
-  padding: 0;
-  background: none;
-  color: ${({ theme }) => theme.color.bad};
-  font: inherit;
-  text-decoration: underline;
-  cursor: pointer;
+const SettingsLink = styled(Link)`
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 0 ${({ theme }) => theme.space.md};
+  padding: ${({ theme }) => theme.space.md};
+  border-radius: ${({ theme }) => theme.radius.lg};
+  border: 1px solid ${({ theme }) => theme.color.line};
+  background: ${({ theme }) => theme.color.surface};
+  color: ${({ theme }) => theme.color.ink};
+  text-decoration: none;
+
+  span {
+    font-weight: 700;
+  }
+
+  small {
+    grid-row: 2;
+    font-size: ${({ theme }) => theme.size.sm};
+    color: ${({ theme }) => theme.color.muted};
+  }
+
+  b {
+    grid-row: 1 / 3;
+    grid-column: 2;
+    color: ${({ theme }) => theme.color.accent};
+  }
 `

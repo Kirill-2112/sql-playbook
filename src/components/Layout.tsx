@@ -42,6 +42,8 @@ const Main = styled.main`
   min-width: 0;
   padding-inline: ${({ theme }) => theme.space.lg};
   padding-block: ${({ theme }) => theme.space.xl} ${({ theme }) => theme.space.xxl};
+  /* The iOS app draws under the status bar and the Dynamic Island. */
+  padding-top: calc(${({ theme }) => theme.space.xl} + env(safe-area-inset-top));
 
   @media (max-width: 900px) {
     padding-bottom: calc(96px + env(safe-area-inset-bottom));

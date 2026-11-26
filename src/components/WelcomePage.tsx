@@ -1,36 +1,33 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { onRadioGroupKeyDown, radioTabIndex } from '../utils/radioGroup'
 import styled, { css } from 'styled-components'
-import { GOALS, goalInfo } from '../content/goals'
+import { CHECK_LEVELS } from '../content/levelCheck'
+import { useCourse } from '../hooks/useCourse'
 import { finishOnboarding, type Dialect } from '../progress/store'
 
 const DIALECT: readonly (readonly [string, string, Dialect])[] = [
-  ['PostgreSQL', 'The most popular open-source database for new projects. Your queries run right here in the browser.', 'postgres'],
-  ['MySQL', 'Common in web apps and many workplaces. Explanations, tasks and error messages in MySQL 8.4, checked on a real MySQL server.', 'mysql'],
-  ['Not sure yet', 'Start with PostgreSQL: the basics are the same in both, and you can switch at any time.', 'postgres'],
+  ['PostgreSQL', 'Popular for new projects', 'postgres'],
+  ['MySQL', 'Common in web apps', 'mysql'],
+  ['Not sure yet', 'We will start you with PostgreSQL', 'postgres'],
 ]
 
-type Step = 0 | 1 | 2 | 3
-const LAST: Step = 3
-
-function levelList(levels: number[]): string {
-  return levels.length === 1 ? `Level ${levels[0]}` : `Levels ${levels.slice(0, -1).join(', ')} and ${levels.at(-1)}`
-}
+type Step = 0 | 1 | 2
+const LAST: Step = 2
 
 /**
- * First launch: what SQL is for (it decides which skills the path needs), the dialect (every task is shown in it),
- * then the level check or Level 1. The daily goal is asked after the first lesson, when XP means something.
+ * First launch: the dialect (every task is shown in it), then where to start: the first lesson or the level check,
+ * which opens the levels the learner already knows. The daily goal is asked after
+ * the first lesson, when XP means something.
  */
 export function WelcomePage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>(0)
-  const [goal, setGoalChoice] = useState<number | null>(null)
   const [dialect, setDialectChoice] = useState<number | null>(null)
-  const chosenGoal = GOALS[goal ?? 0]!
+  // "I'm new" opens the very first lesson; the path is one tap away from it.
+  const firstLesson = useCourse()?.units[0]?.skills[0]?.lessons[0]?.id
 
-  function finish(to: '/' | '/level-check') {
-    finishOnboarding(chosenGoal.id, DIALECT[dialect ?? 0]?.[2] ?? 'postgres')
+  function finish(to: string) {
+    finishOnboarding(DIALECT[dialect ?? 0]?.[2] ?? 'postgres')
     navigate(to, { replace: true })
   }
 
@@ -38,33 +35,15 @@ export function WelcomePage() {
     return (
       <Screen>
         <Hero>
-          <Logo aria-hidden="true">
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <ellipse cx="12" cy="5" rx="8" ry="3" />
-              <path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />
-            </svg>
-          </Logo>
           <h1>Learn SQL a few minutes a day</h1>
-          <p>
-            Short lessons on real databases: a food importer, a music store, an airline. Your queries run on a real
-            PostgreSQL right here in your browser, and every exercise has a MySQL version checked on a real MySQL server.
-          </p>
+          <p>Short lessons on real databases.</p>
         </Hero>
         <Footer>
           <Primary type="button" onClick={() => setStep(1)}>
             Get started
           </Primary>
-          <Ghost
-            type="button"
-            onClick={() => {
-              finishOnboarding('learn', 'postgres')
-              navigate('/', { replace: true })
-            }}
-          >
-            Skip, go straight to the path
-          </Ghost>
           <Ghost type="button" onClick={() => navigate('/progress')}>
-            I have an account: sign in
+            I have an account
           </Ghost>
         </Footer>
       </Screen>
@@ -83,56 +62,54 @@ export function WelcomePage() {
   )
 
   if (step === LAST) {
-    const levels = goalInfo(chosenGoal.id).checkLevels
     return (
       <Screen>
         {top}
         <Body>
-          <h1>Where should you start?</h1>
-          <Lead>
-            A short check finds out. Two questions for each of {levelList(levels)}, about 3 minutes. It stops at the first
-            mistake and opens the levels you already know.
-          </Lead>
-          <Note>Every level can also be opened later from the path.</Note>
+          <h1 id="welcome-start">Where should you start?</h1>
+          <Options role="group" aria-labelledby="welcome-start">
+            <Option type="button" $on={false} onClick={() => finish(firstLesson ? `/learn/${firstLesson}` : '/path')}>
+              <span>
+                <strong>I&apos;m new to SQL</strong>
+                <small>Start with the first lesson.</small>
+              </span>
+            </Option>
+            <Option type="button" $on={false} onClick={() => finish('/level-check')}>
+              <span>
+                <strong>I know some SQL</strong>
+                <small>Skip what you know: {CHECK_LEVELS.length * 2} quick questions at most.</small>
+              </span>
+            </Option>
+          </Options>
         </Body>
-        <Footer>
-          <Primary type="button" onClick={() => finish('/level-check')}>
-            Check my level
-          </Primary>
-          <Secondary type="button" onClick={() => finish('/')}>
-            I&apos;m new to SQL: start at Level 1
-          </Secondary>
-        </Footer>
       </Screen>
     )
   }
 
-  const question =
-    step === 1
-      ? { title: 'What do you want SQL for?', options: GOALS.map((g) => [g.title, g.about] as const), value: goal, set: setGoalChoice }
-      : { title: 'Which database do you want to learn?', options: DIALECT.map(([t, d]) => [t, d] as const), value: dialect, set: setDialectChoice }
+  // The answer moves straight on (a short pause shows the pick); the back arrow undoes it.
+  function pick(i: number) {
+    setDialectChoice(i)
+    window.setTimeout(() => setStep(LAST), 220)
+  }
 
   return (
     <Screen>
       {top}
       <Body>
-        <h1>{question.title}</h1>
-        <Options role="radiogroup" aria-label={question.title} onKeyDown={onRadioGroupKeyDown}>
-          {question.options.map(([title, detail], i) => (
-            <Option key={title} type="button" role="radio" aria-checked={question.value === i} tabIndex={radioTabIndex(i, question.value)} $on={question.value === i} onClick={() => question.set(i)}>
-              <strong>{title}</strong>
-              <small>{detail}</small>
+        <h1 id="welcome-question">Which SQL do you want to learn?</h1>
+        <Sub>You can change this later.</Sub>
+        <Options role="group" aria-labelledby="welcome-question">
+          {DIALECT.map(([title, detail], i) => (
+            <Option key={title} type="button" aria-pressed={dialect === i} $on={dialect === i} onClick={() => pick(i)}>
+              <span>
+                <strong>{title}</strong>
+                <small>{detail}</small>
+              </span>
+              {dialect === i && <Check />}
             </Option>
           ))}
         </Options>
-        {step === 1 && <Note>It decides which skills your path needs. The rest stay open as optional. You can change it on the Progress page.</Note>}
-        {step === 2 && <Note>Most SQL is the same in both. Where they differ, every lesson shows your choice. You can switch at the top of the path.</Note>}
       </Body>
-      <Footer>
-        <Primary type="button" disabled={question.value === null} onClick={() => setStep((step + 1) as Step)}>
-          Continue
-        </Primary>
-      </Footer>
     </Screen>
   )
 }
@@ -141,6 +118,8 @@ const Screen = styled.div`
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
+  /* The iOS app draws under the status bar and the Dynamic Island. */
+  padding-top: env(safe-area-inset-top);
   background: ${({ theme }) => theme.color.surface};
 `
 
@@ -164,16 +143,6 @@ const Hero = styled.main`
     font-size: ${({ theme }) => theme.size.lg};
     color: ${({ theme }) => theme.color.muted};
   }
-`
-
-const Logo = styled.span`
-  width: 72px;
-  height: 72px;
-  display: grid;
-  place-items: center;
-  border-radius: 20px;
-  background: ${({ theme }) => theme.color.accent};
-  color: ${({ theme }) => theme.color.surface};
 `
 
 const Top = styled.header`
@@ -215,9 +184,11 @@ const Body = styled.main`
   max-width: 560px;
   width: 100%;
   margin: 0 auto;
-  padding: ${({ theme }) => theme.space.md};
+  /* The question sits a little above the middle of the screen, not at the top with empty space below. */
+  padding: ${({ theme }) => theme.space.md} ${({ theme }) => theme.space.md} 12vh;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: ${({ theme }) => theme.space.md};
 
   h1 {
@@ -233,11 +204,10 @@ const Options = styled.div`
 
 const Option = styled.button<{ $on: boolean }>`
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  min-height: 64px;
-  padding: ${({ theme }) => theme.space.sm} ${({ theme }) => theme.space.md};
+  align-items: center;
+  gap: ${({ theme }) => theme.space.md};
+  min-height: 76px;
+  padding: ${({ theme }) => theme.space.md} ${({ theme }) => theme.space.lg};
   border-radius: ${({ theme }) => theme.radius.lg};
   border: 2px solid ${({ theme }) => theme.color.line};
   border-bottom-width: 4px;
@@ -246,8 +216,28 @@ const Option = styled.button<{ $on: boolean }>`
   font: inherit;
   text-align: left;
   cursor: pointer;
+  transition: transform 0.08s;
+
+  /* A pressed key: the card sinks into its thicker bottom edge. */
+  &:active {
+    transform: translateY(2px);
+    border-bottom-width: 2px;
+    margin-bottom: 2px;
+  }
+
+  > span:first-child {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  strong {
+    font-size: ${({ theme }) => theme.size.md};
+  }
 
   small {
+    font-size: ${({ theme }) => theme.size.sm};
     color: ${({ theme }) => theme.color.muted};
   }
 
@@ -259,27 +249,35 @@ const Option = styled.button<{ $on: boolean }>`
     `}
 `
 
-const Lead = styled.p`
-  font-size: ${({ theme }) => theme.size.md};
-  line-height: 1.55;
-`
-
-const Secondary = styled.button`
-  min-height: 52px;
-  border: 2px solid ${({ theme }) => theme.color.line};
-  border-bottom-width: 4px;
-  border-radius: ${({ theme }) => theme.radius.lg};
-  background: ${({ theme }) => theme.color.surface};
-  color: ${({ theme }) => theme.color.accentStrong};
-  font: inherit;
-  font-weight: 700;
-  cursor: pointer;
-`
-
-const Note = styled.p`
-  font-size: ${({ theme }) => theme.size.sm};
+const Sub = styled.p`
+  margin-top: -${({ theme }) => theme.space.sm};
   color: ${({ theme }) => theme.color.muted};
 `
+
+/** The picked answer, shown when the learner comes back to a question. */
+function Check() {
+  return (
+    <Tick aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m5 12 5 5 9-10" />
+      </svg>
+    </Tick>
+  )
+}
+
+const Tick = styled.span`
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: ${({ theme }) => theme.color.accent};
+  color: ${({ theme }) => theme.color.surface};
+`
+
+
+
 
 const Footer = styled.footer`
   display: flex;

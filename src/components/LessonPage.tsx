@@ -28,7 +28,7 @@ export function LessonPage() {
     [lessonId],
   )
 
-  if (course && !found) return <Navigate to="/" replace />
+  if (course && !found) return <Navigate to="/path" replace />
   if (!found || !explanations) return <Screen>Loading the lesson…</Screen>
 
   const { lesson, skill } = found
@@ -42,6 +42,7 @@ export function LessonPage() {
       tasks={tasks}
       onFinish={finish}
       intro={cards?.length ? { cards, kind: `Level ${lesson.level} · ${skill.name}` } : undefined}
+      resumeKey={lesson.id}
     />
   )
 }

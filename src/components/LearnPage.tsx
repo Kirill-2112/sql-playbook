@@ -1,24 +1,26 @@
-import { useEffect } from 'react'
-import { Link, Navigate, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
 import styled from 'styled-components'
 import { LABS } from '../content/labs'
 import { useCourse } from '../hooks/useCourse'
-import { dueReviewKeys, pathProgress } from '../progress/path'
-import { setDialect, unlockLevel, useProgress } from '../progress/store'
-import { DialectSwitch } from './DialectSwitch'
-import { GoalCard } from './GoalCard'
-import { LabCard } from './LabCard'
+import { pathProgress } from '../progress/path'
+import { unlockLevel, useProgress } from '../progress/store'
+import { PathLab } from './PathLab'
+import { PathTrophy } from './PathTrophy'
 import { SkillNode } from './SkillNode'
-import { StatsBar } from './StatsBar'
+import { TrailPath } from './TrailPath'
 
 // The home of the app: the learning path, one level per unit, one skill per topic.
 export function LearnPage() {
   const course = useCourse()
   const progress = useProgress()
   const units = course ? pathProgress(course, progress) : []
-  const due = course ? dueReviewKeys(course, progress.review).length : 0
   // After the level check: straight to the level to start at, not the levels already known above it.
   const startLevel = (useLocation().state as { level?: number } | null)?.level
+  // Only the level the learner is in is open; the others fold into one line each (a tap opens them).
+  const current = units.find((u) => u.skills.some((s) => s.status === 'current'))?.level
+  const [toggled, setToggled] = useState<Record<number, boolean>>({})
+  const isOpen = (level: number) => toggled[level] ?? level === (startLevel ?? current)
   useEffect(() => {
     if (course && startLevel) document.getElementById(`unit-${startLevel}`)?.closest('section')?.scrollIntoView({ block: 'start' })
   }, [course, startLevel])
@@ -27,61 +29,69 @@ export function LearnPage() {
 
   return (
     <Page>
-      <HiddenTitle>Your learning path</HiddenTitle>
-      <StatsBar />
-      {/* The language of every explanation, task and error message: visible, and switched in one tap. */}
-      <Language>
-        <span id="learn-in">Learning in</span>
-        <DialectSwitch value={progress.dialect} onChange={setDialect} labelledBy="learn-in" />
-      </Language>
-      <GoalCard />
-      {due > 0 && (
-        <Review to="/review">
-          <span>
-            <strong>
-              {due} task{due === 1 ? '' : 's'} to review
-            </strong>
-            <small>Things you missed earlier. A few minutes keeps them from fading.</small>
-          </span>
-          <b>Review</b>
-        </Review>
-      )}
+      <Title>Lessons</Title>
       {course === null && <Muted>Loading the path…</Muted>}
       {units.map((unit) => (
         <Unit key={unit.level} aria-labelledby={`unit-${unit.level}`}>
           <UnitHeader $locked={!unit.unlocked}>
-            <span>Level {unit.level}</span>
-            <h2 id={`unit-${unit.level}`}>{unit.name}</h2>
-            <small>
-              {unit.needed === unit.skills.length
-                ? `${unit.done} of ${unit.skills.length} skills done`
-                : unit.needed === 0
-                  ? `Optional for your goal · ${unit.done} of ${unit.skills.length} skills done`
-                  : `${unit.neededDone} of ${unit.needed} skills for your goal done · ${unit.skills.length - unit.needed} optional`}
-            </small>
+            <h2 id={`unit-${unit.level}`}>
+              <Toggle
+                type="button"
+                aria-expanded={isOpen(unit.level)}
+                aria-controls={`unit-body-${unit.level}`}
+                onClick={() => setToggled({ ...toggled, [unit.level]: !isOpen(unit.level) })}
+              >
+                <span>
+                  <small>Level {unit.level}</small>
+                  <b>{unit.name}</b>
+                  <small>
+                    {unit.done === unit.skills.length
+                      ? `All ${unit.skills.length} skills done`
+                      : `${unit.done} of ${unit.skills.length} skills done`}
+                  </small>
+                </span>
+                <Chevron $open={isOpen(unit.level)} aria-hidden="true">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </Chevron>
+              </Toggle>
+            </h2>
             {!unit.unlocked && (
-              <Anyway type="button" onClick={() => unlockLevel(unit.level)}>
+              <Anyway
+                type="button"
+                onClick={() => {
+                  unlockLevel(unit.level)
+                  setToggled({ ...toggled, [unit.level]: true })
+                }}
+              >
                 Start Level {unit.level} anyway
               </Anyway>
             )}
           </UnitHeader>
-          <Path>
-            {unit.skills.map((item, i) => (
-              <SkillNode key={item.skill.topic} item={item} index={i} />
-            ))}
-          </Path>
-          {/* Shown on locked levels too: a lab is a good reason to open a level. */}
-          {LABS.filter((lab) => lab.level === unit.level).map((lab) => (
-            <LabCard key={lab.id} lab={lab} />
-          ))}
+          {isOpen(unit.level) && (
+            <Body id={`unit-body-${unit.level}`}>
+              {/* The guide stands by the next skill of the level the learner is in. */}
+              <TrailPath reached={reachedIndex(unit.skills)} guide={unit.level === current}>
+                <Path>
+                  {unit.skills.map((item, i) => (
+                    <SkillNode key={item.skill.topic} item={item} index={i} />
+                  ))}
+                  {/* Then the level's labs and, at the very end, its cup: stops on the same winding path. */}
+                  {LABS.filter((lab) => lab.level === unit.level).map((lab, i) => (
+                    <PathLab key={lab.id} lab={lab} index={unit.skills.length + i} />
+                  ))}
+                  <PathTrophy
+                    level={unit.level}
+                    done={unit.done === unit.skills.length}
+                    index={unit.skills.length + LABS.filter((lab) => lab.level === unit.level).length}
+                  />
+                </Path>
+              </TrailPath>
+            </Body>
+          )}
         </Unit>
       ))}
-      {course && (
-        <Note>
-          Every exercise is also in <Link to="/exercises">Practice</Link>, and the datasets and situations are in the{' '}
-          <Link to="/overview">overview</Link>.
-        </Note>
-      )}
     </Page>
   )
 }
@@ -89,18 +99,9 @@ export function LearnPage() {
 const Page = styled.div`
   display: flex;
   flex-direction: column;
-  gap: ${({ theme }) => theme.space.xl};
+  gap: ${({ theme }) => theme.space.md};
   max-width: 560px;
   margin: 0 auto;
-`
-
-const Language = styled.div`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.sm};
-  margin-top: -${({ theme }) => theme.space.md};
-  font-size: ${({ theme }) => theme.size.sm};
-  color: ${({ theme }) => theme.color.muted};
 `
 
 const Unit = styled.section`
@@ -120,22 +121,59 @@ const UnitHeader = styled.header<{ $locked: boolean }>`
   border: 2px ${({ $locked }) => ($locked ? 'dashed' : 'solid')}
     ${({ theme, $locked }) => ($locked ? theme.color.lockedStrong : theme.color.accent)};
 
-  span {
-    font-size: ${({ theme }) => theme.size.xs};
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    opacity: 0.85;
+  h2 {
+    width: 100%;
+    font-size: inherit;
+  }
+`
+
+// The whole level line is the button that opens and folds the level.
+const Toggle = styled.button`
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.md};
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  > span:first-child {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
 
-  h2 {
+  b {
     font-size: ${({ theme }) => theme.size.lg};
   }
 
   small {
     font-size: ${({ theme }) => theme.size.sm};
+    font-weight: 400;
     opacity: 0.9;
   }
+`
+
+const Chevron = styled.span<{ $open: boolean }>`
+  display: grid;
+  transform: rotate(${({ $open }) => ($open ? 180 : 0)}deg);
+  transition: transform 0.2s;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+`
+
+const Body = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: ${({ theme }) => theme.space.lg};
 `
 
 const Anyway = styled.button`
@@ -152,6 +190,11 @@ const Anyway = styled.button`
   cursor: pointer;
 `
 
+function reachedIndex(skills: { status: string }[]): number {
+  const next = skills.findIndex((s) => s.status !== 'done')
+  return next < 0 ? skills.length - 1 : next
+}
+
 const Path = styled.ol`
   list-style: none;
   margin: 0;
@@ -165,51 +208,7 @@ const Muted = styled.p`
   color: ${({ theme }) => theme.color.muted};
 `
 
-const Note = styled.p`
-  font-size: ${({ theme }) => theme.size.sm};
-  color: ${({ theme }) => theme.color.muted};
-  text-align: center;
-`
 
-const Review = styled(Link)`
-  display: flex;
-  align-items: center;
-  gap: ${({ theme }) => theme.space.md};
-  padding: ${({ theme }) => theme.space.md};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  border: 2px solid ${({ theme }) => theme.color.streak};
-  background: ${({ theme }) => theme.color.missSoft};
-  color: ${({ theme }) => theme.color.ink};
-  text-decoration: none;
-
-  span {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-  }
-
-  small {
-    font-size: ${({ theme }) => theme.size.sm};
-    color: ${({ theme }) => theme.color.muted};
-  }
-
-  b {
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 16px;
-    border-radius: ${({ theme }) => theme.radius.md};
-    background: ${({ theme }) => theme.color.missStrong};
-    color: ${({ theme }) => theme.color.surface};
-  }
-`
-
-// The page's heading for screen readers; the level banners below are its sections (h2).
-const HiddenTitle = styled.h1`
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+const Title = styled.h1`
+  font-size: ${({ theme }) => theme.size.xl};
 `

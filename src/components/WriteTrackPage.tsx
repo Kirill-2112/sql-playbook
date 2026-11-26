@@ -24,13 +24,13 @@ export function WriteTrackPage() {
     <Page>
       <header>
         <h1>Write SQL</h1>
-        <Lead>An empty editor and a question, like in an interview. Five tasks a session, hints if you need them.</Lead>
+        <Lead>Write whole queries, like in an interview.</Lead>
       </header>
 
       <Featured to={`/write/${INTERVIEW}`}>
         <span>
           <strong>Interview classics</strong>
-          <small>Top N per group, the second highest, running totals, streaks, the median… the questions interviewers love.</small>
+          <small>The questions interviewers ask most</small>
         </span>
         <Count done={interview.done} total={interview.total} />
       </Featured>
@@ -48,7 +48,6 @@ export function WriteTrackPage() {
                   <Row to={`/write/${topic.id}`}>
                     <span>
                       <strong>{topic.name}</strong>
-                      <small>{topic.terms}</small>
                     </span>
                     <Count done={c.done} total={c.total} />
                   </Row>

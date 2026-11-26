@@ -51,7 +51,7 @@ export function LessonComplete({ skillName, xp, correct, total, streak, goal, to
           </strong>
         </Stat>
       </Stats>
-      {correct < total && <p>The tasks you missed came back later in the lesson, and they will come back in Review tomorrow.</p>}
+      {correct < total && <p>Missed tasks come back in Review tomorrow.</p>}
       {ask && (
         <Ask>
           <h2 id="daily-goal">How much a day?</h2>
@@ -63,12 +63,10 @@ export function LessonComplete({ skillName, xp, correct, total, streak, goal, to
               </GoalOption>
             ))}
           </Goals>
-          <p>
-            This lesson gave {xp} XP. {picked.about} Change it any time on the Progress page.
-          </p>
+          <p>{picked.about}</p>
         </Ask>
       )}
-      <Primary to="/" onClick={() => ask && setDailyGoal(picked.xp)}>
+      <Primary to="/path" onClick={() => ask && setDailyGoal(picked.xp)}>
         Continue
       </Primary>
     </Wrap>
@@ -80,7 +78,7 @@ const Wrap = styled.main`
   max-width: 480px;
   width: 100%;
   margin: 0 auto;
-  padding: ${({ theme }) => theme.space.xl} ${({ theme }) => theme.space.md};
+  padding: calc(${({ theme }) => theme.space.xl} + env(safe-area-inset-top)) ${({ theme }) => theme.space.md} ${({ theme }) => theme.space.xl};
   display: flex;
   flex-direction: column;
   align-items: center;

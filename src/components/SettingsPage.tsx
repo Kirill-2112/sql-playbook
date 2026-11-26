@@ -30,14 +30,6 @@ export function SettingsPage() {
 
       <DialectCard />
 
-      <Card id="level" aria-labelledby="level-heading">
-        <h2 id="level-heading">Your level</h2>
-        <Muted>Answer a few questions to skip the lessons you do not need.</Muted>
-        <Muted>
-          <Link to="/level-check">Check my level</Link>
-        </Muted>
-      </Card>
-
       {/* Web Push does not work inside the iOS app; it gets its own (local) reminders later. */}
       {!NATIVE && <RemindersCard />}
 
@@ -74,7 +66,6 @@ const Page = styled.div`
   }
 `
 
-
 const Card = styled.section`
   display: flex;
   flex-direction: column;
@@ -108,7 +99,6 @@ const Goal = styled.button<{ $on: boolean }>`
     font-size: ${({ theme }) => theme.size.xs};
   }
 `
-
 
 
 const Muted = styled.p`

@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styled, { css } from 'styled-components'
-import { CHECK_LEVELS } from '../content/levelCheck'
 import { finishOnboarding, type Dialect } from '../progress/store'
 
 const DIALECT: readonly (readonly [string, string, Dialect])[] = [
@@ -10,12 +9,12 @@ const DIALECT: readonly (readonly [string, string, Dialect])[] = [
   ['Not sure yet', 'We will start you with PostgreSQL', 'postgres'],
 ]
 
-type Step = 0 | 1 | 2
-const LAST: Step = 2
+type Step = 0 | 1
+const LAST: Step = 1
 
 /**
- * First launch: the dialect (every task is shown in it), then where to start: the home screen from Level 1, or the
- * level check, which opens the levels the learner already knows. The daily goal is asked after
+ * First launch: a welcome, then the dialect (every task is shown in it), then the home screen. Everyone starts at
+ * Level 1; a learner who knows a level marks it with "I know this" on the path. The daily goal is asked after
  * the first lesson, when XP means something.
  */
 export function WelcomePage() {
@@ -23,9 +22,9 @@ export function WelcomePage() {
   const [step, setStep] = useState<Step>(0)
   const [dialect, setDialectChoice] = useState<number | null>(null)
 
-  function finish(to: string) {
-    finishOnboarding(DIALECT[dialect ?? 0]?.[2] ?? 'postgres')
-    navigate(to, { replace: true })
+  function finish(choice: number) {
+    finishOnboarding(DIALECT[choice]?.[2] ?? 'postgres')
+    navigate('/', { replace: true })
   }
 
   if (step === 0) {
@@ -52,41 +51,16 @@ export function WelcomePage() {
       <Back type="button" aria-label="Back" onClick={() => setStep((step - 1) as Step)}>
         ←
       </Back>
-      <Bar role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={LAST} aria-valuenow={step}>
-        <Fill style={{ width: `${(100 * step) / LAST}%` }} />
+      <Bar role="progressbar" aria-label="Setup progress" aria-valuemin={0} aria-valuemax={LAST + 1} aria-valuenow={step}>
+        <Fill style={{ width: `${(100 * step) / (LAST + 1)}%` }} />
       </Bar>
     </Top>
   )
 
-  if (step === LAST) {
-    return (
-      <Screen>
-        {top}
-        <Body>
-          <h1 id="welcome-start">Where should you start?</h1>
-          <Options role="group" aria-labelledby="welcome-start">
-            <Option type="button" $on={false} onClick={() => finish('/')}>
-              <span>
-                <strong>I&apos;m new to SQL</strong>
-                <small>Start from the basics.</small>
-              </span>
-            </Option>
-            <Option type="button" $on={false} onClick={() => finish('/level-check')}>
-              <span>
-                <strong>I know some SQL</strong>
-                <small>Skip what you know: {CHECK_LEVELS.length * 2} quick questions at most.</small>
-              </span>
-            </Option>
-          </Options>
-        </Body>
-      </Screen>
-    )
-  }
-
   // The answer moves straight on (a short pause shows the pick); the back arrow undoes it.
   function pick(i: number) {
     setDialectChoice(i)
-    window.setTimeout(() => setStep(LAST), 220)
+    window.setTimeout(() => finish(i), 220)
   }
 
   return (

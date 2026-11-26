@@ -46,6 +46,7 @@ export function mergeProgress(a: ProgressState, b: ProgressState): ProgressState
     settingsAt: settings.settingsAt,
     onboarded: a.onboarded || b.onboarded,
     unlockedLevels: [...new Set([...a.unlockedLevels, ...b.unlockedLevels])].sort((x, y) => x - y),
+    knownLevels: [...new Set([...a.knownLevels, ...b.knownLevels])].sort((x, y) => x - y),
     seenDatasets: [...new Set([...a.seenDatasets, ...b.seenDatasets])].sort(),
     labs,
     written,

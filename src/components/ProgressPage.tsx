@@ -75,7 +75,7 @@ export function ProgressPage() {
 
       <SettingsLink to="/settings">
         <span>Settings</span>
-        <small>Daily goal, SQL dialect, level{NATIVE ? '' : ', reminders'}</small>
+        <small>Daily goal, SQL dialect{NATIVE ? '' : ', reminders'}</small>
         <b aria-hidden="true">→</b>
       </SettingsLink>
     </Page>

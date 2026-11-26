@@ -4,7 +4,7 @@ import styled from 'styled-components'
 import { LABS } from '../content/labs'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
-import { unlockLevel, useProgress } from '../progress/store'
+import { markLevelsKnown, unmarkLevelKnown, useProgress } from '../progress/store'
 import { PathLab } from './PathLab'
 import { PathTrophy } from './PathTrophy'
 import { SkillNode } from './SkillNode'
@@ -47,7 +47,9 @@ export function LearnPage() {
                   <small>
                     {unit.done === unit.skills.length
                       ? `All ${unit.skills.length} skills done`
-                      : `${unit.done} of ${unit.skills.length} skills done`}
+                      : unit.known
+                        ? 'You know this level'
+                        : `${unit.done} of ${unit.skills.length} skills done`}
                   </small>
                 </span>
                 <Chevron $open={isOpen(unit.level)} aria-hidden="true">
@@ -57,17 +59,23 @@ export function LearnPage() {
                 </Chevron>
               </Toggle>
             </h2>
-            {!unit.unlocked && (
-              <Anyway
-                type="button"
-                onClick={() => {
-                  unlockLevel(unit.level)
-                  setToggled({ ...toggled, [unit.level]: true })
-                }}
-              >
-                Start Level {unit.level} anyway
-              </Anyway>
-            )}
+            {/* Everyone starts at Level 1; whoever knows a level says so, and the path goes on to the next one. */}
+            {unit.done < unit.skills.length &&
+              (unit.known ? (
+                <Anyway type="button" onClick={() => unmarkLevelKnown(unit.level)}>
+                  Undo
+                </Anyway>
+              ) : (
+                <Anyway
+                  type="button"
+                  onClick={() => {
+                    markLevelsKnown(unit.level)
+                    setToggled({ [unit.level]: false, [unit.level + 1]: true })
+                  }}
+                >
+                  I know this
+                </Anyway>
+              ))}
           </UnitHeader>
           {isOpen(unit.level) && (
             <Body id={`unit-body-${unit.level}`}>

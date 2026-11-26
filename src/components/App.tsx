@@ -12,7 +12,6 @@ import { ImportPage } from './ImportPage'
 import { IndexLabPage } from './IndexLabPage'
 import { Layout } from './Layout'
 import { LearnPage } from './LearnPage'
-import { LevelCheckPage } from './LevelCheckPage'
 import { LessonPage } from './LessonPage'
 import { LicensesPage } from './LicensesPage'
 import { DrillPage } from './DrillPage'
@@ -44,7 +43,7 @@ export function App() {
           <Route path="learn/:lessonId" element={<LessonPage />} />
           <Route path="review" element={<ReviewPage />} />
           <Route path="welcome" element={<WelcomePage />} />
-          <Route path="level-check" element={<LevelCheckPage />} />
+          <Route path="level-check" element={<Navigate to="/path" replace />} />
           <Route path="labs/:labId" element={<LabPage />} />
           <Route path="practice/:id/drill" element={<DrillPage />} />
           <Route path="write/:set" element={<WriteSessionPage />} />

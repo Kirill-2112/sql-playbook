@@ -19,8 +19,10 @@ export interface ProgressState {
   days: Record<string, number>
   /** Daily goal in XP. */
   dailyGoal: number
-  /** Levels opened early with "start anyway". */
+  /** Levels opened early with "start anyway" (before 2026-11-26; still honoured). */
   unlockedLevels: number[]
+  /** Levels the learner said they already know ("I know this" on the path): the path goes on past them. */
+  knownLevels: number[]
   /**
    * Tasks to review, keyed "lessonId#taskIndex" (Leitner boxes): a miss puts the task in box 1, due tomorrow; each
    * right answer in a review moves it up a box and doubles the wait (2, 4, 8 days); after box 4 it is learned.
@@ -65,18 +67,18 @@ export const DAILY_GOALS = [
   { xp: 100, name: 'Intense', about: 'Five lessons a day.' },
 ] as const
 
-const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres', settingsAt: '', labs: {}, written: {}, dailyGoalChosen: false }
+const EMPTY: ProgressState = { version: 1, xp: 0, lessons: {}, days: {}, dailyGoal: 20, unlockedLevels: [], knownLevels: [], review: {}, onboarded: false, seenDatasets: [], dialect: 'postgres', settingsAt: '', labs: {}, written: {}, dailyGoalChosen: false }
 
 function load(): ProgressState {
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return EMPTY
     const parsed = JSON.parse(raw) as Partial<ProgressState>
-    // The learning goal (Nov 2026) was dropped: one path for everyone, the level check skips what is known.
+    // The learning goal (Nov 2026) was dropped: one path for everyone; "I know this" skips a level.
     delete (parsed as Record<string, unknown>).goal
     const onboarded = parsed.onboarded ?? Object.keys(parsed.lessons ?? {}).length > 0
     // Learners who onboarded before the goal question picked their daily goal there.
-    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', settingsAt: parsed.settingsAt ?? '', labs: parsed.labs ?? {}, written: parsed.written ?? {}, onboarded, dailyGoalChosen: parsed.dailyGoalChosen ?? onboarded, version: 1 }
+    return { ...EMPTY, ...parsed, review: parsed.review ?? {}, seenDatasets: parsed.seenDatasets ?? [], dialect: parsed.dialect ?? 'postgres', settingsAt: parsed.settingsAt ?? '', labs: parsed.labs ?? {}, written: parsed.written ?? {}, knownLevels: parsed.knownLevels ?? [], onboarded, dailyGoalChosen: parsed.dailyGoalChosen ?? onboarded, version: 1 }
   } catch {
     return EMPTY
   }
@@ -183,18 +185,20 @@ export function setDialect(dialect: Dialect) {
   save({ ...state, dialect, settingsAt: new Date().toISOString() })
 }
 
-export function unlockLevel(level: number) {
-  if (!state.unlockedLevels.includes(level)) save({ ...state, unlockedLevels: [...state.unlockedLevels, level] })
+/** "I know this" on a level: that level and every one before it count as known, so the path goes on past them. */
+export function markLevelsKnown(upTo: number) {
+  const levels = Array.from({ length: upTo }, (_, i) => i + 1)
+  save({ ...state, knownLevels: [...new Set([...state.knownLevels, ...levels])].sort((a, b) => a - b) })
 }
 
-/** First launch: the dialect. The level comes from the level check, the daily goal after the first lesson. */
+/** Undo "I know this" for one level. */
+export function unmarkLevelKnown(level: number) {
+  save({ ...state, knownLevels: state.knownLevels.filter((l) => l !== level) })
+}
+
+/** First launch: the dialect. Everyone starts at Level 1; the daily goal is asked after the first lesson. */
 export function finishOnboarding(dialect: Dialect) {
   save({ ...state, dialect, onboarded: true, settingsAt: new Date().toISOString() })
-}
-
-/** The level check: opens the levels after the ones answered right. Levels already open stay open. */
-export function openLevels(levels: number[]) {
-  save({ ...state, unlockedLevels: [...new Set([...state.unlockedLevels, ...levels])].sort((a, b) => a - b) })
 }
 
 export function markDatasetSeen(id: string) {

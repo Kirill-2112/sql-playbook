@@ -15,19 +15,23 @@ export interface UnitProgress {
   level: number
   name: string
   unlocked: boolean
+  /** The learner said they know this level. */
+  known: boolean
   skills: SkillProgress[]
   done: number
 }
 
 /**
- * Where the learner is on the path. A level opens when the previous one is finished (or was opened early); inside an
- * open level the first unfinished skill is "current", the ones after it stay locked until it is done.
+ * Where the learner is on the path. A level opens when the previous one is finished or known ("I know this"), or was
+ * opened early; inside an open level the first unfinished skill is "current", the ones after it stay locked until it
+ * is done. A known level has no current skill (its skills stay open): the path's next step is in the level after it.
  */
 export function pathProgress(course: Course, progress: ProgressState): UnitProgress[] {
   const units: UnitProgress[] = []
   let previousDone: boolean = true
   for (const unit of course.units) {
-    const unlocked: boolean = previousDone || progress.unlockedLevels.includes(unit.level)
+    const known = progress.knownLevels.includes(unit.level)
+    const unlocked: boolean = previousDone || known || progress.unlockedLevels.includes(unit.level)
     let currentFound = false
     const skills = unit.skills.map((skill): SkillProgress => {
       const completed = skill.lessons.filter((l) => progress.lessons[l.id]).length
@@ -39,6 +43,7 @@ export function pathProgress(course: Course, progress: ProgressState): UnitProgr
       // A skill done ahead of the path (any skill opens on tap) shows as done even in a level not reached yet.
       if (done) status = 'done'
       else if (!unlocked) status = 'locked'
+      else if (known) status = 'open'
       else if (!currentFound) {
         status = 'current'
         currentFound = true
@@ -46,8 +51,8 @@ export function pathProgress(course: Course, progress: ProgressState): UnitProgr
       return { skill, status, completed, nextLessonId: next.id }
     })
     const doneCount = skills.filter((s) => s.status === 'done').length
-    units.push({ level: unit.level, name: unit.name, unlocked, skills, done: doneCount })
-    previousDone = unlocked && doneCount === skills.length
+    units.push({ level: unit.level, name: unit.name, unlocked, known, skills, done: doneCount })
+    previousDone = unlocked && (known || doneCount === skills.length)
   }
   return units
 }

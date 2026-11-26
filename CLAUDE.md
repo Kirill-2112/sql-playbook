@@ -234,10 +234,11 @@ Audit of 2026-10-15:
   up to 3 wrong pieces (ALTERNATIVES keywords, the opposite comparison, unused columns of the same tables), each
   run in place of the piece it imitates on PGlite (and MySQL for the mysql version) and kept only if the result
   changes. It takes the 4th slot of a lesson and never uses the lesson's write exercise.
-- First launch and home (2026-11-26): the owner dropped learning goals (no goal question, no "optional" skills; one
-  path for everyone). `/welcome`: welcome → SQL dialect → "Where should you start?" ("I'm new" goes to the home
-  screen; "I know some SQL" → `/level-check`, two gap tasks per level 1–4 from `src/content/levelCheck.ts`, stops at
-  the first mistake, passed levels open the next). Daily goal asked once on LessonComplete (`dailyGoalChosen`).
+- First launch and home (2026-11-26): the owner dropped learning goals and the level check (questions could not tell
+  a level). `/welcome`: welcome → SQL dialect → home. Everyone starts at Level 1; each level on the path has "I know
+  this" (`knownLevels` in the store, merged as a union; that level and all before it count as known, their skills
+  stay open, the path's next step moves on; "Undo" on a known level). `/level-check` redirects to the path.
+  Daily goal asked once on LessonComplete (`dailyGoalChosen`).
   `/` is HubPage (lesson card with level segments and Start/Continue, Practice (green) and Reference (orange)
   tiles, reviews, open labs); the path moved to `/path` (tabs: Home, Lessons, Practice, Reference, Progress).
   Settings (`/settings`: daily goal, dialect, level check, reminders, reset, legal) are off the Progress page.

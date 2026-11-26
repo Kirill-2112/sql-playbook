@@ -9,11 +9,6 @@ import { ExampleResult } from './ExampleResult'
 import { DRILL_SIZE } from './DrillPage'
 import { MysqlSupportPill } from './MysqlSupportPill'
 
-/** The documentation page's title starts with a capital, like every other card title. */
-function capitalize(text: string): string {
-  return text.charAt(0).toUpperCase() + text.slice(1)
-}
-
 export function ReferenceEntryPage() {
   const { id } = useParams()
   const data = useReference()
@@ -69,23 +64,13 @@ export function ReferenceEntryPage() {
         <PracticeLink to={`/practice/${entry.id}/drill`}>Practice · {Math.min(DRILL_SIZE, generated.exerciseCount)} exercises</PracticeLink>
       )}
 
-      {/* The official page for the learner's dialect, then the neighbours: cards like the rest of the app. */}
-      {doc && (
-        <Card href={doc.url} target="_blank" rel="noreferrer">
-          <small>Documentation</small>
-          <strong>{capitalize(doc.label.replace(/^(PostgreSQL|MySQL): /, ''))}</strong>
-          <span aria-hidden="true">↗</span>
-        </Card>
-      )}
-
+      {/* The neighbours, then the official page as a small credit line at the very end. */}
       <Pager aria-label="More functions">
-        {previous ? (
+        {previous && (
           <PagerLink to={`/reference/${previous.id}`}>
             <small>← Previous</small>
             <strong>{entryName(previous, dialect)}</strong>
           </PagerLink>
-        ) : (
-          <span />
         )}
         {next && (
           <PagerLink to={`/reference/${next.id}`}>
@@ -94,6 +79,15 @@ export function ReferenceEntryPage() {
           </PagerLink>
         )}
       </Pager>
+
+      {doc && (
+        <Source>
+          Source:{' '}
+          <a href={doc.url} target="_blank" rel="noreferrer">
+            {dialect === 'mysql' ? 'MySQL' : 'PostgreSQL'} documentation
+          </a>
+        </Source>
+      )}
     </Page>
   )
 }
@@ -157,39 +151,22 @@ const Note = styled.p`
   max-width: 75ch;
 `
 
-const Card = styled.a`
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 2px ${({ theme }) => theme.space.md};
-  padding: ${({ theme }) => theme.space.md};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  border: 1px solid ${({ theme }) => theme.color.line};
-  background: ${({ theme }) => theme.color.surface};
-  color: ${({ theme }) => theme.color.ink};
-  text-decoration: none;
 
-  /* One size in every card: the label is the same text, only grey. */
-  small {
-    font-size: inherit;
-    color: ${({ theme }) => theme.color.muted};
-  }
-
-  strong {
-    grid-row: 2;
-  }
-
-  span {
-    grid-row: 1 / 3;
-    grid-column: 2;
-    color: ${({ theme }) => theme.color.muted};
-  }
-`
-
+// Two cards side by side; a single one (first or last entry) takes the whole width.
 const Pager = styled.nav`
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
   gap: ${({ theme }) => theme.space.sm};
+`
+
+const Source = styled.p`
+  font-size: ${({ theme }) => theme.size.xs};
+  color: ${({ theme }) => theme.color.muted};
+
+  a {
+    color: inherit;
+  }
 `
 
 // Both cards read from the left, like every other card in the app.

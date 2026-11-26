@@ -236,7 +236,7 @@ Audit of 2026-10-15:
   path for everyone). `/welcome`: welcome → SQL dialect → "Where should you start?" ("I'm new" goes to the home
   screen; "I know some SQL" → `/level-check`, two gap tasks per level 1–4 from `src/content/levelCheck.ts`, stops at
   the first mistake, passed levels open the next). Daily goal asked once on LessonComplete (`dailyGoalChosen`).
-  `/` is HubPage (lesson card with level segments and Start/Continue, Solve tasks (green) and Reference (orange)
+  `/` is HubPage (lesson card with level segments and Start/Continue, Practice (green) and Reference (orange)
   tiles, reviews, open labs); the path moved to `/path` (tabs: Home, Lessons, Practice, Reference, Progress).
   Settings (`/settings`: daily goal, dialect, level check, reminders, reset, legal) are off the Progress page.
   The owner wants little text: one short line per item, no explanations under headings.

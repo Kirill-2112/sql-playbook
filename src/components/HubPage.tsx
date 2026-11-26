@@ -10,8 +10,8 @@ import { LabCard } from './LabCard'
 import { StatsBar } from './StatsBar'
 
 /**
- * The home of the app: the three ways to use it, side by side. Lessons (with the next one a tap away), solving whole
- * queries, and the reference of every function; then reviews when some are due and the labs open at the learner's level.
+ * The home of the app: the three ways to use it, the same three as the tabs. Lessons (with the next one a tap away),
+ * Practice and the Reference; then reviews when some are due and the labs open at the learner's level.
  */
 export function HubPage() {
   const course = useCourse()
@@ -69,10 +69,10 @@ export function HubPage() {
       </Lessons>
 
       <Pair>
-        <Tile to="/write" $tone="solve">
+        <Tile to="/practice" $tone="solve">
           <span>
-            <strong>Solve tasks</strong>
-            <small>Write whole queries, like in an interview</small>
+            <strong>Practice</strong>
+            <small>Write whole queries, labs and drills</small>
           </span>
           <Stat>
             <b>{Object.keys(progress.written).length}</b> solved

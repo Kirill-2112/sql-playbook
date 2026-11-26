@@ -8,6 +8,11 @@ import { ExampleResult } from './ExampleResult'
 import { DRILL_SIZE } from './DrillPage'
 import { MysqlSupportPill } from './MysqlSupportPill'
 
+/** The documentation page's title starts with a capital, like every other card title. */
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1)
+}
+
 export function ReferenceEntryPage() {
   const { id } = useParams()
   const data = useReference()
@@ -67,7 +72,7 @@ export function ReferenceEntryPage() {
       {doc && (
         <Card href={doc.url} target="_blank" rel="noreferrer">
           <small>Documentation</small>
-          <strong>{doc.label.replace(/^(PostgreSQL|MySQL): /, '')}</strong>
+          <strong>{capitalize(doc.label.replace(/^(PostgreSQL|MySQL): /, ''))}</strong>
           <span aria-hidden="true">↗</span>
         </Card>
       )}

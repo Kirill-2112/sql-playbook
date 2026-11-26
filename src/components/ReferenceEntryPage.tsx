@@ -75,15 +75,15 @@ export function ReferenceEntryPage() {
       <Pager aria-label="More functions">
         {previous ? (
           <PagerLink to={`/reference/${previous.id}`}>
-            <small>Previous</small>
+            <small>← Previous</small>
             <strong>{entryName(previous, dialect)}</strong>
           </PagerLink>
         ) : (
           <span />
         )}
         {next && (
-          <PagerLink to={`/reference/${next.id}`} $next>
-            <small>Next</small>
+          <PagerLink to={`/reference/${next.id}`}>
+            <small>Next →</small>
             <strong>{entryName(next, dialect)}</strong>
           </PagerLink>
         )}
@@ -209,10 +209,11 @@ const Pager = styled.nav`
   gap: ${({ theme }) => theme.space.sm};
 `
 
-const PagerLink = styled(Link)<{ $next?: boolean }>`
+// Both cards read from the left, like every other card in the app.
+const PagerLink = styled(Link)`
   display: flex;
   flex-direction: column;
-  align-items: ${({ $next }) => ($next ? 'flex-end' : 'flex-start')};
+  align-items: flex-start;
   gap: 2px;
   min-width: 0;
   padding: ${({ theme }) => theme.space.md};
@@ -220,7 +221,6 @@ const PagerLink = styled(Link)<{ $next?: boolean }>`
   border: 1px solid ${({ theme }) => theme.color.line};
   background: ${({ theme }) => theme.color.surface};
   color: ${({ theme }) => theme.color.ink};
-  text-align: ${({ $next }) => ($next ? 'right' : 'left')};
   text-decoration: none;
 
   small {

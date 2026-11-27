@@ -235,16 +235,20 @@ Audit of 2026-10-15:
   run in place of the piece it imitates on PGlite (and MySQL for the mysql version) and kept only if the result
   changes. It takes the 4th slot of a lesson and never uses the lesson's write exercise.
 - First launch and home (2026-11-26): the owner dropped learning goals and the level check (questions could not tell
-  a level). `/welcome`: welcome → SQL dialect → home. Everyone starts at Level 1; each level on the path has "I know
-  this" (`knownLevels` in the store, merged as a union; that level and all before it count as known, their skills
-  stay open, the path's next step moves on; "Undo" on a known level). `/level-check` redirects to the path.
+  a level). `/welcome`: welcome → SQL dialect → home. Everyone starts at Level 1; a level ahead has "Jump here"
+  (`knownLevels` in the store, merged as a union; that level and all before it count as known, their skills
+  stay open, the path's next step moves on). `/level-check` redirects to the path.
   Daily goal asked once on LessonComplete (`dailyGoalChosen`).
   `/` is HubPage (lesson card with level segments and Start/Continue, Practice (green) and Reference (orange)
-  tiles, reviews, open labs); the path moved to `/path` (tabs: Home, Lessons, Practice, Reference, Progress).
+  tiles, reviews; no labs: they are stops on the path); the path moved to `/path` (tabs: Home, Lessons, Practice, Reference, Progress).
   Profile (`/profile`, ProfilePage; the round icon at the right of the home stats line, an initial once signed in):
   the account card, then daily goal, dialect, reminders, reset, legal. `/settings` redirects there. Progress is only
   progress (streak, week chart once there is XP, numbers).
   The owner wants little text: one short line per item, no explanations under headings.
+- Path (2026-11-27): level headers are blue (being learned), green with a check (done, or skipped: "Skipped", with
+  "Undo skip" inside), white dashed (ahead, with a "Jump here" pill = `markLevelsKnown(level - 1)`). The current
+  skill is the unfinished one worked on last (lesson `completedAt` or a draft's `at`), else the first unfinished;
+  unfinished skills before it are "open". The mascot and the home card follow it.
 - Path (2026-11-26): only the current level is open (others fold, tap to open); skills zigzag with the name under
   the node; the next skill has a "Start"/"Continue" bubble and a ring of its lessons; every skill opens on tap (to
   brush up on one topic); a skill done ahead shows as done. Labs (PathLab, green square) and a cup (PathTrophy) are

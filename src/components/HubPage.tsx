@@ -1,17 +1,15 @@
 import { Link, Navigate } from 'react-router-dom'
 import styled, { css } from 'styled-components'
-import { LABS } from '../content/labs'
 import { useCourse } from '../hooks/useCourse'
 import { useReference } from '../hooks/useReference'
 import { lessonDraft } from '../progress/lessonDraft'
 import { dueReviewKeys, pathProgress } from '../progress/path'
 import { useProgress } from '../progress/store'
-import { LabCard } from './LabCard'
 import { StatsBar } from './StatsBar'
 
 /**
  * The home of the app: the three ways to use it, the same three as the tabs. Lessons (with the next one a tap away),
- * Practice and the Reference; then reviews when some are due and the labs open at the learner's level.
+ * Practice and the Reference; then reviews when some are due. Labs are stops on the path.
  */
 export function HubPage() {
   const course = useCourse()
@@ -25,8 +23,6 @@ export function HubPage() {
   const unit = units.find((u) => u.skills.some((s) => s.status === 'current'))
   const next = unit?.skills.find((s) => s.status === 'current')
   const started = next ? next.completed > 0 || lessonDraft(next.nextLessonId) !== null : false
-  const openLevels = units.filter((u) => u.unlocked).map((u) => u.level)
-  const labs = LABS.filter((lab) => openLevels.includes(lab.level) && (progress.labs[lab.id]?.length ?? 0) < lab.steps.length).slice(0, 2)
 
   return (
     <Page>
@@ -72,7 +68,7 @@ export function HubPage() {
         <Tile to="/practice" $tone="solve">
           <span>
             <strong>Practice</strong>
-            <small>Write whole queries, labs and drills</small>
+            <small>Write whole queries</small>
           </span>
           <Stat>
             <b>{Object.keys(progress.written).length}</b> solved
@@ -96,14 +92,6 @@ export function HubPage() {
         </Review>
       )}
 
-      {labs.length > 0 && (
-        <Section aria-labelledby="hub-labs">
-          <h2 id="hub-labs">Labs</h2>
-          {labs.map((lab) => (
-            <LabCard key={lab.id} lab={lab} showLevel />
-          ))}
-        </Section>
-      )}
     </Page>
   )
 }
@@ -296,13 +284,6 @@ const Review = styled(Link)`
     color: ${({ theme }) => theme.color.surface};
   }
 `
-
-const Section = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: ${({ theme }) => theme.space.sm};
-`
-
 
 // The page's heading for screen readers.
 const HiddenTitle = styled.h1`

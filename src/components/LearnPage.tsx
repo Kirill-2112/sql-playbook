@@ -33,7 +33,7 @@ export function LearnPage() {
       {course === null && <Muted>Loading the path…</Muted>}
       {units.map((unit) => (
         <Unit key={unit.level} aria-labelledby={`unit-${unit.level}`}>
-          <UnitHeader $locked={!unit.unlocked}>
+          <UnitHeader $tone={tone(unit)}>
             <h2 id={`unit-${unit.level}`}>
               <Toggle
                 type="button"
@@ -45,11 +45,18 @@ export function LearnPage() {
                   <small>Level {unit.level}</small>
                   <b>{unit.name}</b>
                   <small>
+                    {tone(unit) === 'done' && (
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="m5 12 5 5 9-10" />
+                      </svg>
+                    )}
                     {unit.done === unit.skills.length
-                      ? `All ${unit.skills.length} skills done`
+                      ? 'Done'
                       : unit.known
-                        ? 'You know this level'
-                        : `${unit.done} of ${unit.skills.length} skills done`}
+                        ? 'Skipped'
+                        : unit.unlocked
+                          ? `${unit.done} of ${unit.skills.length} skills done`
+                          : `${unit.skills.length} skills`}
                   </small>
                 </span>
                 <Chevron $open={isOpen(unit.level)} aria-hidden="true">
@@ -59,26 +66,29 @@ export function LearnPage() {
                 </Chevron>
               </Toggle>
             </h2>
-            {/* Everyone starts at Level 1; whoever knows a level says so, and the path goes on to the next one. */}
-            {unit.done < unit.skills.length &&
-              (unit.known ? (
-                <Anyway type="button" onClick={() => unmarkLevelKnown(unit.level)}>
-                  Undo
-                </Anyway>
-              ) : (
-                <Anyway
-                  type="button"
-                  onClick={() => {
-                    markLevelsKnown(unit.level)
-                    setToggled({ [unit.level]: false, [unit.level + 1]: true })
-                  }}
-                >
-                  I know this
-                </Anyway>
-              ))}
+            {/* Everyone starts at Level 1; whoever already knows the levels before this one jumps here. */}
+            {!unit.unlocked && (
+              <Jump
+                type="button"
+                aria-label={`Jump to Level ${unit.level}: skip the levels before it`}
+                onClick={() => {
+                  markLevelsKnown(unit.level - 1)
+                  setToggled({ [unit.level]: true })
+                  // The levels above fold: bring this one to the top.
+                  requestAnimationFrame(() => document.getElementById(`unit-${unit.level}`)?.closest('section')?.scrollIntoView({ block: 'start' }))
+                }}
+              >
+                Jump here
+              </Jump>
+            )}
           </UnitHeader>
           {isOpen(unit.level) && (
             <Body id={`unit-body-${unit.level}`}>
+              {unit.known && unit.done < unit.skills.length && (
+                <Undo type="button" onClick={() => unmarkLevelKnown(unit.level)}>
+                  Undo skip
+                </Undo>
+              )}
               {/* The guide stands by the next skill of the level the learner is in. */}
               <TrailPath reached={reachedIndex(unit.skills)} guide={unit.level === current}>
                 <Path>
@@ -118,19 +128,28 @@ const Unit = styled.section`
   gap: ${({ theme }) => theme.space.lg};
 `
 
-const UnitHeader = styled.header<{ $locked: boolean }>`
+type Tone = 'now' | 'done' | 'ahead'
+
+// Blue: the level being learned. Green: finished or skipped. White, dashed: still ahead.
+function tone(unit: { unlocked: boolean; known: boolean; done: number; skills: unknown[] }): Tone {
+  if (unit.known || unit.done === unit.skills.length) return 'done'
+  return unit.unlocked ? 'now' : 'ahead'
+}
+
+const UnitHeader = styled.header<{ $tone: Tone }>`
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  align-items: center;
+  gap: ${({ theme }) => theme.space.sm};
   padding: ${({ theme }) => theme.space.md};
   border-radius: ${({ theme }) => theme.radius.lg};
-  background: ${({ theme, $locked }) => ($locked ? theme.color.surface : theme.color.accent)};
-  color: ${({ theme, $locked }) => ($locked ? theme.color.ink : theme.color.surface)};
-  border: 2px ${({ $locked }) => ($locked ? 'dashed' : 'solid')}
-    ${({ theme, $locked }) => ($locked ? theme.color.lockedStrong : theme.color.accent)};
+  background: ${({ theme, $tone }) => ($tone === 'ahead' ? theme.color.surface : $tone === 'done' ? theme.color.good : theme.color.accent)};
+  color: ${({ theme, $tone }) => ($tone === 'ahead' ? theme.color.ink : theme.color.surface)};
+  border: 2px ${({ $tone }) => ($tone === 'ahead' ? 'dashed' : 'solid')}
+    ${({ theme, $tone }) => ($tone === 'ahead' ? theme.color.lockedStrong : $tone === 'done' ? theme.color.good : theme.color.accent)};
 
   h2 {
-    width: 100%;
+    flex: 1;
+    min-width: 0;
     font-size: inherit;
   }
 `
@@ -162,6 +181,9 @@ const Toggle = styled.button`
   }
 
   small {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-size: ${({ theme }) => theme.size.sm};
     font-weight: 400;
     opacity: 0.9;
@@ -184,21 +206,39 @@ const Body = styled.div`
   gap: ${({ theme }) => theme.space.lg};
 `
 
-const Anyway = styled.button`
-  align-self: flex-start;
-  margin-top: ${({ theme }) => theme.space.sm};
-  min-height: 44px;
+// "Jump here" on a level still ahead: a small pill, so it does not compete with the path.
+const Jump = styled.button`
+  flex: none;
+  min-height: 36px;
   padding: 0 14px;
-  border: 2px solid ${({ theme }) => theme.color.line};
-  border-radius: ${({ theme }) => theme.radius.md};
-  background: ${({ theme }) => theme.color.surface};
-  color: ${({ theme }) => theme.color.accent};
+  border: 0;
+  border-radius: 999px;
+  background: ${({ theme }) => theme.color.accentSoft};
+  color: ${({ theme }) => theme.color.accentStrong};
   font: inherit;
-  font-weight: 600;
+  font-size: ${({ theme }) => theme.size.sm};
+  font-weight: 700;
   cursor: pointer;
 `
 
+const Undo = styled.button`
+  align-self: center;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 0;
+  background: none;
+  color: ${({ theme }) => theme.color.muted};
+  font: inherit;
+  font-size: ${({ theme }) => theme.size.sm};
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+`
+
+// The guide stands by the current skill (the one worked on last), else by the first one not done.
 function reachedIndex(skills: { status: string }[]): number {
+  const current = skills.findIndex((s) => s.status === 'current')
+  if (current >= 0) return current
   const next = skills.findIndex((s) => s.status !== 'done')
   return next < 0 ? skills.length - 1 : next
 }

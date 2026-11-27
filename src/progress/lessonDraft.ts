@@ -13,6 +13,8 @@ export interface LessonDraft {
   missed: number[]
   /** How many tasks the lesson had: a draft from before the lesson was rebuilt is dropped. */
   taskCount: number
+  /** When the learner last answered in it: the path's guide stands by the skill worked on last. */
+  at?: string
 }
 
 const KEY = 'sql-playbook.lesson-drafts.v1'
@@ -42,7 +44,7 @@ export function lessonDraft(lessonId: string, taskCount?: number): LessonDraft |
 }
 
 export function saveLessonDraft(lessonId: string, draft: LessonDraft) {
-  writeAll({ ...readAll(), [lessonId]: draft })
+  writeAll({ ...readAll(), [lessonId]: { ...draft, at: new Date().toISOString() } })
 }
 
 export function clearLessonDraft(lessonId: string) {

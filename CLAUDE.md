@@ -241,7 +241,9 @@ Audit of 2026-10-15:
   Daily goal asked once on LessonComplete (`dailyGoalChosen`).
   `/` is HubPage (lesson card with level segments and Start/Continue, Practice (green) and Reference (orange)
   tiles, reviews, open labs); the path moved to `/path` (tabs: Home, Lessons, Practice, Reference, Progress).
-  Settings (`/settings`: daily goal, dialect, reminders, reset, legal) are off the Progress page.
+  Profile (`/profile`, ProfilePage; the round icon at the right of the home stats line, an initial once signed in):
+  the account card, then daily goal, dialect, reminders, reset, legal. `/settings` redirects there. Progress is only
+  progress (streak, week chart once there is XP, numbers).
   The owner wants little text: one short line per item, no explanations under headings.
 - Path (2026-11-26): only the current level is open (others fold, tap to open); skills zigzag with the name under
   the node; the next skill has a "Start"/"Continue" bubble and a ring of its lessons; every skill opens on tap (to

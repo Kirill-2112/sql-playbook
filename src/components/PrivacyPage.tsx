@@ -19,7 +19,7 @@ export function PrivacyPage() {
         <li>With an account, I store your email address and a copy of your progress, so it follows you to other devices.</li>
         <li>If you turn on reminders, I store what is needed to send them.</li>
         <li>No ads, no analytics, no tracking cookies, and your data is never sold.</li>
-        <li>You can delete your account and its data at any time from the Progress page.</li>
+        <li>You can delete your account and its data at any time from the Profile page.</li>
       </ul>
 
       <h2>What is stored, and why</h2>
@@ -93,7 +93,7 @@ export function PrivacyPage() {
       <h2>Your rights</h2>
       <p>
         You can ask to see, correct, export or delete your data. Delete your account yourself on the{' '}
-        <Link to="/progress">Progress</Link> page (Account → Delete account), or write to {mail} and I will do it. If you
+        <Link to="/profile">Profile</Link> page (Account → Delete account), or write to {mail} and I will do it. If you
         live in the EU or the UK you also have the rights the GDPR gives you. In {COUNTRY}, you can complain to the Privacy
         Protection Authority.
       </p>

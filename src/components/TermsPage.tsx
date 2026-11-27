@@ -24,7 +24,7 @@ export function TermsPage() {
         <li>An account is optional. If you create one, use an email address you control and keep access to it safe.</li>
         <li>One account is for one person.</li>
         <li>
-          You can delete your account at any time on the <Link to="/progress">Progress</Link> page. How your data is
+          You can delete your account at any time on the <Link to="/profile">Profile</Link> page. How your data is
           handled is described in the <Link to="/privacy">Privacy Policy</Link>.
         </li>
       </ul>

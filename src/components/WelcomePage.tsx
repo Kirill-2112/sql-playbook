@@ -38,7 +38,7 @@ export function WelcomePage() {
           <Primary type="button" onClick={() => setStep(1)}>
             Get started
           </Primary>
-          <Ghost type="button" onClick={() => navigate('/progress')}>
+          <Ghost type="button" onClick={() => navigate('/profile')}>
             I have an account
           </Ghost>
         </Footer>

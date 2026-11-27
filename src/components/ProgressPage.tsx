@@ -1,10 +1,7 @@
-import { Link } from 'react-router-dom'
-import { NATIVE } from '../platform'
 import styled from 'styled-components'
 import { useCourse } from '../hooks/useCourse'
 import { pathProgress } from '../progress/path'
 import { localDate, streak, useProgress } from '../progress/store'
-import { AccountCard } from './AccountCard'
 
 const WEEKDAY = new Intl.DateTimeFormat('en', { weekday: 'short' })
 
@@ -25,10 +22,12 @@ export function ProgressPage() {
     return { key, label: WEEKDAY.format(d), xp: progress.days[key] ?? 0, today: i === 6 }
   })
   const max = Math.max(progress.dailyGoal, ...week.map((d) => d.xp))
+  // An empty week draws nothing worth showing: the chart appears with the first XP.
+  const active = week.some((d) => d.xp > 0)
 
   return (
     <Page>
-      <h1>Your progress</h1>
+      <h1>Progress</h1>
 
       <Card>
         <Streak>
@@ -42,16 +41,20 @@ export function ProgressPage() {
             <small>{days === 0 ? 'Finish a lesson to start one.' : 'Practise every day to keep it.'}</small>
           </span>
         </Streak>
-        <Chart role="img" aria-label={`XP in the last 7 days: ${week.map((d) => `${d.label} ${d.xp}`).join(', ')}`}>
-          {week.map((d) => (
-            <Day key={d.key}>
-              <small>{d.xp || ''}</small>
-              <Column style={{ height: `${Math.max(3, (88 * d.xp) / max)}px` }} $met={d.xp >= progress.dailyGoal} $today={d.today} />
-              <span>{d.label}</span>
-            </Day>
-          ))}
-        </Chart>
-        <Muted>Green: daily goal reached</Muted>
+        {active && (
+          <>
+            <Chart role="img" aria-label={`XP in the last 7 days: ${week.map((d) => `${d.label} ${d.xp}`).join(', ')}`}>
+              {week.map((d) => (
+                <Day key={d.key}>
+                  <small>{d.xp || ''}</small>
+                  <Column style={{ height: `${Math.max(3, (88 * d.xp) / max)}px` }} $met={d.xp >= progress.dailyGoal} $today={d.today} />
+                  <span>{d.label}</span>
+                </Day>
+              ))}
+            </Chart>
+            <Muted>Green: daily goal reached</Muted>
+          </>
+        )}
       </Card>
 
       <Numbers>
@@ -71,13 +74,6 @@ export function ProgressPage() {
         </Number>
       </Numbers>
 
-      <AccountCard />
-
-      <SettingsLink to="/settings">
-        <span>Settings</span>
-        <small>Daily goal, SQL dialect{NATIVE ? '' : ', reminders'}</small>
-        <b aria-hidden="true">→</b>
-      </SettingsLink>
     </Page>
   )
 }
@@ -191,31 +187,3 @@ const Muted = styled.p`
   color: ${({ theme }) => theme.color.muted};
 `
 
-const SettingsLink = styled(Link)`
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 0 ${({ theme }) => theme.space.md};
-  padding: ${({ theme }) => theme.space.md};
-  border-radius: ${({ theme }) => theme.radius.lg};
-  border: 1px solid ${({ theme }) => theme.color.line};
-  background: ${({ theme }) => theme.color.surface};
-  color: ${({ theme }) => theme.color.ink};
-  text-decoration: none;
-
-  span {
-    font-weight: 700;
-  }
-
-  small {
-    grid-row: 2;
-    font-size: ${({ theme }) => theme.size.sm};
-    color: ${({ theme }) => theme.color.muted};
-  }
-
-  b {
-    grid-row: 1 / 3;
-    grid-column: 2;
-    color: ${({ theme }) => theme.color.accent};
-  }
-`

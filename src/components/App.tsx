@@ -21,7 +21,7 @@ import { WriteSessionPage } from './WriteSessionPage'
 import { WriteTrackPage } from './WriteTrackPage'
 import { PrivacyPage } from './PrivacyPage'
 import { ProgressPage } from './ProgressPage'
-import { SettingsPage } from './SettingsPage'
+import { ProfilePage } from './ProfilePage'
 import { ReminderSync } from './ReminderSync'
 import { ReviewPage } from './ReviewPage'
 import { WelcomePage } from './WelcomePage'
@@ -52,7 +52,8 @@ export function App() {
             <Route path="path" element={<LearnPage />} />
             <Route path="overview" element={<HomePage />} />
             <Route path="progress" element={<ProgressPage />} />
-            <Route path="settings" element={<SettingsPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="settings" element={<Navigate to="/profile" replace />} />
             <Route path="practice" element={<WriteTrackPage />} />
             <Route path="write" element={<Navigate to="/practice" replace />} />
             <Route path="practice/:id" element={<KeywordRedirect />} />

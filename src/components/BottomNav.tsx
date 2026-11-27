@@ -1,10 +1,8 @@
-import { NavLink, useLocation } from 'react-router-dom'
+import { NavLink } from 'react-router-dom'
 import styled from 'styled-components'
 
 // On phones the sidebar gives way to app-style tabs at the bottom of the screen.
 export function BottomNav() {
-  // Settings open from Progress, so the Progress tab stays lit there.
-  const inSettings = useLocation().pathname === '/settings'
   return (
     <Nav aria-label="Main">
       <Tab to="/" end>
@@ -37,7 +35,7 @@ export function BottomNav() {
         </svg>
         Reference
       </Tab>
-      <Tab to="/progress" className={({ isActive }) => (isActive || inSettings ? 'active' : '')}>
+      <Tab to="/progress">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
           <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
         </svg>

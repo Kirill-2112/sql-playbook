@@ -2,18 +2,24 @@ import { Link } from 'react-router-dom'
 import styled from 'styled-components'
 import { NATIVE } from '../platform'
 import { DAILY_GOALS, resetProgress, setDailyGoal, useProgress } from '../progress/store'
+import { AccountCard } from './AccountCard'
 import { BackButton } from './BackButton'
 import { DialectCard } from './DialectCard'
 import { RemindersCard } from './RemindersCard'
 
-/** Everything the learner sets once and rarely changes, kept off the Progress page so it stays about progress. */
-export function SettingsPage() {
+/**
+ * The learner's profile, opened from the icon at the top of the home screen: the account (sign in, sign out, delete),
+ * then everything set once and rarely changed. The Progress tab stays about progress.
+ */
+export function ProfilePage() {
   const progress = useProgress()
 
   return (
     <Page>
-      <BackButton to="/progress" label="Back to Progress" />
-      <h1>Settings</h1>
+      <BackButton to="/" label="Back to home" />
+      <h1>Profile</h1>
+
+      <AccountCard />
 
       <Card>
         <h2>Daily goal</h2>
